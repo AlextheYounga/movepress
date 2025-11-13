@@ -2,7 +2,7 @@
 id: "001"
 title: CLI & Global UX
 branch: feat/001-cli-global-ux
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
