@@ -2,7 +2,7 @@
 id: "002"
 title: Movefile Parser & Environment Registry
 branch: feat/002-movefile-parser-env-registry
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
