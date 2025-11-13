@@ -1,0 +1,79 @@
+# Movepress CLI smoke tests
+
+```console
+$ movepress --help
+Synchronize WordPress environments with a modern Wordmove-inspired CLI.
+
+Usage: movepress [OPTIONS] <COMMAND>
+
+Commands:
+  push  Push changes from the source environment into the destination
+  pull  Pull changes from the source environment into the destination
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+      --config <PATH>  Path to Movefile.toml configuration [default: Movefile.toml]
+  -v, --verbose        Enable verbose logging
+      --dry-run        Preview the operation without applying changes
+  -y, --yes            Automatically confirm destructive operations for non-production targets
+  -h, --help           Print help
+  -V, --version        Print version
+
+$ movepress push db local production --dry-run
+Dry Run Summary
+===============
+Config   : Movefile.toml
+Operation: push database from 'local' to 'production'
+Scope    : database
+Source   : local
+Target   : production
+
+File Sync Plan
+--------------
+- Not included for the selected scope.
+
+Database Plan
+-------------
+- Would dump the source database from 'local'.
+- Would import into 'production' after applying required confirmations.
+- Would optionally run WP-CLI search-replace if configured.
+
+$ movepress push uploads local staging --dry-run --verbose
+Dry Run Summary
+===============
+Config   : Movefile.toml
+Operation: push uploads from 'local' to 'staging'
+Scope    : uploads
+Source   : local
+Target   : staging
+Verbose  : enabled
+
+File Sync Plan
+--------------
+- Would build local and remote manifests for 'uploads'.
+- Would compute file deltas to transfer efficiently.
+- Would honor excludes from Movefile.toml.
+
+Database Plan
+-------------
+- Not included for the selected scope.
+
+$ movepress push db local staging --yes
+Auto-confirmed database operation for non-production target 'staging'.
+Executing push database from 'local' to 'staging'
+- Database sync pipeline is pending future tickets; confirmation handled above.
+Use --dry-run to preview operations without side effects.
+
+$ movepress push db local production --yes
+? failed
+Error: Destination 'production' is marked as production. Interactive confirmation is required.
+
+$ movepress push db local production
+? failed
+Error: Refusing to run push database from 'local' to 'production' without confirmation. Re-run interactively or pass --yes for non-production targets.
+
+$ movepress push db local staging --config tests/cmd/fixtures/missing.toml --dry-run
+? failed
+Error: Movefile not found at 'tests/cmd/fixtures/missing.toml'. Provide a valid path with --config.
+
+```
