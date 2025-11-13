@@ -1,4 +1,59 @@
 version = 1
 
+[sync]
+default_transfer_mode = "compressed"
+exclude = [
+  "**/.DS_Store",
+  "**/*.log",
+]
+
 [defaults]
-# Placeholder Movefile so the CLI can validate --config until Ticket 002 populates it.
+wp_content_subdir = "wp-content"
+
+[local]
+type = "local"
+root = "/tmp/movepress/local"
+db_name = "movepress_local"
+db_user = "root"
+db_password = ""
+db_host = "127.0.0.1"
+db_port = 3306
+
+  [local.sync]
+  exclude = [
+    "wp-content/uploads/cache/**",
+  ]
+
+[staging]
+type = "ssh"
+host = "staging.example.com"
+user = "deploy"
+port = 22
+root = "/var/www/movepress"
+wp_content = "wp-content"
+db_name = "movepress_staging"
+db_user = "movepress"
+db_password = "secret"
+db_host = "localhost"
+db_port = 3306
+
+  [staging.sync]
+  exclude = []
+
+[production]
+type = "ssh"
+host = "production.example.com"
+user = "deploy"
+port = 22
+root = "/var/www/movepress"
+wp_content = "wp-content"
+db_name = "movepress_production"
+db_user = "movepress"
+db_password = "secret"
+db_host = "localhost"
+db_port = 3306
+
+  [production.sync]
+  exclude = [
+    "wp-content/uploads/private-backups/**",
+  ]

@@ -2,7 +2,7 @@
 id: "002"
 title: Movefile Parser & Environment Registry
 branch: feat/002-movefile-parser-env-registry
-status: OPEN
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -28,3 +28,9 @@ blocking: synchronous
 - Resolving environment names (local/ssh) returns a normalized structure with merged excludes and transfer defaults ready for downstream components.
 - Invalid Movefile schemas or unknown env references produce actionable error messages surfaced through the CLI.
 - Documentation or inline schema comments outline required/optional fields for future tooling.
+
+## Dev Notes
+
+- Added `config` module with serde-driven parser for Movefile v1 plus typed `ResolvedEnvironment`, `EnvironmentKind`, and `TransferMode` helpers.
+- Loader enforces presence of required fields, merges global + per-env excludes, applies wp-content defaults, and exposes `resolve_pair`.
+- CLI now loads the Movefile before running operations so env validation errors surface immediately; repository Movefile updated with realistic sample data.

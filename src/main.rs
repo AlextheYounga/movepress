@@ -2,6 +2,9 @@ use std::fmt;
 use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
+mod config;
+
+use crate::config::Movefile;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre::{self, Context};
 use std::process::ExitCode;
@@ -24,7 +27,9 @@ fn try_main() -> color_eyre::Result<()> {
 
 fn run(cli: Cli) -> color_eyre::Result<()> {
     ensure_config_exists(&cli.config)?;
+    let movefile = Movefile::from_path(&cli.config)?;
     let plan = OperationPlan::from_command(&cli.command);
+    let (_source_env, _target_env) = movefile.resolve_pair(&plan.source, &plan.target)?;
     let ctx = AppContext {
         config: &cli.config,
         verbose: cli.verbose,
