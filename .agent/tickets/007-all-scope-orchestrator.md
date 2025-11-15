@@ -2,7 +2,7 @@
 id: "007"
 title: All-Scope Orchestrator
 branch: feat/007-all-scope-orchestrator
-status: QA_REVIEW
+status: QA_CHANGES_REQUESTED
 blocking: synchronous
 ---
 
@@ -34,3 +34,7 @@ blocking: synchronous
 - Dry-run output and verbose logging clearly delineate DB vs file stages and note when commands are skipped because of upstream failures.
 - Shared resolution ensures env metadata (paths, excludes, transfer mode) is computed once and reused, preventing double validation work.
 - Tests verify orchestrator behavior for push and pull directions, as well as behavior when dry-run is set or when DB stage fails.
+
+## QA Notes
+
+- `tests/cmd/cli.trycmd` exercises `movepress push all …` flows (dry-run, success, stage failures) but never covers `movepress pull all …`. The ticket requirements explicitly call for tests that verify the orchestrator for both push **and** pull directions, so the pull direction currently ships untested. Please add a trycmd (or equivalent) case for `pull all` to satisfy the stated test coverage.***
