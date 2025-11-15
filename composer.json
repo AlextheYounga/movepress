@@ -1,0 +1,45 @@
+{
+    "name": "movepress/movepress",
+    "description": "A modern WordPress deployment tool - push/pull databases and files via SSH",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Alex Younger"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "symfony/console": "^7.0",
+        "symfony/process": "^7.0",
+        "symfony/yaml": "^7.0",
+        "vlucas/phpdotenv": "^5.6",
+        "wp-cli/wp-cli-bundle": "^2.10"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "humbug/box": "^4.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Movepress\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Movepress\\Tests\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/movepress"
+    ],
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

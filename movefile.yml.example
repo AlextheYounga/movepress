@@ -1,0 +1,79 @@
+# Movepress Configuration File
+# This file defines your WordPress environments and deployment settings
+
+# Global settings applied to all environments
+global:
+  # Files and directories to exclude from sync (applies to all environments)
+  exclude:
+    - ".git/"
+    - ".gitignore"
+    - "node_modules/"
+    - ".DS_Store"
+    - "*.log"
+    - "*.sql"
+    - "*.sql.gz"
+    - ".env*"
+    - "wp-config-local.php"
+
+# Local environment configuration
+local:
+  wordpress_path: "/path/to/local/wordpress"
+  
+  database:
+    name: "${DB_NAME}"
+    user: "${DB_USER}"
+    password: "${DB_PASSWORD}"
+    host: "${DB_HOST}"
+    # Optional: specify a different table prefix
+    # prefix: "wp_"
+  
+  # URL of your local WordPress site
+  url: "http://local.test"
+  
+  # Additional excludes specific to local environment
+  exclude:
+    - ".env.local"
+
+# Staging environment configuration
+staging:
+  wordpress_path: "/var/www/staging.example.com/public"
+  
+  database:
+    name: "${STAGING_DB_NAME}"
+    user: "${STAGING_DB_USER}"
+    password: "${STAGING_DB_PASSWORD}"
+    host: "localhost"
+  
+  url: "https://staging.example.com"
+  
+  # SSH connection settings
+  ssh:
+    host: "${STAGING_HOST}"
+    user: "${STAGING_USER}"
+    port: 22
+    # Optional: path to SSH key
+    # key: "~/.ssh/id_rsa"
+  
+  exclude:
+    - ".env.staging"
+
+# Production environment configuration
+production:
+  wordpress_path: "/var/www/example.com/public"
+  
+  database:
+    name: "${PROD_DB_NAME}"
+    user: "${PROD_DB_USER}"
+    password: "${PROD_DB_PASSWORD}"
+    host: "localhost"
+  
+  url: "https://example.com"
+  
+  ssh:
+    host: "${PROD_HOST}"
+    user: "${PROD_USER}"
+    port: 22
+  
+  exclude:
+    - ".env.production"
+    - "wp-config-production.php"

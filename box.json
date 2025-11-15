@@ -1,0 +1,26 @@
+{
+    "main": "bin/movepress",
+    "output": "build/movepress.phar",
+    "chmod": "0755",
+    "directories": [
+        "src"
+    ],
+    "files": [
+        "composer.json"
+    ],
+    "finder": [
+        {
+            "name": "*.php",
+            "exclude": [
+                "tests",
+                "Tests"
+            ],
+            "in": "vendor"
+        }
+    ],
+    "compression": "GZ",
+    "compactors": [
+        "KevinGH\\Box\\Compactor\\Php"
+    ],
+    "stub": true
+}

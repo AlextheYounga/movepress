@@ -1,0 +1,28 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Determine autoload location
+$autoloadPaths = [
+    __DIR__ . '/../vendor/autoload.php', // Development
+    __DIR__ . '/../../../autoload.php',  // Installed via Composer
+];
+
+$autoloadFound = false;
+foreach ($autoloadPaths as $file) {
+    if (file_exists($file)) {
+        require $file;
+        $autoloadFound = true;
+        break;
+    }
+}
+
+if (!$autoloadFound) {
+    fwrite(STDERR, 'Error: Composer autoload file not found. Run "composer install".' . PHP_EOL);
+    exit(1);
+}
+
+// Run the application
+$application = new Movepress\Application();
+$application->run();

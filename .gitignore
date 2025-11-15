@@ -1,0 +1,8 @@
+composer.phar
+/vendor/
+composer.lock
+/build/
+.env
+movefile.yml
+*.phar
+*.DS_Store
