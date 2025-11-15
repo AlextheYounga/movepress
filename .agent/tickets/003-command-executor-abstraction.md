@@ -2,7 +2,7 @@
 id: "003"
 title: Command Executor Abstraction
 branch: feat/003-command-executor
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
