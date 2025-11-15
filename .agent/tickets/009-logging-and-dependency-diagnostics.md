@@ -2,7 +2,7 @@
 id: "009"
 title: Logging & Dependency Diagnostics
 branch: feat/009-logging-dependency-diagnostics
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
@@ -20,7 +20,12 @@ blocking: synchronous
 
 ## QA Notes
 
-- N/A
+- `cargo test` exercises the unit suite plus the trycmd snapshot and passes locally.
+- `cargo run -- push uploads local staging --dry-run --verbose` confirms verbose runs show command strings plus temp-file lifecycle logs with actual paths.
+- `cargo run -- push uploads local staging --dry-run` keeps quiet-mode output to the summary + rsync preview with no verbose chatter.
+- `env PATH="" target/debug/movepress push uploads local staging --yes` exits early with actionable rsync/ssh install hints for Linux/macOS/Windows.
+- `env PATH="$PWD/tests/fixtures/bin:$PATH" target/debug/movepress push all local staging --yes --config tests/cmd/fixtures/local-db.toml` completes successfully and prints the condensed quiet-mode summaries plus rsync stats.
+- `env PATH="$PWD/tests/fixtures/bin:$PATH" target/debug/movepress push uploads local staging --yes --verbose` emits the `[local] …` command traces alongside the rsync stats and temp-file lifecycle lines.
 
 ## Out of Scope
 
