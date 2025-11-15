@@ -9,7 +9,9 @@ mod file_sync;
 mod path_resolver;
 
 use crate::config::Movefile;
-use crate::db_sync::{DatabaseSyncReport, DatabaseSyncService, StageConfig, WpCliPlan};
+use crate::db_sync::{
+    DatabaseSyncReport, DatabaseSyncService, StageConfig, StagingMode, WpCliPlan,
+};
 use crate::file_sync::FileSyncResult;
 use crate::path_resolver::{FileScope, FileScopeTargets, RsyncEndpoint};
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -503,6 +505,24 @@ fn print_database_report(report: &DatabaseSyncReport) {
         println!("Filter {:>2}: {}", idx + 1, describe_db_stage(filter));
     }
     println!("Import : {}", describe_db_stage(&plan.pipeline.import));
+
+    println!("Staging");
+    println!("-------");
+    match &plan.staging {
+        StagingMode::Streaming => {
+            println!("- Streaming pipeline between source and destination; no temp files created.");
+        }
+        StagingMode::TempFile { reason } => {
+            println!("- {reason}");
+            if report.dry_run {
+                println!("- Temp file allocated under the OS temp directory at runtime.");
+            } else if let Some(path) = &report.staging_path {
+                println!("Path      : {}", path.display());
+            } else {
+                println!("- Temp file created for this run.");
+            }
+        }
+    }
 
     println!("WP-CLI");
     println!("------");

@@ -8,9 +8,12 @@ use crate::command::{
 use crate::config::{DatabaseConfig, EnvironmentKind, ResolvedEnvironment};
 use color_eyre::eyre::{self, Context, Result};
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use tempfile::{Builder, NamedTempFile};
+use tokio::fs::File as TokioFile;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::process::ChildStdout;
+use tokio::task::JoinHandle;
 
 pub struct DatabaseSyncService {
     local: LocalCommandExecutor,
@@ -35,6 +38,7 @@ impl DatabaseSyncService {
         let target_summary = EndpointSummary::from_env(target);
         let transport = TransportKind::from_endpoints(&source_summary, &target_summary);
         let compression = CompressionMode::from_transport(&transport);
+        let staging = determine_staging_mode(&transport);
 
         let source_stage = build_dump_stage(
             source,
@@ -59,6 +63,7 @@ impl DatabaseSyncService {
             target: target_summary,
             transport,
             compression,
+            staging,
             pipeline: PipelineStages {
                 dump: source_stage,
                 filters,
@@ -75,10 +80,16 @@ impl DatabaseSyncService {
                 dry_run: true,
                 plan,
                 wp_cli_executed: false,
+                staging_path: None,
             });
         }
 
-        self.run_pipeline(&plan.pipeline).await?;
+        let staging_path = if plan.staging.requires_tempfile() {
+            Some(self.run_pipeline_with_tempfile(&plan).await?)
+        } else {
+            self.run_pipeline(&plan.pipeline).await?;
+            None
+        };
 
         let mut wp_cli_executed = false;
         if let Some(step) = plan.wp_cli.as_ref() {
@@ -90,63 +101,26 @@ impl DatabaseSyncService {
             dry_run: false,
             plan,
             wp_cli_executed,
+            staging_path,
         })
     }
 
     async fn run_pipeline(&self, pipeline: &PipelineStages) -> Result<()> {
-        let mut running = Vec::new();
-        let mut pipes = Vec::new();
-
-        let mut source_child = self.spawn_stage(&pipeline.dump).await?;
-        let source_stdout = source_child
-            .take_stdout()
-            .ok_or_else(|| eyre::eyre!("mysqldump stage did not expose stdout"))?;
-        running.push(RunningStage {
-            stage: &pipeline.dump,
-            child: source_child,
-        });
-
-        let mut upstream = StageOutput::Stdout(source_stdout);
-
-        for filter in &pipeline.filters {
-            let mut child = self.spawn_stage(filter).await?;
-            let stdin = child
-                .take_stdin()
-                .ok_or_else(|| eyre::eyre!("{label} stage missing stdin", label = filter.label))?;
-            let stdout = child
-                .take_stdout()
-                .ok_or_else(|| eyre::eyre!("{label} stage missing stdout", label = filter.label))?;
-            pipes.push(tokio::spawn(pipe_stream(upstream.take_reader()?, stdin)));
-            upstream = StageOutput::Stdout(stdout);
-            running.push(RunningStage {
-                stage: filter,
-                child,
-            });
-        }
-
+        let mut state = self.start_pipeline(pipeline).await?;
         let mut import_child = self.spawn_stage(&pipeline.import).await?;
         let import_stdin = import_child
             .take_stdin()
             .ok_or_else(|| eyre::eyre!("mysql stage missing stdin"))?;
-        pipes.push(tokio::spawn(pipe_stream(
-            upstream.take_reader()?,
-            import_stdin,
-        )));
-        running.push(RunningStage {
+        let reader = state.take_reader()?;
+        state
+            .pipes
+            .push(tokio::spawn(pipe_stream(reader, import_stdin)));
+        state.running.push(RunningStage {
             stage: &pipeline.import,
             child: import_child,
         });
 
-        for pipe in pipes {
-            pipe.await
-                .map_err(|err| eyre::eyre!("pipeline task failed: {err}"))??;
-        }
-
-        for running_stage in running {
-            running_stage.wait().await?;
-        }
-
-        Ok(())
+        self.finalize_pipeline(state).await
     }
 
     async fn run_wp_cli(&self, plan: &WpCliPlan) -> Result<()> {
@@ -177,6 +151,115 @@ impl DatabaseSyncService {
         };
         spawn_result.map_err(|err| map_spawn_error(err, stage.program_hint))
     }
+
+    async fn start_pipeline<'a>(
+        &'a self,
+        pipeline: &'a PipelineStages,
+    ) -> Result<PipelineState<'a>> {
+        let mut running = Vec::new();
+        let mut pipes = Vec::new();
+
+        let mut source_child = self.spawn_stage(&pipeline.dump).await?;
+        let source_stdout = source_child
+            .take_stdout()
+            .ok_or_else(|| eyre::eyre!("mysqldump stage did not expose stdout"))?;
+        running.push(RunningStage {
+            stage: &pipeline.dump,
+            child: source_child,
+        });
+
+        let mut upstream = StageOutput::Stdout(source_stdout);
+
+        for filter in &pipeline.filters {
+            let mut child = self.spawn_stage(filter).await?;
+            let stdin = child
+                .take_stdin()
+                .ok_or_else(|| eyre::eyre!("{label} stage missing stdin", label = filter.label))?;
+            let stdout = child
+                .take_stdout()
+                .ok_or_else(|| eyre::eyre!("{label} stage missing stdout", label = filter.label))?;
+            pipes.push(tokio::spawn(pipe_stream(upstream.take_reader()?, stdin)));
+            upstream = StageOutput::Stdout(stdout);
+            running.push(RunningStage {
+                stage: filter,
+                child,
+            });
+        }
+
+        Ok(PipelineState {
+            running,
+            pipes,
+            output: Some(upstream),
+        })
+    }
+
+    async fn finalize_pipeline(&self, state: PipelineState<'_>) -> Result<()> {
+        for pipe in state.pipes {
+            pipe.await
+                .map_err(|err| eyre::eyre!("pipeline task failed: {err}"))??;
+        }
+
+        for running_stage in state.running {
+            running_stage.wait().await?;
+        }
+        Ok(())
+    }
+
+    async fn run_pipeline_with_tempfile(&self, plan: &DatabaseSyncPlan) -> Result<PathBuf> {
+        let compressed = plan.target.is_remote();
+        let temp_file = TempDumpFile::create(compressed)?;
+        self.capture_dump_to_file(&plan.pipeline, &temp_file)
+            .await?;
+        let staged_path = temp_file.path().to_path_buf();
+        self.import_from_tempfile(&plan.pipeline, &temp_file)
+            .await?;
+        Ok(staged_path)
+    }
+
+    async fn capture_dump_to_file(
+        &self,
+        pipeline: &PipelineStages,
+        temp_file: &TempDumpFile,
+    ) -> Result<()> {
+        let mut state = self.start_pipeline(pipeline).await?;
+        {
+            let mut reader = state.take_reader()?;
+            let mut writer = temp_file.writer()?;
+            tokio::io::copy(&mut reader, &mut writer)
+                .await
+                .wrap_err("failed to write database dump to temp file")?;
+            writer
+                .shutdown()
+                .await
+                .wrap_err("failed to flush staged dump to disk")?;
+        }
+        self.finalize_pipeline(state).await
+    }
+
+    async fn import_from_tempfile(
+        &self,
+        pipeline: &PipelineStages,
+        temp_file: &TempDumpFile,
+    ) -> Result<()> {
+        let mut import_child = self.spawn_stage(&pipeline.import).await?;
+        let mut stdin = import_child
+            .take_stdin()
+            .ok_or_else(|| eyre::eyre!("mysql stage missing stdin"))?;
+        let mut reader = temp_file.reader()?;
+        tokio::io::copy(&mut reader, &mut stdin)
+            .await
+            .wrap_err("failed to feed staged dump into mysql")?;
+        stdin
+            .shutdown()
+            .await
+            .wrap_err("failed to flush mysql stdin")?;
+        RunningStage {
+            stage: &pipeline.import,
+            child: import_child,
+        }
+        .wait()
+        .await
+    }
 }
 
 pub struct DatabaseSyncPlan {
@@ -184,6 +267,7 @@ pub struct DatabaseSyncPlan {
     pub target: EndpointSummary,
     pub transport: TransportKind,
     pub compression: CompressionMode,
+    pub staging: StagingMode,
     pub pipeline: PipelineStages,
     pub wp_cli: Option<WpCliPlan>,
     pub wp_cli_reason: Option<String>,
@@ -193,6 +277,7 @@ pub struct DatabaseSyncReport {
     pub dry_run: bool,
     pub plan: DatabaseSyncPlan,
     pub wp_cli_executed: bool,
+    pub staging_path: Option<PathBuf>,
 }
 
 pub struct PipelineStages {
@@ -328,6 +413,27 @@ impl CompressionMode {
     }
 }
 
+pub enum StagingMode {
+    Streaming,
+    TempFile { reason: String },
+}
+
+impl StagingMode {
+    pub fn requires_tempfile(&self) -> bool {
+        matches!(self, StagingMode::TempFile { .. })
+    }
+}
+
+fn determine_staging_mode(transport: &TransportKind) -> StagingMode {
+    if matches!(transport, TransportKind::RemoteToRemote) {
+        return StagingMode::TempFile {
+            reason: "Remote-to-remote transfers stage dumps on the operator host to bridge SSH sessions."
+                .to_string(),
+        };
+    }
+    StagingMode::Streaming
+}
+
 pub struct WpCliPlan {
     pub spec: CommandSpec,
     pub location: StageLocation,
@@ -376,6 +482,57 @@ impl StageOutput {
         match self {
             StageOutput::Stdout(handle) => Ok(handle),
         }
+    }
+}
+
+struct PipelineState<'a> {
+    running: Vec<RunningStage<'a>>,
+    pipes: Vec<JoinHandle<Result<()>>>,
+    output: Option<StageOutput>,
+}
+
+impl<'a> PipelineState<'a> {
+    fn take_reader(&mut self) -> Result<ChildStdout> {
+        self.output
+            .take()
+            .ok_or_else(|| eyre::eyre!("pipeline output is no longer available"))?
+            .take_reader()
+    }
+}
+
+struct TempDumpFile {
+    handle: NamedTempFile,
+}
+
+impl TempDumpFile {
+    fn create(compressed: bool) -> Result<Self> {
+        let suffix = if compressed { ".sql.gz" } else { ".sql" };
+        let handle = Builder::new()
+            .prefix("movepress-db-dump-")
+            .suffix(suffix)
+            .tempfile()
+            .wrap_err("failed to create temporary file for database staging")?;
+        Ok(Self { handle })
+    }
+
+    fn path(&self) -> &Path {
+        self.handle.path()
+    }
+
+    fn writer(&self) -> Result<TokioFile> {
+        let file = self
+            .handle
+            .reopen()
+            .wrap_err("failed to open staging file for writing")?;
+        Ok(TokioFile::from_std(file))
+    }
+
+    fn reader(&self) -> Result<TokioFile> {
+        let file = self
+            .handle
+            .reopen()
+            .wrap_err("failed to open staging file for reading")?;
+        Ok(TokioFile::from_std(file))
     }
 }
 
@@ -739,14 +896,22 @@ mod tests {
         let plan = service
             .build_plan(&op, &source, &target)
             .expect("plan builds");
-        assert_eq!(plan.pipeline.filters.len(), 0);
+        assert_eq!(
+            plan.pipeline.filters.len(),
+            0,
+            "local-to-local should not add filters"
+        );
         assert!(!plan.compression.is_enabled());
         assert!(plan.wp_cli.is_none());
         assert!(plan.wp_cli_reason.is_some());
+        assert!(
+            matches!(plan.staging, StagingMode::Streaming),
+            "purely local transfers should stream"
+        );
     }
 
     #[test]
-    fn remote_plan_enables_compression() {
+    fn local_to_remote_plan_uses_gzip_filter() {
         let service = DatabaseSyncService::new(false);
         let op = OperationPlan::for_test(crate::Direction::Push, SyncScope::Db, "local", "staging");
         let source = local_env("local", "https://local.test");
@@ -755,7 +920,124 @@ mod tests {
             .build_plan(&op, &source, &target)
             .expect("plan builds");
         assert!(plan.compression.is_enabled());
+        assert_eq!(plan.pipeline.filters.len(), 1, "gzip filter expected");
+        assert_eq!(plan.pipeline.filters[0].label, "gzip");
+        assert!(plan.wp_cli.is_some(), "wp-cli should run when available");
+        assert!(
+            matches!(plan.staging, StagingMode::Streaming),
+            "local→remote should stream"
+        );
+    }
+
+    #[test]
+    fn remote_to_local_plan_includes_gunzip_filter() {
+        let service = DatabaseSyncService::new(false);
+        let op = OperationPlan::for_test(crate::Direction::Pull, SyncScope::Db, "staging", "local");
+        let source = remote_env("staging", "https://staging.example.com");
+        let target = local_env("local", "https://local.test");
+        let plan = service
+            .build_plan(&op, &source, &target)
+            .expect("plan builds");
+        assert!(
+            plan.compression.is_enabled(),
+            "compressed transport should be used when remotes present"
+        );
         assert_eq!(plan.pipeline.filters.len(), 1);
-        assert!(plan.wp_cli.is_some());
+        assert_eq!(plan.pipeline.filters[0].label, "gunzip");
+        assert!(
+            matches!(plan.staging, StagingMode::Streaming),
+            "remote→local continues to stream"
+        );
+    }
+
+    #[test]
+    fn remote_to_remote_plan_stages_to_tempfile() {
+        let service = DatabaseSyncService::new(false);
+        let op = OperationPlan::for_test(crate::Direction::Push, SyncScope::Db, "staging", "prod");
+        let source = remote_env("staging", "https://staging.example.com");
+        let target = remote_env("prod", "https://prod.example.com");
+        let plan = service
+            .build_plan(&op, &source, &target)
+            .expect("plan builds");
+        match plan.staging {
+            StagingMode::TempFile { ref reason } => {
+                assert!(
+                    reason.contains("Remote-to-remote"),
+                    "reason should mention remote staging"
+                );
+            }
+            _ => panic!("remote→remote transfers must require temp files"),
+        }
+    }
+
+    #[test]
+    fn wp_cli_plan_uses_php_wrapper_when_configured() {
+        let service = DatabaseSyncService::new(false);
+        let op = OperationPlan::for_test(crate::Direction::Push, SyncScope::Db, "local", "staging");
+        let source = local_env("local", "https://local.test");
+        let target = remote_env("staging", "https://staging.example.com");
+        let plan = service
+            .build_plan(&op, &source, &target)
+            .expect("plan builds");
+        let wp = plan.wp_cli.expect("wp-cli plan");
+        let description = wp.spec.clone().describe(&wp.location.context_label());
+        assert!(
+            description.contains("php81"),
+            "php wrapper should prefix wp-cli invocation: {description}"
+        );
+        assert!(
+            description.contains("search-replace"),
+            "search-replace expected: {description}"
+        );
+    }
+
+    #[test]
+    fn wp_cli_plan_skipped_without_target_binary() {
+        let service = DatabaseSyncService::new(false);
+        let op = OperationPlan::for_test(crate::Direction::Push, SyncScope::Db, "local", "staging");
+        let source = local_env("local", "https://local.test");
+        let mut target = remote_env("staging", "https://staging.example.com");
+        target.wp_cli = None;
+        let plan = service
+            .build_plan(&op, &source, &target)
+            .expect("plan builds");
+        assert!(plan.wp_cli.is_none());
+        assert!(
+            plan.wp_cli_reason
+                .as_ref()
+                .is_some_and(|reason| reason.contains("does not define wp_cli")),
+            "missing wp_cli reason expected"
+        );
+    }
+
+    #[test]
+    fn wp_cli_plan_skipped_without_urls() {
+        let service = DatabaseSyncService::new(false);
+        let op = OperationPlan::for_test(crate::Direction::Push, SyncScope::Db, "local", "staging");
+        let mut source = local_env("local", "https://local.test");
+        source.url = None;
+        let target = remote_env("staging", "https://staging.example.com");
+        let plan = service
+            .build_plan(&op, &source, &target)
+            .expect("plan builds");
+        assert!(plan.wp_cli.is_none());
+        assert!(
+            plan.wp_cli_reason.as_ref().is_some_and(
+                |reason| reason.contains("Source environment 'local' is missing 'url'")
+            )
+        );
+    }
+
+    #[test]
+    fn temp_dump_file_removes_path_on_drop() {
+        let dump = TempDumpFile::create(false).expect("temp dump");
+        let path = dump.path().to_path_buf();
+        assert!(path.exists(), "temp path {path:?} should exist before drop");
+        drop(dump);
+        assert!(
+            !path.exists(),
+            "temp path {} should be cleaned automatically",
+            path.display()
+        );
     }
 }

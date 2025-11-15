@@ -50,6 +50,9 @@ Pipeline
 Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "movepress_local"
 Filter  1: [local] "gzip" "-c"
 Import : [ssh deploy@production.example.com:22] MYSQL_PWD=**** "bash" "-lc" "set -o pipefail; gzip -cd | "mysql" "--host=localhost" "--port=3306" "--user=movepress" "--default-character-set=utf8mb4" "movepress_production"
+Staging
+-------
+- Streaming pipeline between source and destination; no temp files created.
 WP-CLI
 ------
 - Target environment 'production' does not define wp_cli; skipping WP-CLI stage.
@@ -128,6 +131,9 @@ Pipeline
 --------
 Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "local_db"
 Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "staging_db"
+Staging
+-------
+- Streaming pipeline between source and destination; no temp files created.
 WP-CLI
 ------
 search-replace https://local.test -> https://staging.test
