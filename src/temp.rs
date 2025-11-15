@@ -34,13 +34,6 @@ impl TrackedTempFile {
             .path()
     }
 
-    pub(crate) fn as_file_mut(&mut self) -> &mut File {
-        self.file
-            .as_mut()
-            .expect("tracked temp file missing handle")
-            .as_file_mut()
-    }
-
     pub(crate) fn reopen(&self) -> eyre::Result<File> {
         let handle = self
             .file

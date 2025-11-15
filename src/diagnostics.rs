@@ -180,7 +180,9 @@ fn dependency_present(dep: Dependency) -> bool {
 
 fn command_exists(candidate: &str) -> bool {
     if looks_like_path(candidate) {
-        expand_path(candidate).map(|path| path.exists()).unwrap_or(false)
+        expand_path(candidate)
+            .map(|path| path.exists())
+            .unwrap_or(false)
     } else {
         which(candidate).is_ok()
     }

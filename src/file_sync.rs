@@ -1,10 +1,10 @@
-use crate::diagnostics::{self, Dependency};
-use crate::logging::VerboseLogger;
-use crate::temp::TrackedTempFile;
 use crate::OperationPlan;
 use crate::command::{CommandExecutor, CommandSpec, LocalCommandExecutor};
 use crate::config::TransferMode;
+use crate::diagnostics::{self, Dependency};
+use crate::logging::VerboseLogger;
 use crate::path_resolver::{FileScopeTargets, RsyncEndpoint};
+use crate::temp::TrackedTempFile;
 use color_eyre::eyre::{self, Context, Result};
 use std::io::Write;
 use tempfile::Builder;
@@ -354,8 +354,7 @@ fn map_spawn_error(err: eyre::Report) -> eyre::Report {
 
 fn required_file_dependencies(targets: &FileScopeTargets) -> Vec<Dependency> {
     let mut deps = vec![Dependency::Rsync];
-    let remote_present = targets.source.ssh_port().is_some()
-        || targets.target.ssh_port().is_some();
+    let remote_present = targets.source.ssh_port().is_some() || targets.target.ssh_port().is_some();
     if remote_present {
         deps.push(Dependency::Ssh);
     }

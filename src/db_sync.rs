@@ -1,6 +1,3 @@
-use crate::diagnostics::{self, Dependency, WpCliRequirement};
-use crate::logging::VerboseLogger;
-use crate::temp::TrackedTempFile;
 use crate::OperationPlan;
 #[cfg(test)]
 use crate::SyncScope;
@@ -9,6 +6,9 @@ use crate::command::{
     SshCommandExecutor, SshOptions,
 };
 use crate::config::{DatabaseConfig, EnvironmentKind, ResolvedEnvironment};
+use crate::diagnostics::{self, Dependency, WpCliRequirement};
+use crate::logging::VerboseLogger;
+use crate::temp::TrackedTempFile;
 use color_eyre::eyre::{self, Context, Result};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -719,11 +719,7 @@ fn build_wp_cli_plan(
     source: &ResolvedEnvironment,
     target: &ResolvedEnvironment,
     target_summary: &EndpointSummary,
-) -> (
-    Option<WpCliPlan>,
-    Option<String>,
-    Option<WpCliRequirement>,
-) {
+) -> (Option<WpCliPlan>, Option<String>, Option<WpCliRequirement>) {
     let wp_cli_path = match target.wp_cli.as_deref() {
         Some(path) => path,
         None => {
@@ -873,6 +869,7 @@ fn shell_escape(value: &str) -> String {
 mod tests {
     use super::*;
     use crate::config::{DatabaseConfig, EnvironmentKind, TransferMode};
+    use crate::logging::VerboseLogger;
 
     fn mock_db(name: &str) -> DatabaseConfig {
         DatabaseConfig {
@@ -1063,7 +1060,7 @@ mod tests {
 
     #[test]
     fn temp_dump_file_removes_path_on_drop() {
-        let dump = TempDumpFile::create(false).expect("temp dump");
+        let dump = TempDumpFile::create(false, VerboseLogger::new(false)).expect("temp dump");
         let path = dump.path().to_path_buf();
         assert!(path.exists(), "temp path {path:?} should exist before drop");
         drop(dump);

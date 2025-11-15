@@ -1,8 +1,8 @@
 mod all_scope;
-mod diagnostics;
 mod command;
 mod config;
 mod db_sync;
+mod diagnostics;
 mod file_sync;
 mod logging;
 mod path_resolver;
@@ -88,7 +88,7 @@ async fn run(cli: Cli) -> color_eyre::Result<()> {
         }
 
         let db_report = orchestrator.run_database_stage(cli.dry_run).await?;
-        print_database_report(&db_report);
+        print_database_report(&db_report, cli.verbose);
         println!();
         let file_report = orchestrator.run_file_stage(cli.dry_run).await?;
         print_file_sync_report(
@@ -106,7 +106,7 @@ async fn run(cli: Cli) -> color_eyre::Result<()> {
             println!();
             let db_plan = db_service.build_plan(&plan, &source_env, &target_env)?;
             let report = db_service.sync(db_plan, true).await?;
-            print_database_report(&report);
+            print_database_report(&report, cli.verbose);
         }
         if let Some(targets) = file_targets.as_ref() {
             println!();
@@ -128,7 +128,7 @@ async fn run(cli: Cli) -> color_eyre::Result<()> {
         println!();
         let db_plan = db_service.build_plan(&plan, &source_env, &target_env)?;
         let report = db_service.sync(db_plan, false).await?;
-        print_database_report(&report);
+        print_database_report(&report, cli.verbose);
         executed = true;
     }
 
@@ -521,9 +521,11 @@ fn print_file_sync_report(
         plan.target,
         describe_endpoint(&targets.target)
     );
-    println!("Command: {}", report.command);
-    if !report.excludes.is_empty() {
-        println!("Excludes: {}", report.excludes.join(", "));
+    if verbose || report.dry_run {
+        println!("Command: {}", report.command);
+        if !report.excludes.is_empty() {
+            println!("Excludes: {}", report.excludes.join(", "));
+        }
     }
     if let Some(stats) = &report.stats {
         println!("{}", stats.describe(report.dry_run));
@@ -547,7 +549,7 @@ fn print_file_sync_report(
     }
 }
 
-fn print_database_report(report: &DatabaseSyncReport) {
+fn print_database_report(report: &DatabaseSyncReport, verbose: bool) {
     let heading = if report.dry_run {
         "Database Sync Preview"
     } else {
@@ -577,28 +579,47 @@ fn print_database_report(report: &DatabaseSyncReport) {
             "disabled"
         }
     );
-    println!("Pipeline");
-    println!("--------");
-    println!("Dump   : {}", describe_db_stage(&plan.pipeline.dump));
-    for (idx, filter) in plan.pipeline.filters.iter().enumerate() {
-        println!("Filter {:>2}: {}", idx + 1, describe_db_stage(filter));
-    }
-    println!("Import : {}", describe_db_stage(&plan.pipeline.import));
-
-    println!("Staging");
-    println!("-------");
-    match &plan.staging {
-        StagingMode::Streaming => {
-            println!("- Streaming pipeline between source and destination; no temp files created.");
+    if verbose || report.dry_run {
+        println!("Pipeline");
+        println!("--------");
+        println!("Dump   : {}", describe_db_stage(&plan.pipeline.dump));
+        for (idx, filter) in plan.pipeline.filters.iter().enumerate() {
+            println!("Filter {:>2}: {}", idx + 1, describe_db_stage(filter));
         }
-        StagingMode::TempFile { reason } => {
-            println!("- {reason}");
-            if report.dry_run {
-                println!("- Temp file allocated under the OS temp directory at runtime.");
-            } else if let Some(path) = &report.staging_path {
-                println!("Path      : {}", path.display());
-            } else {
-                println!("- Temp file created for this run.");
+        println!("Import : {}", describe_db_stage(&plan.pipeline.import));
+
+        println!("Staging");
+        println!("-------");
+        match &plan.staging {
+            StagingMode::Streaming => {
+                println!(
+                    "- Streaming pipeline between source and destination; no temp files created."
+                );
+            }
+            StagingMode::TempFile { reason } => {
+                println!("- {reason}");
+                if report.dry_run {
+                    println!("- Temp file allocated under the OS temp directory at runtime.");
+                } else if let Some(path) = &report.staging_path {
+                    println!("Path      : {}", path.display());
+                } else {
+                    println!("- Temp file created for this run.");
+                }
+            }
+        }
+    } else {
+        let filter_count = plan.pipeline.filters.len();
+        println!(
+            "Pipeline   : mysqldump → mysql ({} filter{}; use --verbose for full command trace).",
+            filter_count,
+            if filter_count == 1 { "" } else { "s" }
+        );
+        match &plan.staging {
+            StagingMode::Streaming => {
+                println!("Staging    : streaming pipeline (no temp files).");
+            }
+            StagingMode::TempFile { .. } => {
+                println!("Staging    : staged via temporary file (use --verbose to see paths).");
             }
         }
     }
@@ -608,7 +629,9 @@ fn print_database_report(report: &DatabaseSyncReport) {
     match (&plan.wp_cli, &plan.wp_cli_reason) {
         (Some(step), _) => {
             println!("search-replace {} -> {}", step.source_url, step.target_url);
-            println!("Command   : {}", describe_wp_command(step));
+            if verbose || report.dry_run {
+                println!("Command   : {}", describe_wp_command(step));
+            }
             if report.dry_run {
                 println!("- Would run WP-CLI search-replace after import.");
             } else if report.wp_cli_executed {

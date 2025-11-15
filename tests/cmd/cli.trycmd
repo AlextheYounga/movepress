@@ -77,6 +77,8 @@ Database Plan
 -------------
 - Not included for the selected scope.
 
+[tmp] Created rsync exclude file at [tempfile] (will be cleaned automatically).
+[tmp] Removed rsync exclude file at [tempfile].
 File Sync Preview
 =================
 Scope  : uploads
@@ -127,17 +129,11 @@ Source     : local (127.0.0.1:3306 / local_db)
 Target     : staging (127.0.0.1:3306 / staging_db)
 Transport  : local → local
 Compression: disabled
-Pipeline
---------
-Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "local_db"
-Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "staging_db"
-Staging
--------
-- Streaming pipeline between source and destination; no temp files created.
+Pipeline   : mysqldump → mysql (0 filters; use --verbose for full command trace).
+Staging    : streaming pipeline (no temp files).
 WP-CLI
 ------
 search-replace https://local.test -> https://staging.test
-Command   : [local] (cd tests/fixtures/staging) "wp" "search-replace" "https://local.test" "https://staging.test" "--skip-columns=guid"
 - WP-CLI search-replace executed successfully.
 
 $ movepress push db local production --yes
@@ -154,6 +150,18 @@ $ movepress push db local staging
 ? failed
 Error: Refusing to run push database from 'local' to 'staging' without confirmation. Re-run interactively or pass --yes for non-production targets.
 
+$ env PATH="" movepress push uploads local staging
+? failed
+Error: Required tools are missing:
+- rsync: not found on PATH.
+    macOS  : brew install rsync (or use the system copy).
+    Linux  : apt install rsync or yum install rsync.
+    Windows: Install via WSL (Ubuntu: apt install rsync) or msys2 `pacman -S rsync`.
+- ssh: not found on PATH.
+    macOS  : OpenSSH ships with macOS; reinstall via `xcode-select --install` or `brew install openssh`.
+    Linux  : apt install openssh-client or yum install openssh-clients.
+    Windows: Enable the built-in OpenSSH Client (Apps & Features) or use WSL/msys2 `pacman -S openssh`.
+
 $ env MOVEPRESS_ALLOW_PROD=1 PATH="$PWD/tests/fixtures/bin:$PATH" movepress push db local production --yes --config tests/cmd/fixtures/local-production.toml
 Auto-confirmed production operation for 'production' via --yes and MOVEPRESS_ALLOW_PROD=1.
 
@@ -165,17 +173,11 @@ Source     : local (127.0.0.1:3306 / local_db)
 Target     : production (127.0.0.1:3306 / production_db)
 Transport  : local → local
 Compression: disabled
-Pipeline
---------
-Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "local_db"
-Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "production_db"
-Staging
--------
-- Streaming pipeline between source and destination; no temp files created.
+Pipeline   : mysqldump → mysql (0 filters; use --verbose for full command trace).
+Staging    : streaming pipeline (no temp files).
 WP-CLI
 ------
 search-replace https://local.test -> https://production.test
-Command   : [local] (cd tests/fixtures/staging) "wp" "search-replace" "https://local.test" "https://production.test" "--skip-columns=guid"
 - WP-CLI search-replace executed successfully.
 
 $ movepress push db local staging --config tests/cmd/fixtures/missing.toml --dry-run
@@ -226,6 +228,8 @@ WP-CLI
 - Target environment 'staging' does not define wp_cli; skipping WP-CLI stage.
 
 [all] Stage 2/2 (dry-run): file sync for 'local' -> 'staging'.
+[tmp] Created rsync exclude file at [tempfile] (will be cleaned automatically).
+[tmp] Removed rsync exclude file at [tempfile].
 File Sync Preview
 =================
 Scope  : wp-content
@@ -360,6 +364,8 @@ WP-CLI
 - Target environment 'local' does not define wp_cli; skipping WP-CLI stage.
 
 [all] Stage 2/2 (dry-run): file sync for 'staging' -> 'local'.
+[tmp] Created rsync exclude file at [tempfile] (will be cleaned automatically).
+[tmp] Removed rsync exclude file at [tempfile].
 File Sync Preview
 =================
 Scope  : wp-content

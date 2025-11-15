@@ -2,7 +2,7 @@
 id: "009"
 title: Logging & Dependency Diagnostics
 branch: feat/009-logging-dependency-diagnostics
-status: QA_CHANGES_REQUESTED
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -20,7 +20,7 @@ blocking: synchronous
 
 ## QA Notes
 
-- `cargo test` currently fails to compile because the crate root never declares several new modules (`logging`, `diagnostics`, `temp`). Any file (`command.rs`, `db_sync.rs`, `file_sync.rs`) that imports `crate::logging::*`/`crate::diagnostics::*`/`crate::temp::*` errors with `could not find ... in the crate root`. Until the modules are registered (e.g., `mod logging;` in `main.rs` or equivalent), the CLI cannot build, so none of the logging/dependency diagnostics work can be validated.
+- N/A
 
 ## Out of Scope
 
@@ -33,3 +33,9 @@ blocking: synchronous
 - When required binaries are absent, the CLI exits early with actionable text citing the binary name and installation hints per OS family.
 - Error paths include enough context (env names, direction, stage) so users can pinpoint failures without re-running in debug builds.
 - Tests guard the logging contract, ensuring future refactors do not silently drop context or leak secrets.
+
+## Dev Notes
+
+- Added `diagnostics` preflight checks for rsync/ssh/mysqldump/mysql/gzip/wp-cli with OS-specific install hints so we fail early when tools are missing.
+- Introduced `logging::VerboseLogger` + tracked temp-file helpers, logging temp path lifecycle only in verbose mode and condensing quiet-mode DB/file summaries.
+- Expanded the trycmd snapshot to exercise the new quiet/verbose output and missing dependency errors; `cargo test` now passes.
