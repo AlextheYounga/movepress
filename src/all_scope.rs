@@ -1,8 +1,8 @@
+use crate::OperationPlan;
 use crate::config::ResolvedEnvironment;
 use crate::db_sync::{DatabaseSyncReport, DatabaseSyncService};
 use crate::file_sync::{FileSyncResult, FileSyncService};
 use crate::path_resolver::FileScopeTargets;
-use crate::OperationPlan;
 use color_eyre::eyre::{self, Context, Result};
 
 pub struct AllScopeOrchestrator<'a> {

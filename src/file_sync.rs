@@ -26,7 +26,7 @@ impl FileSyncService {
         dry_run: bool,
     ) -> Result<FileSyncResult> {
         let prepared = self.prepare_command(targets, dry_run)?;
-        if dry_run && involves_remote(&targets.source, &targets.target) {
+        if dry_run {
             return Ok(FileSyncResult {
                 dry_run,
                 command: prepared.display,
@@ -223,10 +223,6 @@ fn ensure_supported_direction(source: &RsyncEndpoint, target: &RsyncEndpoint) ->
     }
 }
 
-fn involves_remote(source: &RsyncEndpoint, target: &RsyncEndpoint) -> bool {
-    source.remote_details().is_some() || target.remote_details().is_some()
-}
-
 fn detect_remote_port(source: &RsyncEndpoint, target: &RsyncEndpoint) -> Option<u16> {
     source
         .remote_details()
@@ -410,7 +406,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn executes_local_sync_in_dry_run() {
+    async fn local_dry_run_skips_execution() {
         if which::which("rsync").is_err() {
             eprintln!("skipping rsync integration test because rsync is unavailable");
             return;
@@ -437,8 +433,11 @@ mod tests {
         let result = service.sync(&plan, &targets, true).await.expect("dry run");
         assert!(result.command.contains("rsync"));
         assert!(result.dry_run);
-        assert!(result.stats.is_some());
-        assert!(result.executed, "local dry-run should execute rsync");
+        assert!(result.stats.is_none());
+        assert!(
+            !result.executed,
+            "dry-run should not execute rsync even for local targets"
+        );
     }
 
     #[tokio::test]

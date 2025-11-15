@@ -81,7 +81,7 @@ File Sync Preview
 =================
 Scope  : uploads
 Mode   : dry-run
-- Preview skipped executing rsync to avoid contacting remote hosts.
+- Preview skipped executing rsync to honor dry-run safety guards.
 Source : local ([CWD]/tests/fixtures/local/wp-content/uploads)
 Target : staging (deploy@staging.example.com:/var/www/movepress/wp-content/uploads)
 Command: 'rsync' '-a' '--stats' '--dry-run' '-v' '-z' '--exclude-from' '[excludes-file]' '[CWD]/tests/fixtures/local/wp-content/uploads/' 'deploy@staging.example.com:/var/www/movepress/wp-content/uploads/'
@@ -110,7 +110,7 @@ File Sync Preview
 =================
 Scope  : wp-content
 Mode   : dry-run
-- Preview skipped executing rsync to avoid contacting remote hosts.
+- Preview skipped executing rsync to honor dry-run safety guards.
 Source : staging (deploy@staging.example.com:/var/www/movepress/wp-content)
 Target : local ([CWD]/tests/fixtures/local/wp-content)
 Command: 'rsync' '-a' '--stats' '--dry-run' '-z' '--exclude-from' '[excludes-file]' 'deploy@staging.example.com:/var/www/movepress/wp-content/' '[CWD]/tests/fixtures/local/wp-content/'
@@ -142,11 +142,41 @@ Command   : [local] (cd tests/fixtures/staging) "wp" "search-replace" "https://l
 
 $ movepress push db local production --yes
 ? failed
-Error: Destination 'production' is marked as production. Interactive confirmation is required.
+Error: Refusing to run push database from 'local' to 'production' with --yes because 'production' looks like production.
+Re-run interactively after a --dry-run preview or set MOVEPRESS_ALLOW_PROD=1 to enable non-interactive approvals.
 
 $ movepress push db local production
 ? failed
-Error: Refusing to run push database from 'local' to 'production' without confirmation. Re-run interactively or pass --yes for non-production targets.
+Error: Refusing to run push database from 'local' to 'production' without interactive confirmation because 'production' looks like production.
+Launch movepress from a terminal after --dry-run, or pass --yes with MOVEPRESS_ALLOW_PROD=1 for CI.
+
+$ movepress push db local staging
+? failed
+Error: Refusing to run push database from 'local' to 'staging' without confirmation. Re-run interactively or pass --yes for non-production targets.
+
+$ env MOVEPRESS_ALLOW_PROD=1 PATH="$PWD/tests/fixtures/bin:$PATH" movepress push db local production --yes --config tests/cmd/fixtures/local-production.toml
+Auto-confirmed production operation for 'production' via --yes and MOVEPRESS_ALLOW_PROD=1.
+
+WP-CLI stub: search-replace https://local.test https://production.test --skip-columns=guid
+Database Sync Result
+====================
+Mode       : active
+Source     : local (127.0.0.1:3306 / local_db)
+Target     : production (127.0.0.1:3306 / production_db)
+Transport  : local → local
+Compression: disabled
+Pipeline
+--------
+Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "local_db"
+Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "production_db"
+Staging
+-------
+- Streaming pipeline between source and destination; no temp files created.
+WP-CLI
+------
+search-replace https://local.test -> https://production.test
+Command   : [local] (cd tests/fixtures/staging) "wp" "search-replace" "https://local.test" "https://production.test" "--skip-columns=guid"
+- WP-CLI search-replace executed successfully.
 
 $ movepress push db local staging --config tests/cmd/fixtures/missing.toml --dry-run
 ? failed
@@ -200,7 +230,7 @@ File Sync Preview
 =================
 Scope  : wp-content
 Mode   : dry-run
-- Preview skipped executing rsync to avoid contacting remote hosts.
+- Preview skipped executing rsync to honor dry-run safety guards.
 Source : local ([CWD]/tests/fixtures/local/wp-content)
 Target : staging (deploy@staging.example.com:/var/www/movepress/wp-content)
 Command: 'rsync' '-a' '--stats' '--dry-run' '-v' '-z' '--exclude-from' '[excludes-file]' '[CWD]/tests/fixtures/local/wp-content/' 'deploy@staging.example.com:/var/www/movepress/wp-content/'
@@ -334,7 +364,7 @@ File Sync Preview
 =================
 Scope  : wp-content
 Mode   : dry-run
-- Preview skipped executing rsync to avoid contacting remote hosts.
+- Preview skipped executing rsync to honor dry-run safety guards.
 Source : staging (deploy@staging.example.com:/var/www/movepress/wp-content)
 Target : local ([CWD]/tests/fixtures/local/wp-content)
 Command: 'rsync' '-a' '--stats' '--dry-run' '-v' '-z' '--exclude-from' '[excludes-file]' 'deploy@staging.example.com:/var/www/movepress/wp-content/' '[CWD]/tests/fixtures/local/wp-content/'

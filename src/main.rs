@@ -54,6 +54,7 @@ async fn run(cli: Cli) -> color_eyre::Result<()> {
         config: &cli.config,
         verbose: cli.verbose,
         assume_yes: cli.assume_yes,
+        allow_production: production_override_enabled(),
     };
 
     let file_service = file_sync::FileSyncService::new(cli.verbose);
@@ -291,7 +292,7 @@ impl OperationPlan {
     }
 
     fn requires_confirmation(&self) -> bool {
-        self.scope.includes_db()
+        self.scope.includes_db() || self.target_is_production()
     }
 
     fn file_scope(&self) -> Option<FileScope> {
@@ -400,37 +401,65 @@ struct AppContext<'a> {
     config: &'a Path,
     verbose: bool,
     assume_yes: bool,
+    allow_production: bool,
 }
 
 fn enforce_confirmation(plan: &OperationPlan, ctx: &AppContext<'_>) -> color_eyre::Result<()> {
+    let target_is_production = plan.target_is_production();
     if ctx.assume_yes {
-        if plan.target_is_production() {
+        if target_is_production && !ctx.allow_production {
             eyre::bail!(
-                "Destination '{}' is marked as production. Interactive confirmation is required.",
+                "Refusing to run {} with --yes because '{}' looks like production.\n\
+Re-run interactively after a --dry-run preview or set MOVEPRESS_ALLOW_PROD=1 to enable non-interactive approvals.",
+                plan.description(),
                 plan.target
             );
         }
-        println!(
-            "Auto-confirmed database operation for non-production target '{}'.",
-            plan.target
-        );
+        if target_is_production {
+            println!(
+                "Auto-confirmed production operation for '{}' via --yes and MOVEPRESS_ALLOW_PROD=1.",
+                plan.target
+            );
+        } else {
+            println!(
+                "Auto-confirmed database operation for non-production target '{}'.",
+                plan.target
+            );
+        }
         return Ok(());
     }
 
     let stdin = io::stdin();
     if !stdin.is_terminal() {
-        eyre::bail!(
-            "Refusing to run {} without confirmation. Re-run interactively or pass --yes for non-production targets.",
-            plan.description()
-        );
+        if target_is_production {
+            eyre::bail!(
+                "Refusing to run {} without interactive confirmation because '{}' looks like production.\n\
+Launch movepress from a terminal after --dry-run, or pass --yes with MOVEPRESS_ALLOW_PROD=1 for CI.",
+                plan.description(),
+                plan.target
+            );
+        } else {
+            eyre::bail!(
+                "Refusing to run {} without confirmation. Re-run interactively or pass --yes for non-production targets.",
+                plan.description()
+            );
+        }
     }
     let mut stdout = io::stdout();
-    write!(
-        stdout,
-        "About to {} which will overwrite the '{}' database. Continue? [y/N]: ",
-        plan.description(),
-        plan.target
-    )?;
+    let prompt = if plan.scope.includes_db() {
+        format!(
+            "About to {} which will overwrite the '{}' database. Continue? [y/N]: ",
+            plan.description(),
+            plan.target
+        )
+    } else {
+        format!(
+            "About to {} which will modify the production environment '{}'. Continue? [y/N]: ",
+            plan.description(),
+            plan.target
+        )
+    };
+    write!(stdout, "{prompt}")?;
     stdout
         .flush()
         .wrap_err("failed to flush confirmation prompt")?;
@@ -441,10 +470,17 @@ fn enforce_confirmation(plan: &OperationPlan, ctx: &AppContext<'_>) -> color_eyr
         .wrap_err("failed to read confirmation input")?;
     let normalized = input.trim().to_ascii_lowercase();
     if normalized == "y" || normalized == "yes" {
-        println!(
-            "Confirmed destructive database operation for '{}'.",
-            plan.target
-        );
+        if target_is_production {
+            println!(
+                "Confirmed production operation for '{}'. Proceed with caution.",
+                plan.target
+            );
+        } else {
+            println!(
+                "Confirmed destructive database operation for '{}'.",
+                plan.target
+            );
+        }
         Ok(())
     } else {
         eyre::bail!("Aborted per user response.");
@@ -470,7 +506,7 @@ fn print_file_sync_report(
         if report.dry_run { "dry-run" } else { "active" }
     );
     if report.dry_run && !report.executed {
-        println!("- Preview skipped executing rsync to avoid contacting remote hosts.");
+        println!("- Preview skipped executing rsync to honor dry-run safety guards.");
     }
     println!(
         "Source : {} ({})",
@@ -638,4 +674,13 @@ fn home_dir() -> Option<PathBuf> {
         return Some(PathBuf::from(profile));
     }
     None
+}
+
+fn production_override_enabled() -> bool {
+    std::env::var("MOVEPRESS_ALLOW_PROD")
+        .map(|value| match value.trim().to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "allow" => true,
+            _ => false,
+        })
+        .unwrap_or(false)
 }

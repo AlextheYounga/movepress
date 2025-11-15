@@ -2,7 +2,7 @@
 id: "008"
 title: Safety & Dry-Run Guards
 branch: feat/008-safety-dry-run-guards
-status: OPEN
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -29,3 +29,8 @@ blocking: synchronous
 - Any attempt to bypass production confirmation (e.g., `--yes`) is rejected with a descriptive error and exit code >0.
 - Blocking behavior propagates from orchestrators back to CLI exit codes so scripts can detect when a run was prevented.
 - Tests capture these guardrails to prevent regressions as services evolve.
+
+## Dev Notes
+- Added MOVEPRESS_ALLOW_PROD env-guard awareness to the CLI confirmation flow; production targets now always require interactive approval unless operators combine --yes with the env override, and helpful failure guidance now points users back to --dry-run previews.
+- FileSyncService dry-run previews never spawn rsync (local or remote), and AllScope orchestrations reuse this short-circuit so summaries stay consistent across scopes.
+- Expanded trycmd + unit coverage for production refusals, non-TTY aborts, env-override success, and the revamped file dry-run reporting.
