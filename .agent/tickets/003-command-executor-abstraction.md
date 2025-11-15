@@ -2,7 +2,7 @@
 id: "003"
 title: Command Executor Abstraction
 branch: feat/003-command-executor
-status: OPEN
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -28,3 +28,10 @@ blocking: synchronous
 - SSH execution supports user/host/port overrides per environment definition and cleanly reports connection failures.
 - Verbose logging is centralized in the executor layer with redaction helpers so downstream services inherit consistent visibility.
 - Tests document expected argv formation and error propagation for both local and SSH variants.
+
+## Dev Notes
+
+- Added the reusable `command` module exposing `CommandSpec`, `ExecResult`, `CommandChild`, and the `CommandExecutor` trait with `LocalCommandExecutor` and `SshCommandExecutor` concrete impls over `tokio::process::Command`.
+- Command specs capture argv, working directory, env vars (with opt-in redaction), SSH metadata, and stdio choices; executors centralize verbose logging and build ssh command lines with safe shell escaping.
+- `ExecResult` keeps stdout/stderr/status plus helpers for checked execution, and `CommandChild` enables streaming by exposing pipe handles before awaiting completion.
+- Added async unit tests covering success/failure cases, environment overrides, streaming pipes, log redaction, and SSH argv formation; all existing CLI tests continue to pass under `cargo test`.

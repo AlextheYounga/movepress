@@ -2,6 +2,7 @@ use std::fmt;
 use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
+mod command;
 mod config;
 
 use crate::config::Movefile;
