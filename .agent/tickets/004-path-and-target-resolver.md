@@ -2,7 +2,7 @@
 id: "004"
 title: Path & Target Resolver
 branch: feat/004-path-target-resolver
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
