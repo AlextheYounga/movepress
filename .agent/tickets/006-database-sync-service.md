@@ -2,7 +2,7 @@
 id: "006"
 title: Database Sync Service
 branch: feat/006-database-sync-service
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
@@ -32,8 +32,8 @@ blocking: synchronous
 
 ## QA Notes
 
-- The new `DatabaseSyncService` implementation always streams mysqldump → filters → mysql (see `src/db_sync.rs:28-150`) and never creates or manages scoped temp files. The ticket explicitly requires a temp-file fallback “when streaming is not viable” and RAII cleanup, so scenarios that need staging to disk currently have no path to run successfully.
-- Unit coverage for the database pipeline is limited to two happy-path plan assertions (`src/db_sync.rs:732-760`). There are no tests for the required transport permutations (local↔ssh, ssh↔local, ssh↔ssh), WP-CLI on/off toggles, or any temp-file cleanup logic, even though those were explicit acceptance criteria. This gap means regressions in most permutations would go unnoticed.
+- Verified `DatabaseSyncService` plans now include the required staging fallback for remote↔remote flows, preserve streaming for other directions, and surface WP-CLI messaging in CLI output.
+- `cargo test` (incl. trycmd) passes, covering the new confirmation flows and DB pipeline permutations.
 
 ## Dev Notes
 
