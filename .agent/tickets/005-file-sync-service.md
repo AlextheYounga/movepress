@@ -2,7 +2,7 @@
 id: "005"
 title: File Sync Service
 branch: feat/005-file-sync-service
-status: QA_REVIEW
+status: QA_CHANGES_REQUESTED
 blocking: synchronous
 ---
 
@@ -34,3 +34,7 @@ blocking: synchronous
 - Added the async `FileSyncService` (rsync argv builder, exclude file handling, stats parsing, dry-run remote preview shortcut) plus CLI wiring so uploads/content scopes now invoke rsync or emit a preview section in dry-run mode.
 - Extended CLI output helpers to show sanitized paths and command previews, integrate verbose output handling, and added redaction helpers for local paths.
 - Added unit/integration tests for the service (argv composition, compression/exclude handling, dry-run remote skip, rsync execution) and refreshed trycmd snapshots for the new preview block.
+
+## QA Notes
+- Tests never exercise the direct transfer mode path, so we have no automated guard that `-z` is omitted when `TransferMode::Direct` is selected. The only compression test (`src/file_sync.rs:524-536`) asserts the presence of `-z` but there is no complementary case that ensures it disappears for direct mode, leaving a gap against the ticket requirement for “compressed vs direct flags”.
+- The CLI snapshots cover only the uploads scope (`tests/cmd/cli.trycmd:41-69`) but the ticket explicitly called for verifying the uploads **and content** scopes. There is no trycmd (or other CLI) test that exercises `movepress push|pull content …`, so regressions in the content wiring would go unnoticed.
