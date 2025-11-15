@@ -2,7 +2,7 @@
 id: "009"
 title: Logging & Dependency Diagnostics
 branch: feat/009-logging-dependency-diagnostics
-status: OPEN
+status: QA_CHANGES_REQUESTED
 blocking: synchronous
 ---
 
@@ -17,6 +17,10 @@ blocking: synchronous
 - Detect missing external tools (rsync, ssh, mysqldump, mysql, gzip, wp-cli) before execution where possible and emit platform-specific installation hints (e.g., WSL/msys tips for Windows).
 - Ensure temp file/directory paths are logged in verbose mode and cleaned up automatically, with failure cases noting leftover artifacts for inspection.
 - Add snapshot/unit tests that lock down verbose output structure, error messages for missing binaries, and redaction logic.
+
+## QA Notes
+
+- `cargo test` currently fails to compile because the crate root never declares several new modules (`logging`, `diagnostics`, `temp`). Any file (`command.rs`, `db_sync.rs`, `file_sync.rs`) that imports `crate::logging::*`/`crate::diagnostics::*`/`crate::temp::*` errors with `could not find ... in the crate root`. Until the modules are registered (e.g., `mod logging;` in `main.rs` or equivalent), the CLI cannot build, so none of the logging/dependency diagnostics work can be validated.
 
 ## Out of Scope
 
