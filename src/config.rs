@@ -101,6 +101,7 @@ impl Movefile {
             db: env.db.clone(),
             php: env.php.clone(),
             wp_cli: env.wp_cli.clone(),
+            url: env.url.clone(),
         })
     }
 
@@ -158,6 +159,7 @@ struct EnvironmentDefinition {
     db: DatabaseConfig,
     php: Option<String>,
     wp_cli: Option<String>,
+    url: Option<String>,
 }
 
 impl EnvironmentDefinition {
@@ -177,6 +179,7 @@ impl EnvironmentDefinition {
             php,
             wp_cli,
             sync,
+            url,
         } = raw;
 
         let db = DatabaseConfig::new(&name, db_name, db_user, db_password, db_host, db_port)?;
@@ -209,6 +212,7 @@ impl EnvironmentDefinition {
             db,
             php,
             wp_cli,
+            url,
         })
     }
 }
@@ -270,6 +274,7 @@ pub struct ResolvedEnvironment {
     pub db: DatabaseConfig,
     pub php: Option<String>,
     pub wp_cli: Option<String>,
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -311,6 +316,7 @@ struct RawEnvironment {
     db_port: Option<u16>,
     php: Option<String>,
     wp_cli: Option<String>,
+    url: Option<String>,
     #[serde(default)]
     sync: RawEnvironmentSync,
 }
@@ -358,6 +364,7 @@ mod tests {
         [local]
         type = "local"
         root = "/sites/local"
+        url = "https://local.test"
         db_name = "local_db"
         db_user = "root"
         db_password = ""
@@ -374,6 +381,7 @@ mod tests {
         port = 2222
         root = "/var/www/site"
         wp_content = "public/wp"
+        url = "https://staging.example.com"
         php = "/usr/bin/php81"
         wp_cli = "/usr/local/bin/wp"
         db_name = "staging_db"
@@ -398,6 +406,7 @@ mod tests {
             }
             other => panic!("expected local environment, got {other:?}"),
         }
+        assert_eq!(local.url.as_deref(), Some("https://local.test"));
         assert_eq!(local.wp_content_subdir, "content");
         assert_eq!(local.transfer_mode, TransferMode::Direct);
         assert_eq!(
@@ -430,6 +439,7 @@ mod tests {
         assert_eq!(staging.transfer_mode, TransferMode::Direct);
         assert_eq!(staging.php.as_deref(), Some("/usr/bin/php81"));
         assert_eq!(staging.wp_cli.as_deref(), Some("/usr/local/bin/wp"));
+        assert_eq!(staging.url.as_deref(), Some("https://staging.example.com"));
     }
 
     #[test]

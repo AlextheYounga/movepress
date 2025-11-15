@@ -38,6 +38,22 @@ Database Plan
 - Would import into 'production' after applying required confirmations.
 - Would optionally run WP-CLI search-replace if configured.
 
+Database Sync Preview
+=====================
+Mode       : dry-run
+Source     : local (127.0.0.1:3306 / movepress_local)
+Target     : production (localhost:3306 / movepress_production)
+Transport  : local → remote (ssh)
+Compression: enabled (gzip)
+Pipeline
+--------
+Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "movepress_local"
+Filter  1: [local] "gzip" "-c"
+Import : [ssh deploy@production.example.com:22] MYSQL_PWD=**** "bash" "-lc" "set -o pipefail; gzip -cd | "mysql" "--host=localhost" "--port=3306" "--user=movepress" "--default-character-set=utf8mb4" "movepress_production"
+WP-CLI
+------
+- Target environment 'production' does not define wp_cli; skipping WP-CLI stage.
+
 $ movepress push uploads local staging --dry-run --verbose
 Dry Run Summary
 ===============
@@ -97,11 +113,26 @@ Target : local ([CWD]/tests/fixtures/local/wp-content)
 Command: 'rsync' '-a' '--stats' '--dry-run' '-z' '--exclude-from' '[excludes-file]' 'deploy@staging.example.com:/var/www/movepress/wp-content/' '[CWD]/tests/fixtures/local/wp-content/'
 Excludes: **/*.log, **/.DS_Store, wp-content/uploads/cache/**
 
-$ movepress push db local staging --yes
+$ env PATH="$PWD/tests/fixtures/bin:$PATH" movepress push db local staging --yes --config tests/cmd/fixtures/local-db.toml
 Auto-confirmed database operation for non-production target 'staging'.
-Executing push database from 'local' to 'staging'
-- Database sync pipeline is pending future tickets; confirmation handled above.
-Use --dry-run to preview operations without side effects.
+
+WP-CLI stub: search-replace https://local.test https://staging.test --skip-columns=guid
+Database Sync Result
+====================
+Mode       : active
+Source     : local (127.0.0.1:3306 / local_db)
+Target     : staging (127.0.0.1:3306 / staging_db)
+Transport  : local → local
+Compression: disabled
+Pipeline
+--------
+Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "local_db"
+Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "staging_db"
+WP-CLI
+------
+search-replace https://local.test -> https://staging.test
+Command   : [local] (cd tests/fixtures/staging) "wp" "search-replace" "https://local.test" "https://staging.test" "--skip-columns=guid"
+- WP-CLI search-replace executed successfully.
 
 $ movepress push db local production --yes
 ? failed

@@ -236,7 +236,7 @@ impl CommandSpec {
             || matches!(self.stderr, OutputConfig::Pipe)
     }
 
-    fn describe(&self, context: &str) -> String {
+    pub fn describe(&self, context: &str) -> String {
         describe_command(
             context,
             self.cwd.as_deref(),

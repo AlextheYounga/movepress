@@ -1,0 +1,23 @@
+version = 1
+
+[local]
+type = "local"
+root = "tests/fixtures/local"
+url = "https://local.test"
+db_name = "local_db"
+db_user = "root"
+db_password = ""
+db_host = "127.0.0.1"
+db_port = 3306
+wp_cli = "wp"
+
+[staging]
+type = "local"
+root = "tests/fixtures/staging"
+url = "https://staging.test"
+db_name = "staging_db"
+db_user = "root"
+db_password = ""
+db_host = "127.0.0.1"
+db_port = 3306
+wp_cli = "wp"

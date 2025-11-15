@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Stub mysqldump used in tests; outputs a minimal SQL dump.
+cat <<'SQL'
+-- movepress stub dump
+CREATE TABLE wp_posts (ID int);
+SQL

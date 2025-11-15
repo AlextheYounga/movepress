@@ -4,10 +4,12 @@ use std::path::{Path, PathBuf};
 
 mod command;
 mod config;
+mod db_sync;
 mod file_sync;
 mod path_resolver;
 
 use crate::config::Movefile;
+use crate::db_sync::{DatabaseSyncReport, DatabaseSyncService, StageConfig, WpCliPlan};
 use crate::file_sync::FileSyncResult;
 use crate::path_resolver::{FileScope, FileScopeTargets, RsyncEndpoint};
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -50,13 +52,23 @@ async fn run(cli: Cli) -> color_eyre::Result<()> {
     };
 
     let file_service = file_sync::FileSyncService::new(cli.verbose);
+    let db_service = DatabaseSyncService::new(cli.verbose);
 
     if cli.dry_run {
         plan.print_dry_run(&ctx);
+        if plan.scope.includes_db() {
+            println!();
+            let db_plan = db_service.build_plan(&plan, &source_env, &target_env)?;
+            let report = db_service.sync(db_plan, true).await?;
+            print_database_report(&report);
+        }
         if let Some(targets) = file_targets.as_ref() {
             println!();
             let report = file_service.sync(&plan, targets, true).await?;
             print_file_sync_report(&plan, targets, &report, cli.verbose);
+        } else if plan.scope.includes_files() {
+            println!();
+            print_file_scope_placeholder(&plan);
         }
         return Ok(());
     }
@@ -64,14 +76,32 @@ async fn run(cli: Cli) -> color_eyre::Result<()> {
     if plan.requires_confirmation() {
         enforce_confirmation(&plan, &ctx)?;
     }
+    let mut executed = false;
 
-    if let Some(targets) = file_targets {
-        let report = file_service.sync(&plan, &targets, false).await?;
-        print_file_sync_report(&plan, &targets, &report, cli.verbose);
-        return Ok(());
+    if plan.scope.includes_db() {
+        println!();
+        let db_plan = db_service.build_plan(&plan, &source_env, &target_env)?;
+        let report = db_service.sync(db_plan, false).await?;
+        print_database_report(&report);
+        executed = true;
     }
 
-    plan.print_execution_placeholder(&ctx);
+    if let Some(targets) = file_targets {
+        if executed {
+            println!();
+        }
+        let report = file_service.sync(&plan, &targets, false).await?;
+        print_file_sync_report(&plan, &targets, &report, cli.verbose);
+        executed = true;
+    } else if plan.scope.includes_files() {
+        println!();
+        print_file_scope_placeholder(&plan);
+    }
+
+    if !executed {
+        plan.print_execution_placeholder(&ctx);
+    }
+
     Ok(())
 }
 
@@ -303,11 +333,6 @@ impl OperationPlan {
                 "- File sync engines are not wired yet; see upcoming tickets for implementation."
             );
         }
-        if self.scope.includes_db() {
-            println!(
-                "- Database sync pipeline is pending future tickets; confirmation handled above."
-            );
-        }
         println!("Use --dry-run to preview operations without side effects.");
     }
 }
@@ -439,6 +464,85 @@ fn print_file_sync_report(
     if !stderr.is_empty() {
         eprintln!("rsync stderr:\n{stderr}");
     }
+}
+
+fn print_database_report(report: &DatabaseSyncReport) {
+    let heading = if report.dry_run {
+        "Database Sync Preview"
+    } else {
+        "Database Sync Result"
+    };
+    println!("{heading}");
+    println!("{}", "=".repeat(heading.len()));
+    println!(
+        "Mode       : {}",
+        if report.dry_run { "dry-run" } else { "active" }
+    );
+    let plan = &report.plan;
+    println!(
+        "Source     : {} ({}:{} / {})",
+        plan.source.name, plan.source.db_host, plan.source.db_port, plan.source.db_name
+    );
+    println!(
+        "Target     : {} ({}:{} / {})",
+        plan.target.name, plan.target.db_host, plan.target.db_port, plan.target.db_name
+    );
+    println!("Transport  : {}", plan.transport.label());
+    println!(
+        "Compression: {}",
+        if plan.compression.is_enabled() {
+            "enabled (gzip)"
+        } else {
+            "disabled"
+        }
+    );
+    println!("Pipeline");
+    println!("--------");
+    println!("Dump   : {}", describe_db_stage(&plan.pipeline.dump));
+    for (idx, filter) in plan.pipeline.filters.iter().enumerate() {
+        println!("Filter {:>2}: {}", idx + 1, describe_db_stage(filter));
+    }
+    println!("Import : {}", describe_db_stage(&plan.pipeline.import));
+
+    println!("WP-CLI");
+    println!("------");
+    match (&plan.wp_cli, &plan.wp_cli_reason) {
+        (Some(step), _) => {
+            println!("search-replace {} -> {}", step.source_url, step.target_url);
+            println!("Command   : {}", describe_wp_command(step));
+            if report.dry_run {
+                println!("- Would run WP-CLI search-replace after import.");
+            } else if report.wp_cli_executed {
+                println!("- WP-CLI search-replace executed successfully.");
+            }
+        }
+        (_, Some(reason)) => println!("- {reason}"),
+        (None, None) => println!("- WP-CLI is not configured for this target."),
+    }
+}
+
+fn describe_db_stage(stage: &StageConfig) -> String {
+    sanitize_command(stage.spec.clone().describe(&stage.location.context_label()))
+}
+
+fn describe_wp_command(step: &WpCliPlan) -> String {
+    sanitize_command(step.spec.clone().describe(&step.location.context_label()))
+}
+
+fn sanitize_command(command: String) -> String {
+    command
+        .replace("'\\''", "\"")
+        .replace('\'', "\"")
+        .replace("\"\"", "\"")
+}
+
+fn print_file_scope_placeholder(plan: &OperationPlan) {
+    println!("File Sync Pending");
+    println!("-----------------");
+    println!(
+        "- File synchronization for '{}' is not wired yet. Upcoming tickets will add rsync support for this scope.",
+        plan.scope.as_label()
+    );
 }
 
 fn describe_endpoint(endpoint: &RsyncEndpoint) -> String {

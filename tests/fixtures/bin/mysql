@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Stub mysql client that consumes stdin and exits successfully.
+cat >/dev/null

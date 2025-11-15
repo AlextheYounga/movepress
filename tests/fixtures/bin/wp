@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Stub WP-CLI that reports invocation.
+echo "WP-CLI stub: $*" >&2
+exit 0

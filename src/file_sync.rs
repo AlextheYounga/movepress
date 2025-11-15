@@ -386,6 +386,7 @@ mod tests {
             db: mock_db(),
             php: None,
             wp_cli: None,
+            url: None,
         }
     }
 
@@ -404,6 +405,7 @@ mod tests {
             db: mock_db(),
             php: None,
             wp_cli: None,
+            url: None,
         }
     }
 
