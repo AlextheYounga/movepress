@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Stub rsync used in CLI integration tests.
+if [[ -n "${MOVEPRESS_STUB_RSYNC_FAIL:-}" ]]; then
+  echo "rsync stub failure" >&2
+  exit 23
+fi
+
+cat <<'OUT'
+Number of files: 2
+Number of regular files transferred: 2
+Total file size: 2048
+Total transferred file size: 2048
+Literal data: 2048
+Total bytes sent: 1024
+Total bytes received: 512
+
+sent 1024 bytes  received 512 bytes  12.00 bytes/sec
+total size is 2048  speedup is 1.23
+OUT
+exit 0

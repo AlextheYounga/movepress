@@ -1,13 +1,11 @@
-use std::fmt;
-use std::io::{self, IsTerminal, Write};
-use std::path::{Path, PathBuf};
-
+mod all_scope;
 mod command;
 mod config;
 mod db_sync;
 mod file_sync;
 mod path_resolver;
 
+use crate::all_scope::AllScopeOrchestrator;
 use crate::config::Movefile;
 use crate::db_sync::{
     DatabaseSyncReport, DatabaseSyncService, StageConfig, StagingMode, WpCliPlan,
@@ -17,6 +15,11 @@ use crate::path_resolver::{FileScope, FileScopeTargets, RsyncEndpoint};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre::{self, Context};
 use std::process::ExitCode;
+use std::{
+    fmt,
+    io::{self, IsTerminal, Write},
+    path::{Path, PathBuf},
+};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -55,6 +58,43 @@ async fn run(cli: Cli) -> color_eyre::Result<()> {
 
     let file_service = file_sync::FileSyncService::new(cli.verbose);
     let db_service = DatabaseSyncService::new(cli.verbose);
+
+    if plan.scope == SyncScope::All {
+        let file_targets = file_targets
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| eyre::eyre!("Failed to resolve wp-content targets for all scope"))?;
+        let mut orchestrator = AllScopeOrchestrator::new(
+            &plan,
+            &source_env,
+            &target_env,
+            file_targets,
+            &db_service,
+            &file_service,
+        );
+
+        if cli.dry_run {
+            plan.print_dry_run(&ctx);
+            println!();
+        } else {
+            if plan.requires_confirmation() {
+                enforce_confirmation(&plan, &ctx)?;
+            }
+            println!();
+        }
+
+        let db_report = orchestrator.run_database_stage(cli.dry_run).await?;
+        print_database_report(&db_report);
+        println!();
+        let file_report = orchestrator.run_file_stage(cli.dry_run).await?;
+        print_file_sync_report(
+            &plan,
+            orchestrator.file_targets(),
+            &file_report,
+            cli.verbose,
+        );
+        return Ok(());
+    }
 
     if cli.dry_run {
         plan.print_dry_run(&ctx);
@@ -257,7 +297,7 @@ impl OperationPlan {
     fn file_scope(&self) -> Option<FileScope> {
         match self.scope {
             SyncScope::Uploads => Some(FileScope::Uploads),
-            SyncScope::Content => Some(FileScope::Content),
+            SyncScope::Content | SyncScope::All => Some(FileScope::Content),
             _ => None,
         }
     }

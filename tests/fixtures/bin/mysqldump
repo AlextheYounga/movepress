@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Stub mysqldump used in tests; outputs a minimal SQL dump.
+if [[ -n "${MOVEPRESS_STUB_FAIL_DB:-}" ]]; then
+  echo "mysqldump stub failure" >&2
+  exit 2
+fi
 cat <<'SQL'
 -- movepress stub dump
 CREATE TABLE wp_posts (ID int);

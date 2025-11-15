@@ -2,7 +2,7 @@
 id: "007"
 title: All-Scope Orchestrator
 branch: feat/007-all-scope-orchestrator
-status: OPEN
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -17,6 +17,11 @@ blocking: synchronous
 - Integrate this orchestrator into the CLI dispatcher so `movepress push|pull all` performs DB sync followed by file sync, with dry-run mode surfacing both planned sections.
 - Ensure verbose/dry-run logs demonstrate stage ordering and reuse of computed context to reduce redundant Movefile parsing.
 - Add integration tests (preferably via trycmd) covering `all` dry-run output, success ordering, and failure propagation when either stage errors.
+
+## Dev Notes
+- Added an `AllScopeOrchestrator` that shares resolved environments/file targets, logs stage progress, and enforces DB-before-file execution with explicit skip messaging on failures.
+- Updated the CLI dispatcher so `all` scope routes through the orchestrator, maps to wp-content file targets, and surfaces proper dry-run + execution output.
+- Extended test fixtures (rsync/mysqldump stubs) plus new trycmd cases for `all` dry-run, success, and failure propagation (DB + file stages).
 
 ## Out of Scope
 
