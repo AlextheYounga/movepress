@@ -286,4 +286,138 @@ Error: all scope stage 2 (file sync) failed
   caused by: rsync failed while attempting to push wp-content from 'local' to 'staging'.
   caused by: Command '[local] 'rsync' '-a' '--stats' '-z' '[CWD]/tests/fixtures/local/wp-content/' '[CWD]/tests/fixtures/staging/wp-content/'' failed with exit code 23: rsync stub failure
 
+$ movepress pull all staging local --dry-run --verbose
+Dry Run Summary
+===============
+Config   : Movefile.toml
+Operation: pull entire environment from 'staging' to 'local'
+Scope    : entire environment
+Source   : staging
+Target   : local
+Verbose  : enabled
+
+File Sync Plan
+--------------
+- Would build local and remote manifests for 'entire environment'.
+- Would compute file deltas to transfer efficiently.
+- Would honor excludes from Movefile.toml.
+
+Database Plan
+-------------
+- Would dump the source database from 'staging'.
+- Would import into 'local' after applying required confirmations.
+- Would optionally run WP-CLI search-replace if configured.
+
+[all] Stage 1/2 (dry-run): database sync for 'staging' -> 'local'.
+[all] Reusing resolved metadata for 'staging' and 'local' across all stages.
+Database Sync Preview
+=====================
+Mode       : dry-run
+Source     : staging (localhost:3306 / movepress_staging)
+Target     : local (127.0.0.1:3306 / movepress_local)
+Transport  : remote (ssh) → local
+Compression: enabled (gzip)
+Pipeline
+--------
+Dump   : [ssh deploy@staging.example.com:22] MYSQL_PWD=**** "bash" "-lc" "set -o pipefail; "mysqldump" "--host=localhost" "--port=3306" "--user=movepress" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "movepress_staging" | gzip -c"
+Filter  1: [local] "gzip" "-d" "-c"
+Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "movepress_local"
+Staging
+-------
+- Streaming pipeline between source and destination; no temp files created.
+WP-CLI
+------
+- Target environment 'local' does not define wp_cli; skipping WP-CLI stage.
+
+[all] Stage 2/2 (dry-run): file sync for 'staging' -> 'local'.
+File Sync Preview
+=================
+Scope  : wp-content
+Mode   : dry-run
+- Preview skipped executing rsync to avoid contacting remote hosts.
+Source : staging (deploy@staging.example.com:/var/www/movepress/wp-content)
+Target : local ([CWD]/tests/fixtures/local/wp-content)
+Command: 'rsync' '-a' '--stats' '--dry-run' '-v' '-z' '--exclude-from' '[excludes-file]' 'deploy@staging.example.com:/var/www/movepress/wp-content/' '[CWD]/tests/fixtures/local/wp-content/'
+Excludes: **/*.log, **/.DS_Store, wp-content/uploads/cache/**
+
+$ env PATH="$PWD/tests/fixtures/bin:$PATH" movepress pull all staging local --yes --config tests/cmd/fixtures/local-db.toml
+Auto-confirmed database operation for non-production target 'local'.
+
+[all] Stage 1/2 (active): database sync for 'staging' -> 'local'.
+[all] Reusing resolved metadata for 'staging' and 'local' across all stages.
+WP-CLI stub: search-replace https://staging.test https://local.test --skip-columns=guid
+Database Sync Result
+====================
+Mode       : active
+Source     : staging (127.0.0.1:3306 / staging_db)
+Target     : local (127.0.0.1:3306 / local_db)
+Transport  : local → local
+Compression: disabled
+Pipeline
+--------
+Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "staging_db"
+Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "local_db"
+Staging
+-------
+- Streaming pipeline between source and destination; no temp files created.
+WP-CLI
+------
+search-replace https://staging.test -> https://local.test
+Command   : [local] (cd tests/fixtures/local) "wp" "search-replace" "https://staging.test" "https://local.test" "--skip-columns=guid"
+- WP-CLI search-replace executed successfully.
+
+[all] Stage 2/2 (active): file sync for 'staging' -> 'local'.
+File Sync Result
+================
+Scope  : wp-content
+Mode   : active
+Source : staging ([CWD]/tests/fixtures/staging/wp-content)
+Target : local ([CWD]/tests/fixtures/local/wp-content)
+Command: 'rsync' '-a' '--stats' '-z' '[CWD]/tests/fixtures/staging/wp-content/' '[CWD]/tests/fixtures/local/wp-content/'
+Transferred 2 of 2 files (2.00 KB) out of 2.00 KB.
+Data sent: 1.00 KB | Data received: 512 B
+
+$ env MOVEPRESS_STUB_FAIL_DB=1 PATH="$PWD/tests/fixtures/bin:$PATH" movepress pull all staging local --yes --config tests/cmd/fixtures/local-db.toml
+? failed
+Auto-confirmed database operation for non-production target 'local'.
+
+[all] Stage 1/2 (active): database sync for 'staging' -> 'local'.
+[all] Reusing resolved metadata for 'staging' and 'local' across all stages.
+mysqldump stub failure
+Error: all scope stage 1 (database sync) failed
+  caused by: Stage 'mysqldump' failed with exit code 2: [local] MYSQL_PWD=**** 'mysqldump' '--host=127.0.0.1' '--port=3306' '--user=root' '--single-transaction' '--quick' '--skip-lock-tables' '--default-character-set=utf8mb4' 'staging_db'
+[all] Skipping stage 2/2 (file sync) because the database stage failed.
+
+$ env MOVEPRESS_STUB_RSYNC_FAIL=1 PATH="$PWD/tests/fixtures/bin:$PATH" movepress pull all staging local --yes --config tests/cmd/fixtures/local-db.toml
+? failed
+Auto-confirmed database operation for non-production target 'local'.
+
+[all] Stage 1/2 (active): database sync for 'staging' -> 'local'.
+[all] Reusing resolved metadata for 'staging' and 'local' across all stages.
+WP-CLI stub: search-replace https://staging.test https://local.test --skip-columns=guid
+Database Sync Result
+====================
+Mode       : active
+Source     : staging (127.0.0.1:3306 / staging_db)
+Target     : local (127.0.0.1:3306 / local_db)
+Transport  : local → local
+Compression: disabled
+Pipeline
+--------
+Dump   : [local] MYSQL_PWD=**** "mysqldump" "--host=127.0.0.1" "--port=3306" "--user=root" "--single-transaction" "--quick" "--skip-lock-tables" "--default-character-set=utf8mb4" "staging_db"
+Import : [local] MYSQL_PWD=**** "mysql" "--host=127.0.0.1" "--port=3306" "--user=root" "--default-character-set=utf8mb4" "local_db"
+Staging
+-------
+- Streaming pipeline between source and destination; no temp files created.
+WP-CLI
+------
+search-replace https://staging.test -> https://local.test
+Command   : [local] (cd tests/fixtures/local) "wp" "search-replace" "https://staging.test" "https://local.test" "--skip-columns=guid"
+- WP-CLI search-replace executed successfully.
+
+[all] Stage 2/2 (active): file sync for 'staging' -> 'local'.
+Error: all scope stage 2 (file sync) failed
+  caused by: rsync failed while attempting to pull wp-content from 'staging' to 'local'.
+  caused by: Command '[local] 'rsync' '-a' '--stats' '-z' '[CWD]/tests/fixtures/staging/wp-content/' '[CWD]/tests/fixtures/local/wp-content/'' failed with exit code 23: rsync stub failure
+
 ```

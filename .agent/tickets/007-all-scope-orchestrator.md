@@ -2,7 +2,7 @@
 id: "007"
 title: All-Scope Orchestrator
 branch: feat/007-all-scope-orchestrator
-status: QA_CHANGES_REQUESTED
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -22,6 +22,7 @@ blocking: synchronous
 - Added an `AllScopeOrchestrator` that shares resolved environments/file targets, logs stage progress, and enforces DB-before-file execution with explicit skip messaging on failures.
 - Updated the CLI dispatcher so `all` scope routes through the orchestrator, maps to wp-content file targets, and surfaces proper dry-run + execution output.
 - Extended test fixtures (rsync/mysqldump stubs) plus new trycmd cases for `all` dry-run, success, and failure propagation (DB + file stages).
+- Added complementary `movepress pull all` trycmd coverage (dry-run, success, DB/files failures) to exercise the orchestrator for both directions.
 
 ## Out of Scope
 
