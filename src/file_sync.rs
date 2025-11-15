@@ -537,6 +537,35 @@ mod tests {
     }
 
     #[test]
+    fn direct_transfer_mode_omits_compression_flag() {
+        let dir = tempdir().expect("temp dir");
+        let wp_content = dir.path().join("wp-content");
+        let uploads = wp_content.join("uploads");
+        std::fs::create_dir_all(&uploads).expect("create tree");
+
+        let dst_dir = tempdir().expect("dst dir");
+        let dst_wp = dst_dir.path().join("wp-content");
+        std::fs::create_dir_all(dst_wp.join("uploads")).expect("create dst");
+
+        let mut local = build_local_env("local", dir.path());
+        local.transfer_mode = TransferMode::Direct;
+        let mut other = build_local_env("other", dst_dir.path());
+        other.transfer_mode = TransferMode::Direct;
+
+        let targets = resolve_file_targets(&local, &other)
+            .expect("resolve targets")
+            .for_scope(FileScope::Uploads);
+
+        let service = FileSyncService::new(false);
+        let prepared = service.prepare_command(&targets, false).expect("command");
+        assert!(
+            !prepared.display.contains("-z"),
+            "expected compression flag to be omitted when both endpoints use direct mode: {}",
+            prepared.display
+        );
+    }
+
+    #[test]
     fn remote_command_includes_custom_port() {
         let dir = tempdir().expect("temp dir");
         let wp_content = dir.path().join("wp-content");

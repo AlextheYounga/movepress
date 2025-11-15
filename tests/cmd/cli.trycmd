@@ -68,6 +68,35 @@ Target : staging (deploy@staging.example.com:/var/www/movepress/wp-content/uploa
 Command: 'rsync' '-a' '--stats' '--dry-run' '-v' '-z' '--exclude-from' '[excludes-file]' '[CWD]/tests/fixtures/local/wp-content/uploads/' 'deploy@staging.example.com:/var/www/movepress/wp-content/uploads/'
 Excludes: **/*.log, **/.DS_Store, wp-content/uploads/cache/**
 
+$ movepress pull content staging local --dry-run
+Dry Run Summary
+===============
+Config   : Movefile.toml
+Operation: pull wp-content from 'staging' to 'local'
+Scope    : wp-content
+Source   : staging
+Target   : local
+
+File Sync Plan
+--------------
+- Would build local and remote manifests for 'wp-content'.
+- Would compute file deltas to transfer efficiently.
+- Would honor excludes from Movefile.toml.
+
+Database Plan
+-------------
+- Not included for the selected scope.
+
+File Sync Preview
+=================
+Scope  : wp-content
+Mode   : dry-run
+- Preview skipped executing rsync to avoid contacting remote hosts.
+Source : staging (deploy@staging.example.com:/var/www/movepress/wp-content)
+Target : local ([CWD]/tests/fixtures/local/wp-content)
+Command: 'rsync' '-a' '--stats' '--dry-run' '-z' '--exclude-from' '[excludes-file]' 'deploy@staging.example.com:/var/www/movepress/wp-content/' '[CWD]/tests/fixtures/local/wp-content/'
+Excludes: **/*.log, **/.DS_Store, wp-content/uploads/cache/**
+
 $ movepress push db local staging --yes
 Auto-confirmed database operation for non-production target 'staging'.
 Executing push database from 'local' to 'staging'
