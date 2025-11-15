@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::logging::VerboseLogger;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -399,19 +400,27 @@ pub trait CommandExecutor: Send + Sync {
 
 #[derive(Clone)]
 pub struct LocalCommandExecutor {
-    verbose: bool,
+    logger: VerboseLogger,
 }
 
 impl LocalCommandExecutor {
     pub fn new(verbose: bool) -> Self {
-        Self { verbose }
+        Self {
+            logger: VerboseLogger::new(verbose),
+        }
+    }
+
+    pub fn with_logger(logger: VerboseLogger) -> Self {
+        Self { logger }
+    }
+
+    pub fn logger(&self) -> &VerboseLogger {
+        &self.logger
     }
 
     async fn spawn_command(&self, spec: CommandSpec) -> Result<CommandChild> {
         let invocation = spec.describe("local");
-        if self.verbose {
-            eprintln!("{invocation}");
-        }
+        self.logger.log(&invocation);
 
         let mut command = TokioCommand::new(&spec.program);
         command.args(&spec.args);
@@ -463,13 +472,21 @@ pub struct SshCommandExecutor {
 
 impl SshCommandExecutor {
     pub fn new(verbose: bool) -> Self {
-        Self::with_ssh_binary("ssh", verbose)
+        Self::with_logger_and_binary("ssh", VerboseLogger::new(verbose))
+    }
+
+    pub fn with_logger(logger: VerboseLogger) -> Self {
+        Self::with_logger_and_binary("ssh", logger)
     }
 
     pub fn with_ssh_binary(binary: impl Into<String>, verbose: bool) -> Self {
+        Self::with_logger_and_binary(binary, VerboseLogger::new(verbose))
+    }
+
+    fn with_logger_and_binary(binary: impl Into<String>, logger: VerboseLogger) -> Self {
         Self {
             ssh_binary: binary.into(),
-            local: LocalCommandExecutor::new(verbose),
+            local: LocalCommandExecutor::with_logger(logger),
         }
     }
 
@@ -515,17 +532,13 @@ impl CommandExecutor for SshCommandExecutor {
         }
         let (local_spec, context) = self.build_invocation(&spec)?;
         let remote_invocation = spec.describe(&context);
-        if self.local.verbose {
-            eprintln!("{remote_invocation}");
-        }
+        self.local.logger().log(&remote_invocation);
         self.local.exec(local_spec).await
     }
 
     async fn spawn(&self, spec: CommandSpec) -> Result<CommandChild> {
         let (local_spec, context) = self.build_invocation(&spec)?;
-        if self.local.verbose {
-            eprintln!("{}", spec.describe(&context));
-        }
+        self.local.logger().log(&spec.describe(&context));
         self.local.spawn(local_spec).await
     }
 }

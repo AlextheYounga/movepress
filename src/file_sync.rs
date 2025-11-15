@@ -1,21 +1,25 @@
+use crate::diagnostics::{self, Dependency};
+use crate::logging::VerboseLogger;
+use crate::temp::TrackedTempFile;
 use crate::OperationPlan;
 use crate::command::{CommandExecutor, CommandSpec, LocalCommandExecutor};
 use crate::config::TransferMode;
 use crate::path_resolver::{FileScopeTargets, RsyncEndpoint};
 use color_eyre::eyre::{self, Context, Result};
-use std::io::{self, Write};
-use tempfile::{Builder, NamedTempFile};
+use std::io::Write;
+use tempfile::Builder;
 
 pub struct FileSyncService {
     executor: LocalCommandExecutor,
-    verbose: bool,
+    logger: VerboseLogger,
 }
 
 impl FileSyncService {
     pub fn new(verbose: bool) -> Self {
+        let logger = VerboseLogger::new(verbose);
         Self {
-            executor: LocalCommandExecutor::new(verbose),
-            verbose,
+            executor: LocalCommandExecutor::with_logger(logger.clone()),
+            logger,
         }
     }
 
@@ -25,6 +29,9 @@ impl FileSyncService {
         targets: &FileScopeTargets,
         dry_run: bool,
     ) -> Result<FileSyncResult> {
+        if !dry_run {
+            diagnostics::ensure_dependencies(required_file_dependencies(targets))?;
+        }
         let prepared = self.prepare_command(targets, dry_run)?;
         if dry_run {
             return Ok(FileSyncResult {
@@ -82,7 +89,7 @@ impl FileSyncService {
         if dry_run {
             args.push("--dry-run".to_string());
         }
-        if self.verbose {
+        if self.logger.enabled() {
             args.push("-v".to_string());
         }
 
@@ -98,7 +105,7 @@ impl FileSyncService {
         }
 
         let excludes = gather_excludes(&targets.source, &targets.target);
-        let exclude_file = build_exclude_file(&excludes)?;
+        let exclude_file = build_exclude_file(&self.logger, &excludes)?;
         if let Some(file) = exclude_file.as_ref() {
             args.push("--exclude-from".to_string());
             args.push(file.path().display().to_string());
@@ -125,7 +132,7 @@ struct PreparedCommand {
     spec: CommandSpec,
     display: String,
     excludes: Vec<String>,
-    _exclude_file: Option<NamedTempFile>,
+    _exclude_file: Option<TrackedTempFile>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -238,7 +245,10 @@ fn gather_excludes(source: &RsyncEndpoint, target: &RsyncEndpoint) -> Vec<String
     excludes
 }
 
-fn build_exclude_file(patterns: &[String]) -> Result<Option<NamedTempFile>> {
+fn build_exclude_file(
+    logger: &VerboseLogger,
+    patterns: &[String],
+) -> Result<Option<TrackedTempFile>> {
     if patterns.is_empty() {
         return Ok(None);
     }
@@ -252,7 +262,11 @@ fn build_exclude_file(patterns: &[String]) -> Result<Option<NamedTempFile>> {
             writeln!(handle, "{pattern}").wrap_err("Failed to write rsync exclude pattern")?;
         }
     }
-    Ok(Some(file))
+    Ok(Some(TrackedTempFile::new(
+        "rsync exclude file",
+        file,
+        logger.clone(),
+    )))
 }
 
 fn render_command(program: &str, args: &[String]) -> String {
@@ -334,22 +348,18 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
-fn build_missing_rsync_error() -> eyre::Report {
-    eyre::eyre!(
-        "rsync is required but was not found on PATH. Install it via:\n  • macOS: `brew install rsync` (pre-installed on most releases)\n  • Linux: `apt-get install rsync` or `yum install rsync`\n  • Windows: install via WSL, Cygwin, or msys2 for SSH+rsync support."
-    )
+fn map_spawn_error(err: eyre::Report) -> eyre::Report {
+    diagnostics::map_spawn_error(err, Dependency::Rsync)
 }
 
-fn map_spawn_error(err: eyre::Report) -> eyre::Report {
-    if err.chain().any(|cause| {
-        cause
-            .downcast_ref::<io::Error>()
-            .is_some_and(|io_err| io_err.kind() == io::ErrorKind::NotFound)
-    }) {
-        build_missing_rsync_error()
-    } else {
-        err
+fn required_file_dependencies(targets: &FileScopeTargets) -> Vec<Dependency> {
+    let mut deps = vec![Dependency::Rsync];
+    let remote_present = targets.source.ssh_port().is_some()
+        || targets.target.ssh_port().is_some();
+    if remote_present {
+        deps.push(Dependency::Ssh);
     }
+    deps
 }
 
 #[cfg(test)]
