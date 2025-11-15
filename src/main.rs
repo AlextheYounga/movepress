@@ -4,15 +4,19 @@ use std::path::{Path, PathBuf};
 
 mod command;
 mod config;
+mod file_sync;
 mod path_resolver;
 
 use crate::config::Movefile;
+use crate::file_sync::FileSyncResult;
+use crate::path_resolver::{FileScope, FileScopeTargets, RsyncEndpoint};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre::{self, Context};
 use std::process::ExitCode;
 
-fn main() -> ExitCode {
-    if let Err(error) = try_main() {
+#[tokio::main]
+async fn main() -> ExitCode {
+    if let Err(error) = try_main().await {
         eprintln!("Error: {error}");
         for cause in error.chain().skip(1) {
             eprintln!("  caused by: {cause}");
@@ -22,32 +26,49 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn try_main() -> color_eyre::Result<()> {
+async fn try_main() -> color_eyre::Result<()> {
     let cli = Cli::parse();
-    run(cli)
+    run(cli).await
 }
 
-fn run(cli: Cli) -> color_eyre::Result<()> {
+async fn run(cli: Cli) -> color_eyre::Result<()> {
     ensure_config_exists(&cli.config)?;
     let movefile = Movefile::from_path(&cli.config)?;
     let plan = OperationPlan::from_command(&cli.command);
     let (source_env, target_env) = movefile.resolve_pair(&plan.source, &plan.target)?;
-    if plan.scope.includes_files() {
-        path_resolver::resolve_file_targets(&source_env, &target_env)?;
-    }
+    let file_targets = plan
+        .file_scope()
+        .map(|scope| {
+            path_resolver::resolve_file_targets(&source_env, &target_env)
+                .map(|targets| targets.for_scope(scope))
+        })
+        .transpose()?;
     let ctx = AppContext {
         config: &cli.config,
         verbose: cli.verbose,
         assume_yes: cli.assume_yes,
     };
 
+    let file_service = file_sync::FileSyncService::new(cli.verbose);
+
     if cli.dry_run {
         plan.print_dry_run(&ctx);
+        if let Some(targets) = file_targets.as_ref() {
+            println!();
+            let report = file_service.sync(&plan, targets, true).await?;
+            print_file_sync_report(&plan, targets, &report, cli.verbose);
+        }
         return Ok(());
     }
 
     if plan.requires_confirmation() {
         enforce_confirmation(&plan, &ctx)?;
+    }
+
+    if let Some(targets) = file_targets {
+        let report = file_service.sync(&plan, &targets, false).await?;
+        print_file_sync_report(&plan, &targets, &report, cli.verbose);
+        return Ok(());
     }
 
     plan.print_execution_placeholder(&ctx);
@@ -199,6 +220,14 @@ impl OperationPlan {
 
     fn requires_confirmation(&self) -> bool {
         self.scope.includes_db()
+    }
+
+    fn file_scope(&self) -> Option<FileScope> {
+        match self.scope {
+            SyncScope::Uploads => Some(FileScope::Uploads),
+            SyncScope::Content => Some(FileScope::Content),
+            _ => None,
+        }
     }
 
     fn target_is_production(&self) -> bool {
@@ -353,4 +382,96 @@ fn enforce_confirmation(plan: &OperationPlan, ctx: &AppContext<'_>) -> color_eyr
     } else {
         eyre::bail!("Aborted per user response.");
     }
+}
+
+fn print_file_sync_report(
+    plan: &OperationPlan,
+    targets: &FileScopeTargets,
+    report: &FileSyncResult,
+    verbose: bool,
+) {
+    let heading = if report.dry_run {
+        "File Sync Preview"
+    } else {
+        "File Sync Result"
+    };
+    println!("{heading}");
+    println!("{}", "=".repeat(heading.len()));
+    println!("Scope  : {}", targets.scope().label());
+    println!(
+        "Mode   : {}",
+        if report.dry_run { "dry-run" } else { "active" }
+    );
+    if report.dry_run && !report.executed {
+        println!("- Preview skipped executing rsync to avoid contacting remote hosts.");
+    }
+    println!(
+        "Source : {} ({})",
+        plan.source,
+        describe_endpoint(&targets.source)
+    );
+    println!(
+        "Target : {} ({})",
+        plan.target,
+        describe_endpoint(&targets.target)
+    );
+    println!("Command: {}", report.command);
+    if !report.excludes.is_empty() {
+        println!("Excludes: {}", report.excludes.join(", "));
+    }
+    if let Some(stats) = &report.stats {
+        println!("{}", stats.describe(report.dry_run));
+        println!("{}", stats.totals_line());
+    } else if report.executed {
+        println!("rsync completed without emitting statistics.");
+    }
+
+    if verbose || report.dry_run {
+        let trimmed = report.stdout.trim();
+        if !trimmed.is_empty() {
+            println!();
+            println!("rsync output:");
+            println!("{trimmed}");
+        }
+    }
+
+    let stderr = report.stderr.trim();
+    if !stderr.is_empty() {
+        eprintln!("rsync stderr:\n{stderr}");
+    }
+}
+
+fn describe_endpoint(endpoint: &RsyncEndpoint) -> String {
+    if let Some(local) = endpoint.local_path() {
+        return redact_local_path(local);
+    }
+    if let Some((user, host, port, path)) = endpoint.remote_details() {
+        if port == 22 {
+            return format!("{user}@{host}:{path}");
+        }
+        return format!("{user}@{host}:{path} (port {port})");
+    }
+    endpoint.rsync_path()
+}
+
+fn redact_local_path(path: &Path) -> String {
+    let display = path.display().to_string();
+    if let Some(home) = home_dir() {
+        if let Ok(stripped) = path.strip_prefix(&home) {
+            let mut redacted = PathBuf::from("~");
+            redacted.push(stripped);
+            return redacted.display().to_string();
+        }
+    }
+    display
+}
+
+fn home_dir() -> Option<PathBuf> {
+    if let Ok(home) = std::env::var("HOME") {
+        return Some(PathBuf::from(home));
+    }
+    if let Ok(profile) = std::env::var("USERPROFILE") {
+        return Some(PathBuf::from(profile));
+    }
+    None
 }

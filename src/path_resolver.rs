@@ -12,6 +12,15 @@ pub enum FileScope {
     Content,
 }
 
+impl FileScope {
+    pub fn label(&self) -> &'static str {
+        match self {
+            FileScope::Uploads => "uploads",
+            FileScope::Content => "wp-content",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FileTargets {
     pub source: EnvironmentPaths,

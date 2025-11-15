@@ -58,6 +58,16 @@ Database Plan
 -------------
 - Not included for the selected scope.
 
+File Sync Preview
+=================
+Scope  : uploads
+Mode   : dry-run
+- Preview skipped executing rsync to avoid contacting remote hosts.
+Source : local ([CWD]/tests/fixtures/local/wp-content/uploads)
+Target : staging (deploy@staging.example.com:/var/www/movepress/wp-content/uploads)
+Command: 'rsync' '-a' '--stats' '--dry-run' '-v' '-z' '--exclude-from' '[excludes-file]' '[CWD]/tests/fixtures/local/wp-content/uploads/' 'deploy@staging.example.com:/var/www/movepress/wp-content/uploads/'
+Excludes: **/*.log, **/.DS_Store, wp-content/uploads/cache/**
+
 $ movepress push db local staging --yes
 Auto-confirmed database operation for non-production target 'staging'.
 Executing push database from 'local' to 'staging'

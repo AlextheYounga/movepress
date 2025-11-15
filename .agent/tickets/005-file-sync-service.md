@@ -2,7 +2,7 @@
 id: "005"
 title: File Sync Service
 branch: feat/005-file-sync-service
-status: OPEN
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -29,3 +29,8 @@ blocking: synchronous
 - Transfer direction respects the requested push/pull semantics, ensuring sources/destinations line up with Movefile env definitions and excludes are enforced.
 - Errors clearly differentiate between missing rsync, authentication failures, or rsync exit codes, and instruct users how to install required tools per platform.
 - Tests cover at least: include/exclude assembly, compressed vs direct flags, dry-run output, and CLI invocation path for uploads/content scopes.
+
+## Dev Notes
+- Added the async `FileSyncService` (rsync argv builder, exclude file handling, stats parsing, dry-run remote preview shortcut) plus CLI wiring so uploads/content scopes now invoke rsync or emit a preview section in dry-run mode.
+- Extended CLI output helpers to show sanitized paths and command previews, integrate verbose output handling, and added redaction helpers for local paths.
+- Added unit/integration tests for the service (argv composition, compression/exclude handling, dry-run remote skip, rsync execution) and refreshed trycmd snapshots for the new preview block.

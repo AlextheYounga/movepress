@@ -14,3 +14,4 @@ tempfile = "3.10"
 
 [dev-dependencies]
 trycmd = "0.15"
+which = "6"
