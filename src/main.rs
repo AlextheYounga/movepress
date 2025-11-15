@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 mod command;
 mod config;
+mod path_resolver;
 
 use crate::config::Movefile;
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -30,7 +31,10 @@ fn run(cli: Cli) -> color_eyre::Result<()> {
     ensure_config_exists(&cli.config)?;
     let movefile = Movefile::from_path(&cli.config)?;
     let plan = OperationPlan::from_command(&cli.command);
-    let (_source_env, _target_env) = movefile.resolve_pair(&plan.source, &plan.target)?;
+    let (source_env, target_env) = movefile.resolve_pair(&plan.source, &plan.target)?;
+    if plan.scope.includes_files() {
+        path_resolver::resolve_file_targets(&source_env, &target_env)?;
+    }
     let ctx = AppContext {
         config: &cli.config,
         verbose: cli.verbose,
@@ -120,7 +124,7 @@ struct OperationArgs {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, Eq, PartialEq)]
-enum SyncScope {
+pub(crate) enum SyncScope {
     Db,
     Uploads,
     Content,
@@ -153,7 +157,7 @@ impl fmt::Display for SyncScope {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Direction {
+pub(crate) enum Direction {
     Push,
     Pull,
 }
@@ -168,11 +172,11 @@ impl fmt::Display for Direction {
 }
 
 #[derive(Debug)]
-struct OperationPlan {
-    direction: Direction,
-    scope: SyncScope,
-    source: String,
-    target: String,
+pub(crate) struct OperationPlan {
+    pub(crate) direction: Direction,
+    pub(crate) scope: SyncScope,
+    pub(crate) source: String,
+    pub(crate) target: String,
 }
 
 impl OperationPlan {
@@ -276,6 +280,23 @@ impl OperationPlan {
             );
         }
         println!("Use --dry-run to preview operations without side effects.");
+    }
+}
+
+impl OperationPlan {
+    #[cfg(test)]
+    pub(crate) fn for_test(
+        direction: Direction,
+        scope: SyncScope,
+        source: &str,
+        target: &str,
+    ) -> Self {
+        Self {
+            direction,
+            scope,
+            source: source.to_string(),
+            target: target.to_string(),
+        }
     }
 }
 

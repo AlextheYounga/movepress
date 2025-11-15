@@ -2,7 +2,7 @@
 id: "004"
 title: Path & Target Resolver
 branch: feat/004-path-target-resolver
-status: OPEN
+status: QA_REVIEW
 blocking: synchronous
 ---
 
@@ -29,3 +29,8 @@ blocking: synchronous
 - Temp directory helper returns per-operation paths under the OS temp dir and cleans up automatically when requested by callers.
 - Errors clearly state which env/path is invalid and link back to the Movefile key that needs adjustment.
 - Tests document derived paths for representative Movefile fixtures, preventing regressions as new scopes are added.
+
+## Dev Notes
+- Added the `path_resolver` module that produces canonical local/remote wp-content, uploads, and rsync endpoints, plus staging dir helper with plan-aware prefixes.
+- Validator enforces local directory existence (root + wp-content) and remote path sanity, and exposes normalized exclude lists + transfer metadata.
+- CLI now runs the resolver before file scopes so configuration issues surface early; repository Movefile roots now point at tracked fixtures to support validation in tests.

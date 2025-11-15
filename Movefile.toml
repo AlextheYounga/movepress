@@ -12,7 +12,7 @@ wp_content_subdir = "wp-content"
 
 [local]
 type = "local"
-root = "/tmp/movepress/local"
+root = "tests/fixtures/local"
 db_name = "movepress_local"
 db_user = "root"
 db_password = ""

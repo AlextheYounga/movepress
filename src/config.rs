@@ -35,7 +35,7 @@ impl Movefile {
     }
 
     #[cfg(test)]
-    fn from_str(contents: &str) -> Result<Self> {
+    pub(crate) fn from_str(contents: &str) -> Result<Self> {
         Self::parse(contents)
     }
 
