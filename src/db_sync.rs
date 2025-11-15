@@ -1,3 +1,6 @@
+use crate::diagnostics::{self, Dependency, WpCliRequirement};
+use crate::logging::VerboseLogger;
+use crate::temp::TrackedTempFile;
 use crate::OperationPlan;
 #[cfg(test)]
 use crate::SyncScope;
@@ -7,9 +10,9 @@ use crate::command::{
 };
 use crate::config::{DatabaseConfig, EnvironmentKind, ResolvedEnvironment};
 use color_eyre::eyre::{self, Context, Result};
-use std::io;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use tempfile::{Builder, NamedTempFile};
+use tempfile::Builder;
 use tokio::fs::File as TokioFile;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::process::ChildStdout;
@@ -18,13 +21,16 @@ use tokio::task::JoinHandle;
 pub struct DatabaseSyncService {
     local: LocalCommandExecutor,
     ssh: SshCommandExecutor,
+    logger: VerboseLogger,
 }
 
 impl DatabaseSyncService {
     pub fn new(verbose: bool) -> Self {
+        let logger = VerboseLogger::new(verbose);
         Self {
-            local: LocalCommandExecutor::new(verbose),
-            ssh: SshCommandExecutor::new(verbose),
+            local: LocalCommandExecutor::with_logger(logger.clone()),
+            ssh: SshCommandExecutor::with_logger(logger.clone()),
+            logger,
         }
     }
 
@@ -56,7 +62,8 @@ impl DatabaseSyncService {
             compression.is_enabled() && target_summary.is_remote(),
         )?;
 
-        let (wp_cli, wp_cli_reason) = build_wp_cli_plan(source, target, &target_summary);
+        let (wp_cli, wp_cli_reason, wp_cli_requirement) =
+            build_wp_cli_plan(source, target, &target_summary);
 
         Ok(DatabaseSyncPlan {
             source: source_summary,
@@ -71,6 +78,7 @@ impl DatabaseSyncService {
             },
             wp_cli,
             wp_cli_reason,
+            wp_cli_requirement,
         })
     }
 
@@ -82,6 +90,11 @@ impl DatabaseSyncService {
                 wp_cli_executed: false,
                 staging_path: None,
             });
+        }
+
+        diagnostics::ensure_dependencies(plan.required_dependencies())?;
+        if let Some(requirement) = plan.wp_cli_requirement.as_ref() {
+            diagnostics::ensure_wp_cli(requirement)?;
         }
 
         let staging_path = if plan.staging.requires_tempfile() {
@@ -207,7 +220,7 @@ impl DatabaseSyncService {
 
     async fn run_pipeline_with_tempfile(&self, plan: &DatabaseSyncPlan) -> Result<PathBuf> {
         let compressed = plan.target.is_remote();
-        let temp_file = TempDumpFile::create(compressed)?;
+        let temp_file = TempDumpFile::create(compressed, self.logger.clone())?;
         self.capture_dump_to_file(&plan.pipeline, &temp_file)
             .await?;
         let staged_path = temp_file.path().to_path_buf();
@@ -271,6 +284,7 @@ pub struct DatabaseSyncPlan {
     pub pipeline: PipelineStages,
     pub wp_cli: Option<WpCliPlan>,
     pub wp_cli_reason: Option<String>,
+    pub wp_cli_requirement: Option<WpCliRequirement>,
 }
 
 pub struct DatabaseSyncReport {
@@ -278,6 +292,26 @@ pub struct DatabaseSyncReport {
     pub plan: DatabaseSyncPlan,
     pub wp_cli_executed: bool,
     pub staging_path: Option<PathBuf>,
+}
+
+impl DatabaseSyncPlan {
+    pub fn required_dependencies(&self) -> Vec<Dependency> {
+        let mut deps = BTreeSet::new();
+        deps.insert(Dependency::Mysqldump);
+        deps.insert(Dependency::Mysql);
+        if self.source.location.is_remote() || self.target.location.is_remote() {
+            deps.insert(Dependency::Ssh);
+        }
+        if self
+            .pipeline
+            .filters
+            .iter()
+            .any(|stage| stage.program_hint == "gzip")
+        {
+            deps.insert(Dependency::Gzip);
+        }
+        deps.into_iter().collect()
+    }
 }
 
 pub struct PipelineStages {
@@ -501,18 +535,20 @@ impl<'a> PipelineState<'a> {
 }
 
 struct TempDumpFile {
-    handle: NamedTempFile,
+    handle: TrackedTempFile,
 }
 
 impl TempDumpFile {
-    fn create(compressed: bool) -> Result<Self> {
+    fn create(compressed: bool, logger: VerboseLogger) -> Result<Self> {
         let suffix = if compressed { ".sql.gz" } else { ".sql" };
         let handle = Builder::new()
             .prefix("movepress-db-dump-")
             .suffix(suffix)
             .tempfile()
             .wrap_err("failed to create temporary file for database staging")?;
-        Ok(Self { handle })
+        Ok(Self {
+            handle: TrackedTempFile::new("database staging file", handle, logger),
+        })
     }
 
     fn path(&self) -> &Path {
@@ -683,7 +719,11 @@ fn build_wp_cli_plan(
     source: &ResolvedEnvironment,
     target: &ResolvedEnvironment,
     target_summary: &EndpointSummary,
-) -> (Option<WpCliPlan>, Option<String>) {
+) -> (
+    Option<WpCliPlan>,
+    Option<String>,
+    Option<WpCliRequirement>,
+) {
     let wp_cli_path = match target.wp_cli.as_deref() {
         Some(path) => path,
         None => {
@@ -693,6 +733,7 @@ fn build_wp_cli_plan(
                     "Target environment '{}' does not define wp_cli; skipping WP-CLI stage.",
                     target.name
                 )),
+                None,
             );
         }
     };
@@ -706,6 +747,7 @@ fn build_wp_cli_plan(
                     "Source environment '{}' is missing 'url' in Movefile; cannot run WP-CLI search-replace.",
                     source.name
                 )),
+                None,
             );
         }
     };
@@ -718,13 +760,26 @@ fn build_wp_cli_plan(
                     "Target environment '{}' is missing 'url'; cannot run WP-CLI search-replace.",
                     target.name
                 )),
+                None,
             );
         }
     };
 
+    let mut requirement = None;
     let mut spec = if let Some(php) = target.php.as_deref() {
+        if target_summary.is_local() {
+            requirement = Some(WpCliRequirement::PhpWrapper {
+                php: php.to_string(),
+                script: wp_cli_path.to_string(),
+            });
+        }
         CommandSpec::new(php).arg(wp_cli_path)
     } else {
+        if target_summary.is_local() {
+            requirement = Some(WpCliRequirement::Command {
+                launcher: wp_cli_path.to_string(),
+            });
+        }
         CommandSpec::new(wp_cli_path)
     };
     spec = spec
@@ -741,15 +796,21 @@ fn build_wp_cli_plan(
         }
     }
 
+    let location = endpoint_location(target);
     (
         Some(WpCliPlan {
             spec,
-            location: endpoint_location(target),
+            location: location.clone(),
             program_hint: "wp",
             source_url,
             target_url,
         }),
         None,
+        if matches!(location, StageLocation::Local) {
+            requirement
+        } else {
+            None
+        },
     )
 }
 
@@ -761,38 +822,10 @@ fn environment_root_path(env: &ResolvedEnvironment) -> Option<PathBuf> {
 }
 
 fn map_spawn_error(err: eyre::Report, program: &str) -> eyre::Report {
-    if err.chain().any(|cause| {
-        cause
-            .downcast_ref::<io::Error>()
-            .is_some_and(|io_err| io_err.kind() == io::ErrorKind::NotFound)
-    }) {
-        return match program {
-            "mysqldump" => build_missing_binary_error(
-                "mysqldump",
-                "Install MySQL client utilities (mysqldump) via 'brew install mysql-client' or 'apt install mysql-client'.",
-            ),
-            "mysql" => build_missing_binary_error(
-                "mysql",
-                "Install the MySQL client binary via 'brew install mysql-client' or 'apt install mysql-client'.",
-            ),
-            "gzip" => build_missing_binary_error(
-                "gzip",
-                "Install gzip (preinstalled on macOS/Linux; on Windows use WSL or msys2).",
-            ),
-            "wp" => build_missing_binary_error(
-                "wp",
-                "Install WP-CLI from https://wp-cli.org/ and ensure it's on PATH.",
-            ),
-            other => {
-                build_missing_binary_error(other, "Ensure the binary is installed and on PATH.")
-            }
-        };
+    match Dependency::from_program_hint(program) {
+        Some(dep) => diagnostics::map_spawn_error(err, dep),
+        None => err,
     }
-    err
-}
-
-fn build_missing_binary_error(tool: &str, guidance: &str) -> eyre::Report {
-    eyre::eyre!("Required binary '{tool}' was not found on PATH. {guidance}")
 }
 
 async fn pipe_stream<R, W>(mut reader: R, mut writer: W) -> Result<()>

@@ -1,9 +1,12 @@
 mod all_scope;
+mod diagnostics;
 mod command;
 mod config;
 mod db_sync;
 mod file_sync;
+mod logging;
 mod path_resolver;
+mod temp;
 
 use crate::all_scope::AllScopeOrchestrator;
 use crate::config::Movefile;
