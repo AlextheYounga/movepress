@@ -2,7 +2,7 @@
 id: "007"
 title: All-Scope Orchestrator
 branch: feat/007-all-scope-orchestrator
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
@@ -38,4 +38,4 @@ blocking: synchronous
 
 ## QA Notes
 
-- `tests/cmd/cli.trycmd` exercises `movepress push all …` flows (dry-run, success, stage failures) but never covers `movepress pull all …`. The ticket requirements explicitly call for tests that verify the orchestrator for both push **and** pull directions, so the pull direction currently ships untested. Please add a trycmd (or equivalent) case for `pull all` to satisfy the stated test coverage.***
+- `cargo test` (includes trycmd) now passes and `tests/cmd/cli.trycmd` covers `movepress push|pull all` dry-run, success, and failure propagation scenarios, satisfying the ticket’s orchestration coverage requirements.
