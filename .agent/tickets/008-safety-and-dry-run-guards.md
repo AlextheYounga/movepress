@@ -2,7 +2,7 @@
 id: "008"
 title: Safety & Dry-Run Guards
 branch: feat/008-safety-dry-run-guards
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
