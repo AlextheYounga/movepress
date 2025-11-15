@@ -15,8 +15,8 @@ Build **movepress**, a modern, cross-platform, single-binary CLI tool (Rust) tha
 
 **Design constraints:**
 
-* No `rsync` dependency.
-* All data transfer over **SSH-based protocols**.
+* Use `rsync` for efficient file synchronization.
+* Database transfer over **SSH-based protocols**.
 * Local and remote environments can be Docker-based, but the wp-content folder should always exist on the host system in either case, (not isolated in the container).
 * Cross-platform: macOS (ARM + x86), Linux, Windows.
 * Remote environments are always **Linux**.
@@ -57,12 +57,13 @@ Commands:
 
 Behavior:
 
-* Build file manifests on src and dst (relative paths, size, mtime, optional hash).
-* Compute **delta**:
-
-  * New files
-  * Changed files
-* Sync only changed files (delta sync).
+* Use `rsync` to efficiently transfer files between environments.
+* Rsync automatically handles:
+  * Delta sync (only changed files)
+  * Compression during transfer
+  * Preserving timestamps and permissions
+* Apply exclusion patterns via rsync's `--exclude` flags.
+* Support for dry-run via rsync's `--dry-run` flag.
 
 ---
 
@@ -113,9 +114,6 @@ Config file: `Movefile.toml` (TOML format).
 version = 1
 
 [sync]
-# Default file transfer strategy: "compressed" or "direct"
-default_transfer_mode = "compressed"
-
 # Global exclusions (applied to all environments)
 # Patterns are globs, relative to the site root or wp-content (to be defined explicitly).
 exclude = [
@@ -216,100 +214,91 @@ Every environment can have its own exclude patterns, while still inheriting glob
 
 ## 5. Core Concepts & Internal Model
 
-### 5.1 Transfer Modes
+### 5.1 Rsync Integration
 
-Enum:
+* Use `rsync` command-line tool for all file synchronization.
+* Rsync handles:
+  * Delta transfers (only changed portions of files)
+  * Compression during transfer (`-z` flag)
+  * Preserving permissions and timestamps
+  * Efficient directory synchronization
 
-```rust
-enum TransferMode {
-    Direct,     // individual files
-    Compressed, // zip archive of changed files
-}
-```
-
-* Resolved from:
-
-  * Config: `sync.default_transfer_mode` (default = `Compressed`).
-  * Later: CLI overrides.
-
-* **Local** manifest: built via filesystem walking ( `walkdir` + `ignore`).
-
-* **Remote** manifest: built via SSH commands ( `find`, `stat`, etc.), then parsed.
+* Command construction:
+  * Local to remote: `rsync -avz --exclude-from=... /local/path/ user@host:/remote/path/`
+  * Remote to local: `rsync -avz --exclude-from=... user@host:/remote/path/ /local/path/`
+  * Local to local: `rsync -av --exclude-from=... /src/path/ /dst/path/`
 
 ### 5.2 Exclusion Logic
 
-* Use glob patterns (e.g., via `ignore` crate).
-* Exclusions are applied when building manifests:
-
-  * If `Excluder.is_excluded(path)` → skip entry.
-* Same exclusion logic on both sides ensures symmetric view of the filesystem.
-
-### 5.3 Diff Model
-
-Given `src_manifest` and `dst_manifest`:
-
-* `to_upload`: files that exist in src and:
-
-  * Don’t exist in dst; or
-  * Diff in `size` or `mtime` (or hash if implemented).
-
-Internal type:
-
-```rust
-struct FileDiff {
-    to_upload: Vec<FileEntry>,
-}
-```
+* Exclusion patterns from config are converted to rsync `--exclude` flags.
+* Patterns are passed to rsync via:
+  * Multiple `--exclude` flags, or
+  * `--exclude-from` with a temporary file containing all patterns.
+* Rsync uses its own pattern matching (similar to gitignore):
+  * `*` matches any path component
+  * `**` matches any number of directories
+  * Trailing `/` means directory only
+* Global and per-environment exclusions are merged before invoking rsync.
 
 ---
 
-## 6. File Transfer Protocol
+## 6. File Transfer Protocol (via Rsync)
 
-### 6.1 Compressed Mode (Default for Pushes)
+### 6.1 Rsync Command Construction
 
-For **push** (local → remote is the primary target case):
+For all file transfers, movepress constructs and executes `rsync` commands:
 
-1. Generate manifests for src & dst.
-2. Apply exclusions.
-3. Compute diff.
-4. If `--dry-run`:
+**Common rsync flags:**
+* `-a` (archive mode: recursive, preserve permissions, times, etc.)
+* `-v` (verbose, when `--verbose` flag is used)
+* `-z` (compress during transfer for remote operations)
+* `--delete` (optional: remove files on destination that don't exist on source)
+* `--dry-run` (when `--dry-run` flag is used)
+* `--exclude` or `--exclude-from` (for exclusion patterns)
+* `--stats` (show transfer statistics)
 
-   * Print summary and optionally list files.
-   * Exit.
-5. Else:
+**Push (local → remote):**
+```bash
+rsync -avz --exclude-from=/tmp/excludes.txt \
+  /Users/alex/sites/mysite/wp-content/ \
+  deploy@prod.example.com:/var/www/mysite/wp-content/
+```
 
-   * Create a **local zip archive** containing all `to_upload` files:
+**Pull (remote → local):**
+```bash
+rsync -avz --exclude-from=/tmp/excludes.txt \
+  deploy@prod.example.com:/var/www/mysite/wp-content/ \
+  /Users/alex/sites/mysite/wp-content/
+```
 
-     * Paths inside the zip are relative to `wp-content` (or the subdir being synced).
-   * Upload the zip to remote via **SCP over SSH** (e.g., `/tmp/movepress-<id>.zip`).
-   * On remote, run:
+**Local to local:**
+```bash
+rsync -av --exclude-from=/tmp/excludes.txt \
+  /path/to/source/wp-content/ \
+  /path/to/dest/wp-content/
+```
 
-   ```bash
-   cd /var/www/mysite/wp-content && unzip -o /tmp/movepress-<id>.zip && rm /tmp/movepress-<id>.zip
-   ```
+### 6.2 Dry-run Output
 
-For **pull** (remote → local):
+* When `--dry-run` is specified:
+  * Pass `--dry-run` to rsync.
+  * Parse rsync output to show summary:
+    * Files to be transferred
+    * Total size
+    * Operations that would be performed
+  * No actual file changes occur.
 
-* Optional: use compressed mode as well:
+### 6.3 Error Handling
 
-  * Create `zip` on remote (same set of `to_upload`).
-  * Download to local over SSH/SCP.
-  * Extract locally.
-
-Behavior when `zip`/ `unzip` missing on remote:
-
-* Clear error message suggesting:
-
-  * Install `zip`/ `unzip`, or
-  * Use `--transfer-mode=direct` (future CLI flag).
-
-### 6.2 Direct Mode (Fallback / Alternative)
-
-* For each file in `to_upload`:
-
-  * Use **SCP over SSH** to transfer individual file.
-
-Direct mode is less efficient but simpler and less dependent on remote packages.
+* If `rsync` is not found:
+  * Clear error message: "rsync is required but not found. Please install rsync."
+  * Installation instructions for each OS:
+    * macOS: `brew install rsync` (often pre-installed)
+    * Linux: `apt-get install rsync` or `yum install rsync`
+    * Windows: Install via WSL, Cygwin, or msys2
+* If rsync fails (non-zero exit):
+  * Display stderr output
+  * Show rsync exit code and meaning
 
 ---
 
@@ -349,18 +338,16 @@ Direct mode is less efficient but simpler and less dependent on remote packages.
 
 ---
 
-## 8. SSH & Transport Abstraction
+## 8. SSH & Command Execution
 
-### 8.1 SSH Client Abstraction
+### 8.1 Command Execution Abstraction
 
-Define a trait:
+Define a trait for executing commands:
 
 ```rust
 #[async_trait]
-trait SshClient {
+trait CommandExecutor {
     async fn exec(&self, cmd: &str) -> Result<ExecResult>;
-    async fn upload_file(&self, local: &Path, remote: &Path) -> Result<()>;
-    async fn download_file(&self, remote: &Path, local: &Path) -> Result<()>;
 }
 
 struct ExecResult {
@@ -372,14 +359,22 @@ struct ExecResult {
 
 ### 8.2 MVP Implementation
 
-* Initial implementation uses native `ssh` & **`scp` binaries**:
+* Use native command execution via `tokio::process::Command`:
+  * For rsync: spawn `rsync` process directly
+  * For SSH commands (DB operations): spawn `ssh` process
+  * For DB transfers: spawn `mysqldump`, `mysql`, etc.
+* Benefits:
+  * Honors system SSH config, keys, and agent
+  * Uses system's rsync installation
+  * No additional dependencies
 
-  * Spawn via `tokio::process::Command`.
-  * Honors system SSH config, keys, and agent.
-* Later pluggable implementations:
+### 8.3 Rsync over SSH
 
-  * `ssh2` (libssh2) based client.
-  * Pure Rust libraries like `russh`, etc.
+* Rsync natively supports SSH protocol:
+  * Format: `user@host:/path/`
+  * Uses system SSH configuration automatically
+  * Respects SSH keys, config files (~/.ssh/config)
+  * Can specify port via `-e "ssh -p 2222"`
 
 ---
 
