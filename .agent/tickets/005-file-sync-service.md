@@ -2,7 +2,7 @@
 id: "005"
 title: File Sync Service
 branch: feat/005-file-sync-service
-status: QA_REVIEW
+status: CLOSED
 blocking: synchronous
 ---
 
