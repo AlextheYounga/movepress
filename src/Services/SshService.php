@@ -43,11 +43,38 @@ class SshService
             $options[] = $keyPath;
         }
 
-        // Disable strict host key checking for common use cases
-        $options[] = '-o';
-        $options[] = 'StrictHostKeyChecking=no';
+        // Additional SSH options from config
+        if (isset($this->sshConfig['options']) && is_string($this->sshConfig['options'])) {
+            $configOptions = $this->parseOptionsString($this->sshConfig['options']);
+            $options = array_merge($options, $configOptions);
+        } else {
+            // Default: Disable strict host key checking for common use cases
+            $options[] = '-o';
+            $options[] = 'StrictHostKeyChecking=no';
+        }
 
         return $options;
+    }
+
+    private function parseOptionsString(string $optionsString): array
+    {
+        $parsed = [];
+        $parts = preg_split('/\s+/', trim($optionsString));
+
+        for ($i = 0; $i < count($parts); $i++) {
+            $part = $parts[$i];
+
+            // Handle flags that take values (like -o, -p, -i)
+            if (in_array($part, ['-o', '-p', '-i', '-c', '-l']) && isset($parts[$i + 1])) {
+                $parsed[] = $part;
+                $parsed[] = $parts[$i + 1];
+                $i++; // Skip next part since we consumed it
+            } else {
+                $parsed[] = $part;
+            }
+        }
+
+        return $parsed;
     }
 
     public function testConnection(): bool

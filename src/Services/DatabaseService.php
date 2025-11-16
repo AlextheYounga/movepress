@@ -225,11 +225,17 @@ class DatabaseService
             throw new RuntimeException('Failed to transfer movepress PHAR to remote server');
         }
 
-        // Build command to execute bundled wp-cli from the transferred PHAR
-        // Use the PHAR directly with -- to pass wp-cli commands
-        $wpBinary = sprintf('php %s --', escapeshellarg($remotePhar));
-
-        $command = $this->commandBuilder->buildSearchReplaceCommand($wpBinary, $wordpressPath, $oldUrl, $newUrl);
+        // Build command to execute bundled wp-cli using our runner script
+        // The runner script bootstraps WordPress and wp-cli from within the PHAR
+        $runnerPath = sprintf('phar://%s/src/wp-cli-runner.php', $remotePhar);
+        $command = sprintf(
+            'php %s %s search-replace %s %s --path=%s --skip-columns=guid --quiet',
+            escapeshellarg($runnerPath),
+            escapeshellarg($wordpressPath),
+            escapeshellarg($oldUrl),
+            escapeshellarg($newUrl),
+            escapeshellarg($wordpressPath),
+        );
 
         if ($this->verbose) {
             $this->output->writeln('Executing wp-cli search-replace on remote...');
