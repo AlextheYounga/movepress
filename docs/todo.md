@@ -181,7 +181,14 @@
   - Configuration basics
   - Examples
   - Troubleshooting tips
-- [ ] Migration guide from wordmove
+- [x] Migration guide from wordmove (docs/MIGRATION.md)
+  - Why migrate and benefits
+  - Command comparison table
+  - Configuration compatibility
+  - Common migration issues
+  - Step-by-step migration workflow
+  - Team migration strategies
+  - FAQ section
 - [ ] Video tutorials
 - [ ] API documentation
 

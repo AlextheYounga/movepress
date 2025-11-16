@@ -2,6 +2,8 @@
 
 A modern WordPress deployment tool for pushing and pulling databases and files between environments via SSH.
 
+**Built as a modern successor to [Wordmove](https://github.com/welaika/wordmove)** - the beloved but unmaintained Ruby gem that revolutionized WordPress deployments. Movepress brings the same powerful workflow to modern PHP with improved reliability, better performance, and zero Ruby dependencies.
+
 ## Features
 
 - 🚀 Push/pull WordPress databases with automatic search-replace
@@ -13,50 +15,45 @@ A modern WordPress deployment tool for pushing and pulling databases and files b
 
 ## Installation
 
-### Download the PHAR (recommended)
-
-```bash
-curl -O https://example.com/movepress.phar
-chmod +x movepress.phar
-sudo mv movepress.phar /usr/local/bin/movepress
-```
-
 ### Build from source
 
 ```bash
-git clone https://github.com/movepress/movepress.git
+git clone https://github.com/AlextheYounga/movepress.git
 cd movepress
-composer install
-composer build
+composer install --no-dev
+./vendor/bin/box compile
+
+# Use the compiled PHAR
+./build/movepress.phar --version
+
+# Optionally install globally
+sudo mv ./build/movepress.phar /usr/local/bin/movepress
 ```
+
+> **Note:** Pre-built PHAR releases coming soon!
 
 ## Quick Start
 
-1. Create a `movefile.yml` in your WordPress root:
+1. Initialize configuration in your WordPress root:
 
 ```bash
-cp movefile.yml.example movefile.yml
+cd /path/to/your/wordpress
+movepress init
 ```
 
-2. Create a `.env` file with your credentials:
+2. Edit `movefile.yml` and `.env` with your environment details
 
-```bash
-cp .env.example .env
-```
-
-3. Edit both files with your environment details
-
-4. Deploy:
+3. Deploy:
 
 ```bash
 # Push database and files to production
-movepress push production --db --files
+movepress push local production --db --files
 
 # Pull database from staging
-movepress pull staging --db
+movepress pull staging local --db
 
 # Pull only uploads from production
-movepress pull production --files --include="wp-content/uploads/"
+movepress pull production local --uploads
 ```
 
 ## Commands
@@ -229,6 +226,31 @@ movepress status
 - **[Configuration Reference](docs/CONFIGURATION.md)** - Detailed movefile.yml documentation
 - **[Examples](docs/EXAMPLES.md)** - Common workflows and use cases
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Solutions to common problems
+- **[Migration from Wordmove](docs/MIGRATION.md)** - Step-by-step guide for Wordmove users
+
+## Why Movepress?
+
+### Moving Beyond Wordmove
+
+[Wordmove](https://github.com/welaika/wordmove) has been the go-to WordPress deployment tool for years, but it hasn't been actively maintained and relies on Ruby dependencies that can be challenging to manage. Movepress is built from the ground up as a modern alternative that:
+
+**Advantages over Wordmove:**
+- ✅ **Zero Ruby dependencies** - Pure PHP, runs anywhere PHP runs
+- ✅ **Single executable** - Distributed as a self-contained `.phar` file
+- ✅ **Actively maintained** - Modern codebase with ongoing support
+- ✅ **Built-in wp-cli** - No separate installation needed
+- ✅ **Better validation** - Comprehensive config validation and diagnostics
+- ✅ **Improved error handling** - Clear error messages and troubleshooting tips
+- ✅ **Modern PHP** - Takes advantage of PHP 8.1+ features
+
+**Familiar workflow:**
+- 📝 Same `movefile.yml` configuration format (compatible!)
+- 🔄 Same push/pull command structure
+- 🎯 Same sync options (--db, --files, --uploads, etc.)
+- ⚙️ Same exclude pattern system
+
+**Migration from Wordmove:**
+Your existing `movefile.yml` should work with minimal changes! The configuration format is designed to be compatible, so you can switch from `wordmove` to `movepress` commands with the same config file.
 
 ## Contributing
 
