@@ -8,6 +8,7 @@ use Movepress\Config\ConfigLoader;
 use Movepress\Services\DatabaseService;
 use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
+use Movepress\Services\ValidationService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -346,5 +347,22 @@ abstract class AbstractSyncCommand extends Command
         }
 
         return null;
+    }
+
+    protected function validatePrerequisites(
+        array $sourceEnv,
+        array $destEnv,
+        array $flags,
+        SymfonyStyle $io,
+        bool $dryRun = false
+    ): bool {
+        $validator = new ValidationService();
+        return $validator->validatePrerequisites($sourceEnv, $destEnv, $flags, $io, $dryRun);
+    }
+
+    protected function confirmDestructiveOperation(SymfonyStyle $io, string $destination, array $flags): bool
+    {
+        $validator = new ValidationService();
+        return $validator->confirmDestructiveOperation($io, $destination, $flags);
     }
 }

@@ -49,13 +49,19 @@ class PushCommand extends AbstractSyncCommand
 
             $this->displayConfiguration($io, $source, $destination, $flags, $input->getOption('dry-run'));
 
+            // Validate all prerequisites
+            if (!$this->validatePrerequisites($sourceEnv, $destEnv, $flags, $io, $input->getOption('dry-run'))) {
+                return Command::FAILURE;
+            }
+
+            // Confirm destructive operations
+            if (!$input->getOption('dry-run') && !$this->confirmDestructiveOperation($io, $destination, $flags)) {
+                $io->writeln('Operation cancelled.');
+                return Command::SUCCESS;
+            }
+
             // Sync files if requested
             if ($flags['files'] || $flags['content'] || $flags['uploads']) {
-                if (!RsyncService::isAvailable()) {
-                    $io->error('rsync is not installed or not available in PATH');
-                    return Command::FAILURE;
-                }
-
                 $io->section('File Synchronization');
 
                 $excludes = $config->getExcludes($destination);
