@@ -93,9 +93,11 @@ class ConfigLoader
                 '/\$\{([A-Z_][A-Z0-9_]*)\}/',
                 function ($matches) {
                     $varName = $matches[1];
-                    $value = getenv($varName);
                     
-                    if ($value === false) {
+                    // Check $_ENV first (where Dotenv loads), then $_SERVER, then getenv()
+                    $value = $_ENV[$varName] ?? $_SERVER[$varName] ?? getenv($varName);
+                    
+                    if ($value === false || $value === null) {
                         throw new RuntimeException(
                             "Environment variable '{$varName}' is not set. " .
                             "Check your .env file."

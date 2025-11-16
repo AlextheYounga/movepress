@@ -250,6 +250,93 @@ YAML;
         $this->assertContains('.git/', $excludes);
     }
 
+    public function test_loads_environment_variables_from_env_file(): void
+    {
+        // Create .env file with test variables
+        $envContent = <<<ENV
+WORDPRESS_PATH=/var/www/wordpress
+DB_NAME=test_database
+DB_USER=test_user
+DB_PASSWORD=test_password
+DB_HOST=localhost
+SITE_URL=https://example.com
+ENV;
+        file_put_contents($this->testDir . '/.env', $envContent);
+
+        // Create movefile.yml that references these variables
+        $yaml = <<<YAML
+local:
+  wordpress_path: "\${WORDPRESS_PATH}"
+  url: "\${SITE_URL}"
+  database:
+    name: "\${DB_NAME}"
+    user: "\${DB_USER}"
+    password: "\${DB_PASSWORD}"
+    host: "\${DB_HOST}"
+YAML;
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+
+        $loader = new ConfigLoader($this->testDir);
+        $config = $loader->load();
+
+        // Verify all variables were interpolated correctly
+        $this->assertEquals('/var/www/wordpress', $config['local']['wordpress_path']);
+        $this->assertEquals('https://example.com', $config['local']['url']);
+        $this->assertEquals('test_database', $config['local']['database']['name']);
+        $this->assertEquals('test_user', $config['local']['database']['user']);
+        $this->assertEquals('test_password', $config['local']['database']['password']);
+        $this->assertEquals('localhost', $config['local']['database']['host']);
+    }
+
+    public function test_throws_exception_when_env_variable_in_config_but_not_in_env_file(): void
+    {
+        // Create .env file without MISSING_VAR
+        $envContent = "DB_NAME=test_database";
+        file_put_contents($this->testDir . '/.env', $envContent);
+
+        // Create movefile.yml that references a missing variable
+        $yaml = <<<YAML
+local:
+  wordpress_path: "/var/www"
+  url: "http://local.test"
+  database:
+    name: "\${MISSING_VAR}"
+YAML;
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage("Environment variable 'MISSING_VAR' is not set");
+
+        $loader = new ConfigLoader($this->testDir);
+        $loader->load();
+    }
+
+    public function test_handles_empty_env_values(): void
+    {
+        // Create .env file with empty value
+        $envContent = <<<ENV
+EMPTY_VAR=
+NON_EMPTY_VAR=value
+ENV;
+        file_put_contents($this->testDir . '/.env', $envContent);
+
+        $yaml = <<<YAML
+local:
+  wordpress_path: "\${NON_EMPTY_VAR}"
+  url: "http://local.test"
+  database:
+    name: "\${EMPTY_VAR}"
+YAML;
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+
+        $loader = new ConfigLoader($this->testDir);
+        $config = $loader->load();
+
+        // Empty values should work
+        $this->assertEquals('', $config['local']['database']['name']);
+        $this->assertEquals('value', $config['local']['wordpress_path']);
+    }
+
     private function removeDirectory(string $dir): void
     {
         if (!is_dir($dir)) {
