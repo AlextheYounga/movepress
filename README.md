@@ -7,7 +7,8 @@ A modern WordPress deployment tool for pushing and pulling databases and files b
 ## Features
 
 - 🚀 Push/pull WordPress databases with automatic search-replace
-- 📁 Sync files using rsync over SSH
+- 📁 Sync untracked files (uploads, caches) using rsync over SSH
+- 🔧 Git-based deployment for tracked files (themes, plugins, core)
 - 🔐 Environment variable support in configuration
 - 🎯 Flexible exclude patterns (global and per-environment)
 - 📦 Bundled with wp-cli - no separate installation needed
@@ -43,25 +44,36 @@ movepress init
 
 2. Edit `movefile.yml` and `.env` with your environment details
 
-3. Deploy:
+3. Set up Git deployment (one-time):
 
 ```bash
-# Push database and files to production
-movepress push local production --db --files
+# Configure Git deployment for production
+movepress git:setup production
+```
+
+4. Deploy:
+
+```bash
+# Deploy code changes via Git
+git push production master
+
+# Sync database and untracked files
+movepress push local production --db --untracked-files
 
 # Pull database from staging
 movepress pull staging local --db
 
-# Pull only uploads from production
-movepress pull production local --uploads
+# Pull only untracked files (uploads, etc.) from production
+movepress pull production local --untracked-files
 ```
 
 ## Commands
 
 ### Core Commands
 
-- `movepress push <source> <destination>` - Push files/database from source to destination
-- `movepress pull <source> <destination>` - Pull files/database from source to destination
+- `movepress push <source> <destination>` - Push database/untracked files from source to destination
+- `movepress pull <source> <destination>` - Pull database/untracked files from source to destination
+- `movepress git:setup <environment>` - Set up Git deployment for remote environment
 - `movepress init` - Initialize a new movefile.yml configuration
 - `movepress status` - Show system tools availability and configured environments
 - `movepress validate` - Validate your movefile.yml configuration
@@ -71,31 +83,33 @@ movepress pull production local --uploads
 ### Push/Pull Options
 
 - `--db` - Sync database only
-- `--files` - Sync all files
-- `--content` - Sync themes and plugins only (excludes uploads)
-- `--uploads` - Sync uploads only
-- `--include=<pattern>` - Include specific files/folders
+- `--untracked-files` - Sync files not tracked by Git (uploads, caches, etc.)
 - `--dry-run` - Preview changes without making them
 - `--no-backup` - Skip backup before database import
 - `-v, --verbose` - Show detailed output
 
+**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. Use `git push <environment> <branch>` after running `movepress git:setup`.
+
 ### Examples
 
 ```bash
-# Push everything to production
-movepress push local production --db --files
+# One-time Git setup for production
+movepress git:setup production
+
+# Deploy code changes via Git
+git push production master
+
+# Sync database and untracked files to production
+movepress push local production --db --untracked-files
 
 # Pull database only from staging
 movepress pull staging local --db
 
-# Sync only uploads from production
-movepress pull production local --uploads
+# Sync only untracked files (uploads, etc.) from production
+movepress pull production local --untracked-files
 
 # Preview what would be pushed (dry run)
-movepress push local staging --db --files --dry-run
-
-# Push with verbose output
-movepress push local production --files -v
+movepress push local staging --db --untracked-files --dry-run
 
 # Create a backup before making changes
 movepress backup production
@@ -107,7 +121,7 @@ The `movefile.yml` file defines your environments and sync settings:
 
 ```yaml
 local:
-  path: /path/to/wordpress
+  wordpress_path: /path/to/wordpress
   url: http://local.test
   database:
     name: wp_local
@@ -116,7 +130,7 @@ local:
     host: localhost
 
 production:
-  path: /var/www/html
+  wordpress_path: /var/www/html
   url: https://example.com
   ssh:
     host: server.example.com
@@ -128,28 +142,52 @@ production:
     user: ${DB_USER}
     password: ${DB_PASSWORD}
     host: localhost
+  # Optional: Git deployment configuration
+  git:
+    repo_path: /var/repos/mysite.git
 
-# Global exclude patterns
-exclude:
-  - ".git/"
-  - "node_modules/"
-  - ".env"
+# Global exclude patterns (for rsync)
+global:
+  exclude:
+    - ".git/"
+    - "node_modules/"
+    - ".env"
 ```
 
 ### Configuration Options
 
 **Required for each environment:**
-- `path` - WordPress installation path
+- `wordpress_path` - WordPress installation path
 - `url` - WordPress site URL
 - `database` - Database credentials (name, user, password, host)
 
 **Optional:**
 - `ssh` - SSH connection details (host, user, port, key) for remote environments
-- `wordpress_path` - Path to WordPress core files (if different from `path`)
-- `exclude` - Environment-specific exclude patterns
+- `git` - Git deployment configuration (repo_path defaults to `/var/repos/{site-name}.git`)
+- `exclude` - Environment-specific exclude patterns for rsync
 
 **Environment Variables:**
 Use `${VAR_NAME}` syntax to reference variables from your `.env` file.
+
+### Deployment Workflow
+
+Movepress uses a **hybrid approach** for managing WordPress sites:
+
+1. **Git for tracked files** - Deploy themes, plugins, and WordPress core via Git
+2. **Rsync for untracked files** - Sync uploads, caches, and other generated content
+3. **Database sync** - Export, search-replace, and import databases between environments
+
+**Typical workflow:**
+```bash
+# One-time setup
+movepress git:setup production
+
+# Regular deployments
+git commit -am "Update theme"
+git push production master              # Deploy code
+movepress push local production --db    # Sync database
+movepress push local production --untracked-files  # Sync uploads
+```
 
 ## Requirements
 
@@ -237,17 +275,19 @@ movepress status
 **Advantages over Wordmove:**
 - ✅ **Zero Ruby dependencies** - Pure PHP, runs anywhere PHP runs
 - ✅ **Single executable** - Distributed as a self-contained `.phar` file
+- ✅ **Git-based deployments** - Modern workflow with Git for code, rsync for uploads
 - ✅ **Actively maintained** - Modern codebase with ongoing support
 - ✅ **Built-in wp-cli** - No separate installation needed
 - ✅ **Better validation** - Comprehensive config validation and diagnostics
 - ✅ **Improved error handling** - Clear error messages and troubleshooting tips
 - ✅ **Modern PHP** - Takes advantage of PHP 8.1+ features
 
-**Familiar workflow:**
-- 📝 Same `movefile.yml` configuration format (compatible!)
+**Familiar workflow with improvements:**
+- 📝 Same `movefile.yml` configuration format (mostly compatible!)
 - 🔄 Same push/pull command structure
-- 🎯 Same sync options (--db, --files, --uploads, etc.)
+- 🎯 Simplified sync options (--db, --untracked-files)
 - ⚙️ Same exclude pattern system
+- 🔧 New git:setup command for modern deployments
 
 **Migration from Wordmove:**
 Your existing `movefile.yml` should work with minimal changes! The configuration format is designed to be compatible, so you can switch from `wordmove` to `movepress` commands with the same config file.

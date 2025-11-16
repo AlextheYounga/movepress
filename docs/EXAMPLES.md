@@ -4,21 +4,50 @@ Common use cases and workflow examples for Movepress.
 
 ---
 
+## Initial Setup
+
+### First-Time Configuration
+
+```bash
+# Initialize Movepress in your WordPress project
+cd /path/to/wordpress
+movepress init
+
+# Edit movefile.yml and .env with your environment details
+nano movefile.yml
+nano .env
+
+# Set up Git deployment for production (one-time)
+movepress git:setup production
+
+# Set up Git deployment for staging (one-time)
+movepress git:setup staging
+```
+
+---
+
 ## Basic Workflows
 
 ### Deploy to Production
 
-Push your local WordPress site to production:
+Modern Git-based deployment workflow:
 
 ```bash
-# Push everything (with confirmation prompt)
-movepress push local production --db --files
+# Commit your code changes
+git add .
+git commit -m "Update theme and plugins"
+
+# Deploy code via Git
+git push production master
+
+# Sync database and untracked files
+movepress push local production --db --untracked-files
+
+# Or preview changes first
+movepress push local production --db --untracked-files --dry-run
 
 # Skip backup (not recommended)
-movepress push local production --db --files --no-backup
-
-# Preview changes first
-movepress push local production --db --files --dry-run
+movepress push local production --db --no-backup
 ```
 
 ---
@@ -28,8 +57,8 @@ movepress push local production --db --files --dry-run
 Get a copy of your production site locally:
 
 ```bash
-# Pull database and files
-movepress pull production local --db --files
+# Pull database and untracked files
+movepress pull production local --db --untracked-files
 
 # Pull database only (most common)
 movepress pull production local --db
@@ -45,88 +74,71 @@ movepress pull production local --db -v
 Push changes to staging before production:
 
 ```bash
-# Push to staging for testing
-movepress push local staging --db --files
+# Deploy code to staging
+git push staging develop
+
+# Sync database and uploads
+movepress push local staging --db --untracked-files
 
 # If it looks good, push to production
-movepress push staging production --db --files
+git push production master
+movepress push staging production --db --untracked-files
 ```
 
 ---
 
-## File Syncing Patterns
+## File Deployment Patterns
 
-### Sync Only Theme
+### Code vs. Uploads
 
-Deploy just your custom theme:
+Movepress uses **Git for code** (themes, plugins, core files) and **rsync for untracked files** (uploads, caches):
+
+- **Code changes** (themes/plugins): Use `git push` to deploy
+- **Media uploads**: Use `--untracked-files` flag with movepress
+- **Database**: Use `--db` flag with movepress
+
+---
+
+### Deploy Theme or Plugin Changes
+
+Code is managed via Git commits:
 
 ```bash
-movepress push local production --files --include="wp-content/themes/mytheme"
+# Make changes to your theme/plugin
+git add wp-content/themes/mytheme
+git commit -m "Update theme"
+
+# Deploy to production
+git push production master
 ```
 
 ---
 
-### Sync Only Plugin
+### Sync Uploads Only
 
-Deploy a specific plugin:
+Transfer media files without touching code:
 
 ```bash
-movepress push local production --files --include="wp-content/plugins/myplugin"
+# Push local uploads to production
+movepress push local production --untracked-files
+
+# Pull production uploads to local
+movepress pull production local --untracked-files
 ```
 
 ---
 
-### Sync Multiple Specific Items
+### Selective Upload Sync
 
-Include multiple specific paths:
-
-```bash
-movepress push local production --files \
-  --include="wp-content/themes/mytheme" \
-  --include="wp-content/plugins/myplugin" \
-  --include="wp-content/mu-plugins"
-```
-
----
-
-### Sync Content Without Uploads
-
-Sync themes and plugins but exclude large uploads folder:
-
-```bash
-movepress push local production --content
-```
-
-This is equivalent to:
-```bash
-movepress push local production --files --exclude="wp-content/uploads/"
-```
-
----
-
-### Sync Only Uploads
-
-Sync media files only:
-
-```bash
-movepress push local production --uploads
-```
-
-Useful when you've added new media locally and want to push it to production.
-
----
-
-### Sync Recent Uploads
-
-Sync only recent upload directories:
+Use --include to sync specific upload directories:
 
 ```bash
 # Current year only
-movepress push local production --files \
+movepress push local production --untracked-files \
   --include="wp-content/uploads/2024"
 
 # Specific months
-movepress push local production --files \
+movepress push local production --untracked-files \
   --include="wp-content/uploads/2024/01" \
   --include="wp-content/uploads/2024/02"
 ```
@@ -186,7 +198,7 @@ Pull fresh data from production:
 movepress pull production local --db
 
 # Get any new uploads
-movepress pull production local --uploads
+movepress pull production local --untracked-files
 ```
 
 ---
@@ -202,8 +214,10 @@ movepress pull production local --db
 # Work on your feature locally
 # Test thoroughly
 
-# Deploy when ready
-movepress push local staging --files --include="wp-content/themes/mytheme"
+# Commit and deploy when ready
+git add .
+git commit -m "New feature"
+git push staging develop
 ```
 
 ---
@@ -216,15 +230,15 @@ Safe deployment workflow:
 # 1. Backup production first
 movepress backup production
 
-# 2. Preview the deployment
-movepress push local production --files --dry-run
+# 2. Ensure all changes are committed
+git status
 
-# 3. Deploy files only first
-movepress push local production --files
+# 3. Deploy code via Git
+git push production master
 
 # 4. Test the site
 
-# 5. Deploy database if needed
+# 5. Sync database if needed
 movepress push local production --db
 ```
 
@@ -248,16 +262,17 @@ movepress pull staging local --db
 
 ### Deploying Client Changes
 
-Client made changes on staging, deploy to production:
+Client made content changes on staging, deploy to production:
 
 ```bash
-# Pull from staging to local first
-movepress pull staging local --db --files
+# Pull database and uploads from staging
+movepress pull staging local --db --untracked-files
 
 # Review changes locally
 
-# Push to production
-movepress push staging production --db --files
+# Deploy to production
+git push production master  # Code changes (if any)
+movepress push staging production --db --untracked-files
 ```
 
 ---
@@ -283,11 +298,11 @@ movepress backup production
 Before updating WordPress/plugins:
 
 ```bash
-# Backup everything
+# Backup database
 movepress backup production
 
 # Could also pull a full copy locally
-movepress pull production local --db --files
+movepress pull production local --db --untracked-files
 ```
 
 ---
@@ -297,8 +312,11 @@ movepress pull production local --db --files
 If you need to restore:
 
 ```bash
-# Push your local backup to production
-movepress push local production --db --files
+# Restore database and uploads
+movepress push local production --db --untracked-files
+
+# Restore code to previous Git commit
+git push production <commit-hash>:refs/heads/master --force
 ```
 
 ---
@@ -310,25 +328,27 @@ movepress push local production --db --files
 Safe three-tier deployment:
 
 ```bash
-# Step 1: Deploy to staging
-movepress push local staging --db --files
+# Step 1: Deploy code and data to staging
+git push staging develop
+movepress push local staging --db --untracked-files
 
 # Step 2: Test on staging
 # ... manual testing ...
 
 # Step 3: Deploy staging to production
-movepress push staging production --db --files
+git push production master
+movepress push staging production --db --untracked-files
 ```
 
 ---
 
-### Separate Database and Files
+### Separate Database and Code
 
-Deploy database and files separately:
+Deploy database and code separately:
 
 ```bash
-# Deploy files first (safer)
-movepress push local production --files
+# Deploy code first (safer)
+git push production master
 
 # Test the site
 
@@ -342,22 +362,25 @@ movepress push local production --db
 
 ### Quick Rollback
 
-Production is broken, roll back to staging:
+Production is broken, roll back to previous version:
 
 ```bash
-# Pull staging database back to production
-movepress push staging production --db --files
+# Roll back code to previous commit
+git push production HEAD~1:refs/heads/master --force
+
+# Or restore database from staging
+movepress push staging production --db
 ```
 
 ---
 
-### Restore Single File
+### Restore Single Upload File
 
-Restore a single file from production:
+Restore a single upload from production:
 
 ```bash
-movepress pull production local --files \
-  --include="wp-content/themes/mytheme/functions.php"
+movepress pull production local --untracked-files \
+  --include="wp-content/uploads/2024/01/logo.png"
 ```
 
 ---
@@ -366,16 +389,16 @@ movepress pull production local --files \
 
 ### Conditional Deployment
 
-Use dry-run to check before deploying:
+Use dry-run to check before deploying untracked files:
 
 ```bash
 # Check what would change
-movepress push local production --files --dry-run
+movepress push local production --untracked-files --dry-run
 
 # Review output...
 
 # Deploy if it looks good
-movepress push local production --files
+movepress push local production --untracked-files
 ```
 
 ---
@@ -385,7 +408,7 @@ movepress push local production --files
 Debug sync issues with verbose output:
 
 ```bash
-movepress push local production --db --files -v
+movepress push local production --db --untracked-files -v
 ```
 
 This shows:
@@ -407,8 +430,8 @@ movepress ssh production
 # Check configuration
 movepress status production
 
-# Then deploy
-movepress push local production --files
+# Then deploy code
+git push production master
 ```
 
 ---
@@ -443,16 +466,19 @@ echo "Deploying to production..."
 echo "Creating backup..."
 movepress backup production
 
-# Preview
-echo "Preview of changes:"
-movepress push local production --files --dry-run
+# Check for uncommitted changes
+if [[ -n $(git status -s) ]]; then
+    echo "Error: You have uncommitted changes"
+    exit 1
+fi
 
 # Confirm
-read -p "Deploy? (y/n) " -n 1 -r
+read -p "Deploy code and uploads? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    movepress push local production --files
+    git push production master
+    movepress push local production --untracked-files
     echo "Deployment complete!"
 fi
 ```
@@ -476,6 +502,19 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
+      - name: Setup SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+      
+      - name: Deploy Code
+        run: |
+          git remote add staging ssh://deploy@staging.example.com/var/repos/mysite.git
+          git push staging main:master
+      
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -486,13 +525,9 @@ jobs:
           curl -O https://example.com/movepress.phar
           chmod +x movepress.phar
       
-      - name: Deploy
-        env:
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Sync Database
         run: |
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ./movepress.phar push local staging --files --no-interaction
+          ./movepress.phar push local staging --db --no-interaction
 ```
 
 ---

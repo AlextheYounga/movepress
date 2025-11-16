@@ -351,19 +351,20 @@ Some files aren't syncing.
 **Solution:**
 1. Check exclude patterns in `movefile.yml`:
    ```yaml
-   exclude:
-     - ".git/"
-     - "*.log"
+   global:
+     exclude:
+       - ".git/"
+       - "*.log"
    ```
 
 2. Use `--dry-run` to preview:
    ```bash
-   movepress push local production --files --dry-run
+   movepress push local production --untracked-files --dry-run
    ```
 
 3. Use `--verbose` to see what's happening:
    ```bash
-   movepress push local production --files -v
+   movepress push local production --untracked-files -v
    ```
 
 ---
@@ -371,21 +372,24 @@ Some files aren't syncing.
 ### Slow file sync
 
 **Problem:**
-File sync is very slow.
+Upload sync is very slow.
 
 **Solution:**
-1. Sync specific folders only:
+1. Sync specific upload folders only:
    ```bash
-   # Just uploads
-   movepress push local production --uploads
-   
-   # Just theme
-   movepress push local production --files --include="wp-content/themes/mytheme"
+   # Specific upload directory
+   movepress push local production --untracked-files \
+     --include="wp-content/uploads/2024"
    ```
 
 2. Check network connection
 
 3. Verify rsync compression is enabled (it is by default)
+
+4. For code changes, use Git instead (much faster):
+   ```bash
+   git push production master
+   ```
 
 ---
 
@@ -498,7 +502,7 @@ php -d memory_limit=512M movepress.phar push local production --db
 ### Timeout issues
 
 **Problem:**
-Operations timeout on large databases/files.
+Operations timeout on large databases/uploads.
 
 **Solution:**
 1. Use `--verbose` to monitor progress
@@ -507,8 +511,13 @@ Operations timeout on large databases/files.
    # Database only first
    movepress push local production --db
    
-   # Then files
-   movepress push local production --files
+   # Then uploads
+   movepress push local production --untracked-files
+   ```
+
+3. For code, use Git (no timeout issues):
+   ```bash
+   git push production master
    ```
 
 ---
@@ -519,7 +528,7 @@ Operations timeout on large databases/files.
 
 See detailed command output:
 ```bash
-movepress push local production --db --files -v
+movepress push local production --db --untracked-files -v
 ```
 
 ### Use diagnostic commands
@@ -535,7 +544,7 @@ movepress validate
 movepress ssh production
 
 # Preview without executing
-movepress push local production --db --files --dry-run
+movepress push local production --untracked-files --dry-run
 ```
 
 ### Check logs

@@ -95,6 +95,30 @@ production:
 - `port` - SSH port (default: 22)
 - `key` - Path to SSH private key (supports `~` for home directory)
 
+### git
+Git deployment configuration (optional). Used by `git:setup` command.
+
+```yaml
+production:
+  git:
+    repo_path: /var/repos/mysite.git
+```
+
+**Git fields:**
+- `repo_path` - Path to bare Git repository on remote server (optional, defaults to `/var/repos/{site}.git`)
+
+When configured, use Git to deploy code changes:
+```bash
+# One-time setup
+movepress git:setup production
+
+# Deploy code
+git push production master
+
+# Sync database and uploads
+movepress push local production --db --untracked-files
+```
+
 ### exclude
 Environment-specific exclude patterns. These are merged with global excludes.
 

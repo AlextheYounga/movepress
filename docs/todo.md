@@ -1,5 +1,7 @@
 # Movepress Development Todo
 
+> **⚠️ HISTORICAL DOCUMENT:** This todo list reflects the original development roadmap. The project has since evolved to use Git-based deployment for code files. See current docs: README.md, COMMANDS.md, EXAMPLES.md
+
 ### Project Setup
 - [x] Initialize Composer with dependencies (Symfony Console, Process, YAML, Dotenv, wp-cli)
 - [x] Set up project structure (src/, tests/, bin/, config/)

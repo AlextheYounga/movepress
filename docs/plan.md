@@ -1,5 +1,7 @@
 # Movepress Project Plan
 
+> **⚠️ HISTORICAL DOCUMENT:** This plan reflects the original project vision. The tool has evolved to use Git-based deployment for code files. See current docs: README.md, COMMANDS.md, EXAMPLES.md
+
 ## Vision
 
 Create a modern, self-contained WordPress deployment tool that replaces the unmaintained Wordmove gem. Movepress will be a single `.phar` executable with bundled wp-cli, making WordPress site migrations and deployments simple, fast, and reliable.
@@ -129,15 +131,18 @@ movepress init
 # Edit movefile.yml and .env with credentials
 
 # Pull production database and uploads to local
-movepress pull production local --db --uploads --dry-run  # Preview
-movepress pull production local --db --uploads            # Execute
+movepress pull production local --db --untracked-files --dry-run  # Preview
+movepress pull production local --db --untracked-files            # Execute
 ```
 
 ### Typical Use Case: Staging Push
 ```bash
 # Push local changes to staging
-movepress push local staging --content --dry-run  # Preview
-movepress push local staging --content            # Push themes/plugins
+git add .
+git commit -m "Update theme"
+git push staging develop  # Deploy code
+
+movepress push local staging --db --untracked-files  # Sync database and uploads
 ```
 
 ### Configuration Example

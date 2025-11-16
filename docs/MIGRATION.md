@@ -73,14 +73,20 @@ wordmove init
 
 ### Movepress
 ```bash
-movepress push local production --db --files
+# Code deployment via Git
+git push production master
+
+# Database and uploads via movepress
+movepress push local production --db --untracked-files
 movepress pull staging local --db
 movepress init
 ```
 
 **Main differences:**
-- Movepress uses `--files` instead of `--wordpress`
+- Movepress uses **Git for code** (themes, plugins, core files)
+- Movepress uses `--untracked-files` for uploads/caches only
 - Movepress requires explicit source and destination environments
+- One-time Git setup required: `movepress git:setup production`
 
 ---
 
@@ -192,11 +198,11 @@ database:
 | Wordmove | Movepress | Notes |
 |----------|-----------|-------|
 | `wordmove push production --db` | `movepress push local production --db` | Explicit source needed |
-| `wordmove push production --wordpress` | `movepress push local production --files` | `--wordpress` → `--files` |
-| `wordmove push production --themes` | `movepress push local production --files --include="wp-content/themes"` | More explicit |
-| `wordmove push production --plugins` | `movepress push local production --files --include="wp-content/plugins"` | More explicit |
-| `wordmove push production --uploads` | `movepress push local production --uploads` | Same! |
-| `wordmove push production --all` | `movepress push local production --db --files` | Explicit flags |
+| `wordmove push production --wordpress` | `git push production master` | **Code via Git now** |
+| `wordmove push production --themes` | `git add wp-content/themes && git push production master` | Git commits |
+| `wordmove push production --plugins` | `git add wp-content/plugins && git push production master` | Git commits |
+| `wordmove push production --uploads` | `movepress push local production --untracked-files` | Renamed flag |
+| `wordmove push production --all` | `git push production master && movepress push local production --db --untracked-files` | Git + movepress |
 
 ---
 
@@ -205,8 +211,8 @@ database:
 | Wordmove | Movepress | Notes |
 |----------|-----------|-------|
 | `wordmove pull production --db` | `movepress pull production local --db` | Explicit destination |
-| `wordmove pull production --wordpress` | `movepress pull production local --files` | `--wordpress` → `--files` |
-| `wordmove pull production --uploads` | `movepress pull production local --uploads` | Same! |
+| `wordmove pull production --wordpress` | `git pull production master` | **Code via Git now** |
+| `wordmove pull production --uploads` | `movepress pull production local --untracked-files` | Renamed flag |
 
 ---
 
@@ -358,10 +364,10 @@ Start with read-only operations:
 movepress pull production local --db
 
 # Pull uploads (safe)
-movepress pull production local --uploads
+movepress pull production local --untracked-files
 
 # Preview push (doesn't execute)
-movepress push local staging --db --files --dry-run
+movepress push local staging --db --untracked-files --dry-run
 ```
 
 ---
@@ -379,7 +385,11 @@ wordmove push production --db --wordpress
 **New (Movepress):**
 ```bash
 #!/bin/bash
-movepress push local production --db --files
+# Deploy code via Git
+git push production master
+
+# Sync database and uploads
+movepress push local production --db --untracked-files
 ```
 
 ---
@@ -431,12 +441,16 @@ Update internal docs with command changes:
 
 ### Using Movepress (Recommended)
 ```bash
-movepress push local production --files
+# Deploy code
+git push production master
+
+# Sync database and uploads
+movepress push local production --db --untracked-files
 ```
 
 ### Using Wordmove (Legacy)
 ```bash
-wordmove push production --wordpress
+wordmove push production --db --wordpress
 ```
 ```
 
@@ -513,7 +527,7 @@ movepress status
 movepress ssh production
 
 # Try with verbose output
-movepress push local production --files -v
+movepress push local production --untracked-files -v
 ```
 
 ### Documentation

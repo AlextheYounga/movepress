@@ -23,10 +23,7 @@ movepress push <source> <destination> [options]
 
 **Sync Options:**
 - `--db` - Sync database only
-- `--files` - Sync all files
-- `--content` - Sync themes and plugins only (excludes uploads)
-- `--uploads` - Sync uploads only (wp-content/uploads)
-- `--include=<pattern>` - Include specific files/folders (can be used multiple times)
+- `--untracked-files` - Sync files not tracked by Git (uploads, caches, etc.)
 
 **Safety Options:**
 - `--dry-run` - Preview changes without executing them
@@ -35,34 +32,34 @@ movepress push <source> <destination> [options]
 **Output Options:**
 - `-v, --verbose` - Show detailed output including rsync/database commands
 
+**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. See `git:setup` command below.
+
 ### Examples
 
 ```bash
-# Push everything to production
-movepress push local production --db --files
+# Push database and untracked files to production
+movepress push local production --db --untracked-files
 
 # Push database only
 movepress push local staging --db
 
-# Push only uploads
-movepress push local production --uploads
-
-# Push specific folder
-movepress push local production --files --include="wp-content/themes/mytheme"
+# Push only untracked files (uploads, etc.)
+movepress push local production --untracked-files
 
 # Preview changes without executing
-movepress push local production --db --files --dry-run
+movepress push local production --db --untracked-files --dry-run
 
 # Push with verbose output
-movepress push local production --files -v
+movepress push local production --untracked-files -v
 ```
 
 ### Notes
 
-- At least one of `--db`, `--files`, `--content`, or `--uploads` must be specified
+- If no flags are specified, both `--db` and `--untracked-files` are synced by default
 - Database operations automatically perform search-replace for URLs
 - A backup is created before database import unless `--no-backup` is used
 - You'll be prompted to confirm before destructive database operations
+- For tracked files (themes, plugins), use `git push <environment> <branch>` after running `git:setup`
 
 ---
 
@@ -88,26 +85,75 @@ Same options as `push` command (see above).
 ### Examples
 
 ```bash
-# Pull everything from production
-movepress pull production local --db --files
+# Pull database and uploads from production
+movepress pull production local --db --untracked-files
 
 # Pull database only
 movepress pull staging local --db
 
-# Pull only uploads
-movepress pull production local --uploads
-
-# Pull specific folder
-movepress pull production local --files --include="wp-content/uploads/2024"
+# Pull only untracked files (uploads, etc.)
+movepress pull production local --untracked-files
 
 # Preview changes without executing
-movepress pull production local --db --files --dry-run
+movepress pull production local --db --untracked-files --dry-run
 ```
 
 ### Notes
 
 - Works exactly like `push` but in reverse direction
 - Same safety features and backup behavior as `push`
+- Remember to use `git pull` or `git fetch` for tracked code files
+
+---
+
+## movepress git:setup
+
+Set up Git-based deployment for a remote environment. This is a one-time setup command that configures a bare Git repository on the remote server with automatic deployment hooks.
+
+### Syntax
+
+```bash
+movepress git:setup <environment>
+```
+
+### Arguments
+
+- `environment` - Remote environment name (e.g., "staging", "production")
+
+### What it does
+
+1. Creates a bare Git repository on the remote server
+2. Installs a post-receive hook that automatically deploys code to your WordPress directory
+3. Adds a Git remote to your local repository
+
+### Examples
+
+```bash
+# Set up Git deployment for production
+movepress git:setup production
+
+# Set up Git deployment for staging
+movepress git:setup staging
+```
+
+### After setup
+
+Once configured, deploy code changes using standard Git commands:
+
+```bash
+# Deploy to production
+git push production master
+
+# Deploy specific branch to staging
+git push staging develop
+```
+
+### Notes
+
+- Only works with remote environments (requires SSH configuration)
+- The Git repository path defaults to `/var/repos/{site-name}.git` but can be customized in `movefile.yml` under `git.repo_path`
+- This command is idempotent - safe to run multiple times
+- Requires Git to be installed on both local and remote systems
 
 ---
 
