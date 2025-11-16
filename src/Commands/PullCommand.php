@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Movepress\Commands;
 
 use Movepress\Config\ConfigLoader;
-use Movepress\Services\RsyncService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -29,12 +28,6 @@ class PullCommand extends AbstractSyncCommand
         $source = $input->getArgument('source');
         $destination = $input->getArgument('destination');
 
-        $flags = $this->parseSyncFlags($input);
-
-        if (!$this->validateFlagCombinations($flags, $io)) {
-            return Command::FAILURE;
-        }
-
         $io->title("Movepress: Pull {$source} → {$destination}");
 
         try {
@@ -47,38 +40,40 @@ class PullCommand extends AbstractSyncCommand
             $this->validateEnvironment($source, $sourceEnv);
             $this->validateEnvironment($destination, $destEnv);
 
-            $this->displayConfiguration($io, $source, $destination, $flags, $input->getOption('dry-run'));
+            $flags = $this->parseSyncFlags($input);
+
+            // Initialize context with all needed state
+            $this->initializeContext(
+                $output,
+                $io,
+                $sourceEnv,
+                $destEnv,
+                $flags,
+                $input->getOption('dry-run'),
+                $input->getOption('verbose')
+            );
+
+            $this->displayConfiguration($source, $destination);
 
             // Validate all prerequisites
-            if (!$this->validatePrerequisites($sourceEnv, $destEnv, $flags, $io, $input->getOption('dry-run'))) {
+            if (!$this->validatePrerequisites()) {
                 return Command::FAILURE;
             }
 
             // Confirm destructive operations
-            if (!$input->getOption('dry-run') && !$this->confirmDestructiveOperation($io, $destination, $flags)) {
+            if (!$this->dryRun && !$this->confirmDestructiveOperation($destination)) {
                 $io->writeln('Operation cancelled.');
                 return Command::SUCCESS;
             }
 
             // Sync untracked files if requested
-            if ($flags['untracked_files']) {
+            if ($this->flags['untracked_files']) {
                 $io->section('File Synchronization');
 
                 $excludes = $config->getExcludes($destination);
                 $sourceSsh = $this->getSshService($sourceEnv);
 
-                $success = $this->syncFiles(
-                    $sourceEnv,
-                    $destEnv,
-                    $excludes,
-                    $input->getOption('dry-run'),
-                    $input->getOption('verbose'),
-                    $output,
-                    $io,
-                    $sourceSsh
-                );
-
-                if (!$success) {
+                if (!$this->syncFiles($excludes, $sourceSsh)) {
                     return Command::FAILURE;
                 }
 
@@ -86,29 +81,19 @@ class PullCommand extends AbstractSyncCommand
             }
 
             // Sync database if requested
-            if ($flags['db']) {
+            if ($this->flags['db']) {
                 $io->section('Database Synchronization');
 
-                $success = $this->syncDatabase(
-                    $sourceEnv,
-                    $destEnv,
-                    $input->getOption('no-backup'),
-                    $input->getOption('dry-run'),
-                    $input->getOption('verbose'),
-                    $output,
-                    $io
-                );
-
-                if (!$success) {
+                if (!$this->syncDatabase($input->getOption('no-backup'))) {
                     return Command::FAILURE;
                 }
 
-                if (!$input->getOption('dry-run')) {
+                if (!$this->dryRun) {
                     $io->success('Database synchronized successfully');
                 }
             }
 
-            if (!$input->getOption('dry-run')) {
+            if (!$this->dryRun) {
                 $io->success("Pull from {$source} to {$destination} completed!");
             }
 

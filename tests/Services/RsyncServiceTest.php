@@ -163,7 +163,7 @@ class RsyncServiceTest extends TestCase
         $this->assertStringNotContainsString('/source/path//', $command);
     }
 
-    public function test_sync_content_excludes_uploads_directory(): void
+    public function test_excludes_pattern_from_gitignore(): void
     {
         $service = new RsyncService($this->output, true, false);
         
@@ -171,8 +171,8 @@ class RsyncServiceTest extends TestCase
         $method = $reflection->getMethod('buildRsyncCommand');
         $method->setAccessible(true);
         
-        // Mock syncContent by calling buildRsyncCommand with uploads excluded
-        $excludes = ['wp-content/uploads/'];
+        // Test that .gitignore patterns become excludes
+        $excludes = ['*.php', '*.js', 'wp-content/themes/'];
         
         $command = $method->invoke(
             $service,
@@ -182,27 +182,9 @@ class RsyncServiceTest extends TestCase
             null
         );
         
-        $this->assertStringContainsString("--exclude='wp-content/uploads/'", $command);
-    }
-
-    public function test_sync_uploads_appends_subfolder_to_paths(): void
-    {
-        $service = new RsyncService($this->output, true, false);
-        
-        $reflection = new \ReflectionClass($service);
-        $method = $reflection->getMethod('buildRsyncCommand');
-        $method->setAccessible(true);
-        
-        $command = $method->invoke(
-            $service,
-            '/source/path/wp-content/uploads',
-            '/dest/path/wp-content/uploads',
-            [],
-            null
-        );
-        
-        $this->assertStringContainsString('/source/path/wp-content/uploads/', $command);
-        $this->assertStringContainsString('/dest/path/wp-content/uploads', $command);
+        $this->assertStringContainsString("--exclude='*.php'", $command);
+        $this->assertStringContainsString("--exclude='*.js'", $command);
+        $this->assertStringContainsString("--exclude='wp-content/themes/'", $command);
     }
 
     public function test_is_available_returns_true_when_rsync_exists(): void

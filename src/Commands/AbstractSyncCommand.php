@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Movepress\Commands;
 
-use Movepress\Config\ConfigLoader;
 use Movepress\Services\DatabaseService;
 use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
@@ -18,6 +17,14 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 abstract class AbstractSyncCommand extends Command
 {
+    protected OutputInterface $output;
+    protected SymfonyStyle $io;
+    protected bool $dryRun;
+    protected bool $verbose;
+    protected array $sourceEnv;
+    protected array $destEnv;
+    protected array $flags;
+
     protected function configureArguments(): void
     {
         $this->addArgument(
@@ -60,6 +67,24 @@ abstract class AbstractSyncCommand extends Command
         );
     }
 
+    protected function initializeContext(
+        OutputInterface $output,
+        SymfonyStyle $io,
+        array $sourceEnv,
+        array $destEnv,
+        array $flags,
+        bool $dryRun,
+        bool $verbose
+    ): void {
+        $this->output = $output;
+        $this->io = $io;
+        $this->sourceEnv = $sourceEnv;
+        $this->destEnv = $destEnv;
+        $this->flags = $flags;
+        $this->dryRun = $dryRun;
+        $this->verbose = $verbose;
+    }
+
     protected function parseSyncFlags(InputInterface $input): array
     {
         $syncDb = $input->getOption('db');
@@ -77,12 +102,6 @@ abstract class AbstractSyncCommand extends Command
         ];
     }
 
-    protected function validateFlagCombinations(array $flags, SymfonyStyle $io): bool
-    {
-        // No conflicting flags with the new simplified structure
-        return true;
-    }
-
     protected function validateEnvironment(string $name, array $env): void
     {
         if (empty($env['wordpress_path'])) {
@@ -98,107 +117,87 @@ abstract class AbstractSyncCommand extends Command
         }
     }
 
-    protected function displayConfiguration(
-        SymfonyStyle $io,
-        string $source,
-        string $destination,
-        array $flags,
-        bool $dryRun
-    ): void {
-        $io->section('Configuration');
+    protected function displayConfiguration(string $source, string $destination): void
+    {
+        $this->io->section('Configuration');
 
         $items = [
             "Source: {$source}",
             "Destination: {$destination}",
-            "Database: " . ($flags['db'] ? '✓' : '✗'),
-            "Untracked Files: " . ($flags['untracked_files'] ? '✓' : '✗'),
-            "Dry Run: " . ($dryRun ? 'Yes' : 'No'),
+            "Database: " . ($this->flags['db'] ? '✓' : '✗'),
+            "Untracked Files: " . ($this->flags['untracked_files'] ? '✓' : '✗'),
+            "Dry Run: " . ($this->dryRun ? 'Yes' : 'No'),
         ];
 
-        $io->listing($items);
+        $this->io->listing($items);
 
-        if ($dryRun) {
-            $io->warning('DRY RUN MODE - No changes will be made');
+        if ($this->dryRun) {
+            $this->io->warning('DRY RUN MODE - No changes will be made');
         }
 
-        $io->note([
+        $this->io->note([
             'Tracked files (themes, plugins, core) should be deployed via Git.',
             'Use: git push ' . $destination . ' master',
         ]);
     }
 
-    protected function syncFiles(
-        array $sourceEnv,
-        array $destEnv,
-        array $excludes,
-        bool $dryRun,
-        bool $verbose,
-        OutputInterface $output,
-        SymfonyStyle $io,
-        ?SshService $remoteSsh
-    ): bool {
-        $rsync = new RsyncService($output, $dryRun, $verbose);
+    protected function syncFiles(array $excludes, ?SshService $remoteSsh): bool
+    {
+        $rsync = new RsyncService($this->output, $this->dryRun, $this->verbose);
 
-        $sourcePath = $this->buildPath($sourceEnv);
-        $destPath = $this->buildPath($destEnv);
+        $sourcePath = $this->buildPath($this->sourceEnv);
+        $destPath = $this->buildPath($this->destEnv);
 
         // Determine .gitignore path (use local path if source is local)
         $gitignorePath = null;
-        if (!isset($sourceEnv['ssh'])) {
-            $possiblePath = $sourceEnv['wordpress_path'] . '/.gitignore';
+        if (!isset($this->sourceEnv['ssh'])) {
+            $possiblePath = $this->sourceEnv['wordpress_path'] . '/.gitignore';
             if (file_exists($possiblePath)) {
                 $gitignorePath = $possiblePath;
             }
         }
 
-        $io->text("Syncing untracked files (uploads, caches, etc.)...");
+        $this->io->text("Syncing untracked files (uploads, caches, etc.)...");
         return $rsync->syncUntrackedFiles($sourcePath, $destPath, $excludes, $remoteSsh, $gitignorePath);
     }
 
-    protected function syncDatabase(
-        array $sourceEnv,
-        array $destEnv,
-        bool $noBackup,
-        bool $dryRun,
-        bool $verbose,
-        OutputInterface $output,
-        SymfonyStyle $io
-    ): bool {
-        if ($dryRun) {
-            $io->text('Would export source database');
-            $io->text('Would perform search-replace: ' . $sourceEnv['url'] . ' → ' . $destEnv['url']);
+    protected function syncDatabase(bool $noBackup): bool
+    {
+        if ($this->dryRun) {
+            $this->io->text('Would export source database');
+            $this->io->text('Would perform search-replace: ' . $this->sourceEnv['url'] . ' → ' . $this->destEnv['url']);
             if (!$noBackup) {
-                $io->text('Would create backup of destination database');
+                $this->io->text('Would create backup of destination database');
             }
-            $io->text('Would import to destination database');
+            $this->io->text('Would import to destination database');
             return true;
         }
 
         if (!DatabaseService::isMysqldumpAvailable()) {
-            $io->error('mysqldump is not installed or not available in PATH');
+            $this->io->error('mysqldump is not installed or not available in PATH');
             return false;
         }
         if (!DatabaseService::isMysqlAvailable()) {
-            $io->error('mysql is not installed or not available in PATH');
+            $this->io->error('mysql is not installed or not available in PATH');
             return false;
         }
 
-        $dbService = new DatabaseService($output, $verbose);
+        $dbService = new DatabaseService($this->output, $this->verbose);
 
-        $sourceDb = $sourceEnv['database'];
-        $destDb = $destEnv['database'];
-        $sourceUrl = $sourceEnv['url'];
-        $destUrl = $destEnv['url'];
+        $sourceDb = $this->sourceEnv['database'];
+        $destDb = $this->destEnv['database'];
+        $sourceUrl = $this->sourceEnv['url'];
+        $destUrl = $this->destEnv['url'];
 
-        $sourceSsh = $this->getSshService($sourceEnv);
-        $destSsh = $this->getSshService($destEnv);
+        $sourceSsh = $this->getSshService($this->sourceEnv);
+        $destSsh = $this->getSshService($this->destEnv);
 
         $tempDir = sys_get_temp_dir();
         $exportFile = $tempDir . '/movepress_export_' . uniqid() . '.sql.gz';
 
         try {
             // Export source database
-            $io->text("Exporting source database...");
+            $this->io->text("Exporting source database...");
             if ($sourceSsh === null) {
                 if (!$dbService->exportLocal($sourceDb, $exportFile, true)) {
                     throw new \RuntimeException('Failed to export source database');
@@ -210,17 +209,17 @@ abstract class AbstractSyncCommand extends Command
             }
 
             // Search-replace on exported file
-            $this->performSearchReplace($exportFile, $sourceUrl, $destUrl, $io);
+            $this->performSearchReplace($exportFile, $sourceUrl, $destUrl);
 
             // Backup destination database
             if (!$noBackup) {
-                $io->text("Creating backup of destination database...");
+                $this->io->text("Creating backup of destination database...");
                 $backupPath = $dbService->backup($destDb, $destSsh);
-                $io->text("Backup created: {$backupPath}");
+                $this->io->text("Backup created: {$backupPath}");
             }
 
             // Import to destination database
-            $io->text("Importing to destination database...");
+            $this->io->text("Importing to destination database...");
             if ($destSsh === null) {
                 if (!$dbService->importLocal($destDb, $exportFile)) {
                     throw new \RuntimeException('Failed to import to destination database');
@@ -236,14 +235,14 @@ abstract class AbstractSyncCommand extends Command
 
         } catch (\Exception $e) {
             $this->cleanupTempFiles($exportFile);
-            $io->error($e->getMessage());
+            $this->io->error($e->getMessage());
             return false;
         }
     }
 
-    protected function performSearchReplace(string $exportFile, string $sourceUrl, string $destUrl, SymfonyStyle $io): void
+    protected function performSearchReplace(string $exportFile, string $sourceUrl, string $destUrl): void
     {
-        $io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
+        $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
         $decompressedFile = str_replace('.gz', '', $exportFile);
 
         // Decompress
@@ -312,20 +311,15 @@ abstract class AbstractSyncCommand extends Command
         return null;
     }
 
-    protected function validatePrerequisites(
-        array $sourceEnv,
-        array $destEnv,
-        array $flags,
-        SymfonyStyle $io,
-        bool $dryRun = false
-    ): bool {
-        $validator = new ValidationService();
-        return $validator->validatePrerequisites($sourceEnv, $destEnv, $flags, $io, $dryRun);
-    }
-
-    protected function confirmDestructiveOperation(SymfonyStyle $io, string $destination, array $flags): bool
+    protected function validatePrerequisites(): bool
     {
         $validator = new ValidationService();
-        return $validator->confirmDestructiveOperation($io, $destination, $flags);
+        return $validator->validatePrerequisites($this->sourceEnv, $this->destEnv, $this->flags, $this->io, $this->dryRun);
+    }
+
+    protected function confirmDestructiveOperation(string $destination): bool
+    {
+        $validator = new ValidationService();
+        return $validator->confirmDestructiveOperation($this->io, $destination, $this->flags);
     }
 }

@@ -17,8 +17,8 @@ class ValidationService
     ): bool {
         $io->section('Validating prerequisites');
 
-        // Check rsync availability for file operations
-        if ($flags['files'] || $flags['content'] || $flags['uploads']) {
+        // Check rsync availability for untracked file operations
+        if ($flags['untracked_files']) {
             if (!RsyncService::isAvailable()) {
                 $io->error('rsync is not available. Please install rsync to sync files.');
                 return false;
