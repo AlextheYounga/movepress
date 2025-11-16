@@ -5,10 +5,7 @@
     "private": true,
     "scripts": {
         "format": "prettier --write .",
-        "format:check": "prettier --check .",
-        "format:php": "prettier --write \"**/*.php\"",
-        "format:md": "prettier --write \"**/*.md\"",
-        "format:json": "prettier --write \"**/*.json\""
+        "format:check": "prettier --check ."
     },
     "devDependencies": {
         "@prettier/plugin-php": "^0.22.2",

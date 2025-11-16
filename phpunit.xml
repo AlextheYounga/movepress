@@ -5,8 +5,17 @@
          colors="true"
          cacheDirectory=".phpunit.cache">
     <testsuites>
-        <testsuite name="Movepress Test Suite">
-            <directory>tests</directory>
+        <testsuite name="Unit">
+            <directory>tests/Commands</directory>
+            <directory>tests/Config</directory>
+            <directory>tests/Services</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+            <exclude>tests/Integration/DockerIntegrationTest.php</exclude>
+        </testsuite>
+        <testsuite name="Docker">
+            <file>tests/Integration/DockerIntegrationTest.php</file>
         </testsuite>
     </testsuites>
     <source>
@@ -14,4 +23,9 @@
             <directory suffix=".php">src</directory>
         </include>
     </source>
+    <groups>
+        <exclude>
+            <group>docker</group>
+        </exclude>
+    </groups>
 </phpunit>

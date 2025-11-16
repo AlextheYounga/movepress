@@ -1,0 +1,8 @@
+# Ignore generated files
+ssh/
+local/wordpress/
+remote/wordpress/
+backups/
+
+# Ignore Docker volumes
+*.log

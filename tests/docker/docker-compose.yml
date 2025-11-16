@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+    # Local WordPress environment (source)
+    wordpress-local:
+        image: wordpress:latest
+        container_name: movepress-local
+        ports:
+            - '8080:80'
+        environment:
+            WORDPRESS_DB_HOST: mysql-local:3306
+            WORDPRESS_DB_NAME: wordpress_local
+            WORDPRESS_DB_USER: wordpress
+            WORDPRESS_DB_PASSWORD: wordpress
+        volumes:
+            - ./local/wordpress:/var/www/html
+            - ./local/entrypoint.sh:/usr/local/bin/custom-entrypoint.sh
+            - ../../build/movepress.phar:/usr/local/bin/movepress
+        networks:
+            - movepress-test
+        depends_on:
+            mysql-local:
+                condition: service_healthy
+        entrypoint: /usr/local/bin/custom-entrypoint.sh
+
+    # Local MySQL database
+    mysql-local:
+        image: mysql:8.0
+        container_name: movepress-mysql-local
+        ports:
+            - '3306:3306'
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: wordpress_local
+            MYSQL_USER: wordpress
+            MYSQL_PASSWORD: wordpress
+        networks:
+            - movepress-test
+        healthcheck:
+            test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-proot']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    # Remote WordPress environment (destination)
+    wordpress-remote:
+        build:
+            context: ./remote
+            dockerfile: Dockerfile
+        container_name: movepress-remote
+        ports:
+            - '8081:80'
+            - '2222:22'
+        environment:
+            WORDPRESS_DB_HOST: mysql-remote:3306
+            WORDPRESS_DB_NAME: wordpress_remote
+            WORDPRESS_DB_USER: wordpress
+            WORDPRESS_DB_PASSWORD: wordpress
+        volumes:
+            - ./remote/wordpress:/var/www/html
+            - ./remote/entrypoint.sh:/usr/local/bin/custom-entrypoint.sh
+            - ./ssh:/root/.ssh
+            - ../../build/movepress.phar:/usr/local/bin/movepress
+        networks:
+            - movepress-test
+        depends_on:
+            mysql-remote:
+                condition: service_healthy
+        entrypoint: /usr/local/bin/custom-entrypoint.sh
+
+    # Remote MySQL database
+    mysql-remote:
+        image: mysql:8.0
+        container_name: movepress-mysql-remote
+        ports:
+            - '3307:3306'
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: wordpress_remote
+            MYSQL_USER: wordpress
+            MYSQL_PASSWORD: wordpress
+        networks:
+            - movepress-test
+        healthcheck:
+            test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-proot']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+networks:
+    movepress-test:
+        driver: bridge

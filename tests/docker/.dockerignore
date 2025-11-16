@@ -1,0 +1,6 @@
+# Ignore generated and temporary files during Docker build
+wordpress/
+ssh/
+backups/
+*.log
+.git

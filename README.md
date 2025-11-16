@@ -270,6 +270,35 @@ movepress status
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Solutions to common problems
 - **[Migration from Wordmove](docs/MIGRATION.md)** - Step-by-step guide for Wordmove users
 
+## Development & Testing
+
+### Running Tests
+
+```bash
+# Run unit and integration tests (fast)
+./vendor/bin/phpunit
+
+# Run all tests including Docker integration (slower)
+./vendor/bin/phpunit --group=docker
+
+# Or run just Docker tests
+./vendor/bin/phpunit --testsuite=Docker
+```
+
+### Docker Test Environment
+
+A complete Docker-based integration testing environment spins up two WordPress environments (local and remote) and tests the full push/pull/backup workflow end-to-end.
+
+```bash
+# Via PHPUnit (recommended)
+./vendor/bin/phpunit --testsuite=Docker
+
+# Or via bash script
+cd tests/docker && bash run-tests.sh
+```
+
+See [tests/docker/README.md](tests/docker/README.md) for details.
+
 ## Why Movepress?
 
 ### Moving Beyond Wordmove
