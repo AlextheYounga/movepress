@@ -109,7 +109,7 @@ class RsyncServiceTest extends TestCase
             null
         );
         
-        $this->assertStringContainsString('--progress', $command);
+        $this->assertStringContainsString('--info=progress2', $command);
     }
 
     public function test_does_not_add_dry_run_flag_when_not_in_dry_run_mode(): void

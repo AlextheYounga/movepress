@@ -129,7 +129,7 @@ class RsyncService
         }
 
         if ($this->verbose) {
-            $options[] = '--progress';
+            $options[] = '--info=progress2';
         }
 
         // Add excludes

@@ -96,7 +96,6 @@
 - [x] Verify wp-cli is available
 - [x] Handle wp-cli errors gracefully
 - [x] Search-replace command integration
-- [ ] Support for network/multisite
 - [x] wp-cli operation tests
 
 #### Error Handling & Validation
@@ -107,10 +106,9 @@
 
 #### User Experience
 - [x] Confirmation prompts for destructive operations
-- [ ] Progress bars for long-running operations
+- [x] Progress bars for long-running operations
 - [x] Colored output for better readability
 - [x] Summary of what will be synced before execution
-- [ ] Estimated time/size calculations
 - [x] Better verbose output
 
 ### Additional Commands
@@ -119,8 +117,13 @@
 - [x] `movepress ssh` - Test SSH connectivity
 - [x] `movepress backup` - Create backups before operations
 
-### Advanced Features
-- [ ] Pre/post sync hooks (run custom scripts)
+### Testing
+- [ ] Integration tests (with real file operations)
+- [ ] Database operation tests
+- [ ] SSH connection mocking
+- [ ] wp-cli operation mocking
+- [ ] End-to-end tests
+- [ ] Performance tests
 
 ### Build & Distribution
 - [ ] Build PHAR with Box
@@ -136,15 +139,9 @@
 - [ ] Video tutorials
 - [ ] API documentation
 
-### Testing
-- [ ] Integration tests (with real file operations)
-- [ ] Database operation tests
-- [ ] SSH connection mocking
-- [ ] wp-cli operation mocking
-- [ ] End-to-end tests
-- [ ] Performance tests
 
 ## Maybes?
+- [ ] Pre/post sync hooks (run custom scripts)
 - [ ] Create release workflow
 - [ ] Distribute via Homebrew
 - [ ] Distribute via Packagist
