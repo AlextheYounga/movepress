@@ -313,13 +313,13 @@ abstract class AbstractSyncCommand extends Command
 
     protected function validatePrerequisites(): bool
     {
-        $validator = new ValidationService();
-        return $validator->validatePrerequisites($this->sourceEnv, $this->destEnv, $this->flags, $this->io, $this->dryRun);
+        $validator = new ValidationService($this->io);
+        return $validator->validatePrerequisites($this->sourceEnv, $this->destEnv, $this->flags, $this->dryRun);
     }
 
     protected function confirmDestructiveOperation(string $destination): bool
     {
-        $validator = new ValidationService();
-        return $validator->confirmDestructiveOperation($this->io, $destination, $this->flags);
+        $validator = new ValidationService($this->io);
+        return $validator->confirmDestructiveOperation($destination, $this->flags);
     }
 }

@@ -8,84 +8,90 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 class ValidationService
 {
+    private SymfonyStyle $io;
+
+    public function __construct(SymfonyStyle $io)
+    {
+        $this->io = $io;
+    }
+
     public function validatePrerequisites(
         array $sourceEnv,
         array $destEnv,
         array $flags,
-        SymfonyStyle $io,
         bool $dryRun = false
     ): bool {
-        $io->section('Validating prerequisites');
+        $this->io->section('Validating prerequisites');
 
         // Check rsync availability for untracked file operations
         if ($flags['untracked_files']) {
             if (!RsyncService::isAvailable()) {
-                $io->error('rsync is not available. Please install rsync to sync files.');
+                $this->io->error('rsync is not available. Please install rsync to sync files.');
                 return false;
             }
-            $io->writeln('✓ rsync is available');
+            $this->io->writeln('✓ rsync is available');
         }
 
         // Check database tools for database operations
         if ($flags['db']) {
             if (!DatabaseService::isMysqldumpAvailable()) {
-                $io->error('mysqldump is not available. Please install MySQL client tools.');
+                $this->io->error('mysqldump is not available. Please install MySQL client tools.');
                 return false;
             }
-            $io->writeln('✓ mysqldump is available');
+            $this->io->writeln('✓ mysqldump is available');
 
             if (!DatabaseService::isMysqlAvailable()) {
-                $io->error('mysql is not available. Please install MySQL client tools.');
+                $this->io->error('mysql is not available. Please install MySQL client tools.');
                 return false;
             }
-            $io->writeln('✓ mysql is available');
-            $io->writeln('✓ wp-cli is available (bundled)');
+            $this->io->writeln('✓ mysql is available');
+            $this->io->writeln('✓ wp-cli is available (bundled)');
         }
 
         // Test SSH connections (skip in dry-run mode)
         if (!$dryRun) {
-            if (!$this->testSshConnection($sourceEnv, 'source', $io)) {
+            if (!$this->testSshConnection($sourceEnv, 'source')) {
                 return false;
             }
 
-            if (!$this->testSshConnection($destEnv, 'destination', $io)) {
+            if (!$this->testSshConnection($destEnv, 'destination')) {
                 return false;
             }
         }
 
-        $io->success('All prerequisites validated');
+        $this->io->success('All prerequisites validated');
         return true;
     }
 
-    public function confirmDestructiveOperation(SymfonyStyle $io, string $destination, array $flags): bool
+    public function confirmDestructiveOperation(string $destination, array $flags): bool
     {
         if ($flags['db']) {
-            $io->warning([
+            $this->io->warning([
                 'This operation will REPLACE the database in: ' . $destination,
                 'All existing data in the destination database will be lost.',
             ]);
 
-            return $io->confirm('Do you want to continue?', false);
+            return $this->io->confirm('Do you want to continue?', false);
         }
 
         return true;
     }
 
-    private function testSshConnection(array $env, string $label, SymfonyStyle $io): bool
+    private function testSshConnection(array $env, string $label): bool
     {
         if (!isset($env['ssh'])) {
             return true;
         }
 
-        $io->write("Testing {$label} SSH connection... ");
+        $this->io->write("Testing {$label} SSH connection... ");
         
         $sshService = new SshService($env['ssh']);
         if (!$sshService->testConnection()) {
-            $io->error("Failed to connect to {$label} via SSH. Please check your SSH configuration.");
+            $this->io->error("Failed to connect to {$label} via SSH. Please check your SSH configuration.");
             return false;
         }
         
-        $io->writeln('✓');
+        $this->io->writeln('✓');
         return true;
     }
 }

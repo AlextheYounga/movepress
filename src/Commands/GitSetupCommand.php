@@ -123,12 +123,10 @@ class GitSetupCommand extends Command
 
     private function getRepoPath(array $env, string $wordpressPath): string
     {
-        // Check if explicitly configured
         if (isset($env['git']['repo_path'])) {
             return $env['git']['repo_path'];
         }
 
-        // Generate default path based on WordPress path
         $siteName = basename($wordpressPath);
         return "/var/repos/{$siteName}.git";
     }
@@ -159,18 +157,14 @@ class GitSetupCommand extends Command
     private function displayNextSteps(SymfonyStyle $io, string $envName): void
     {
         $io->section('Next Steps');
-
-        $io->writeln([
-            "Git deployment is now configured for <info>{$envName}</info>.",
-            '',
-            'To deploy your code, run:',
-            "  <comment>git push {$envName} master</comment>",
-            '',
-            'Or for a different branch:',
-            "  <comment>git push {$envName} main</comment>",
-            '',
-            'To sync database and untracked files (uploads, etc.), use:',
-            "  <comment>movepress push local {$envName} --db --untracked-files</comment>",
-        ]);
+        $io->writeln("Git deployment is now configured for <info>{$envName}</info>.");
+        $io->newLine();
+        
+        $io->writeln('To deploy your code, run:');
+        $io->writeln("  <comment>git push {$envName} master</comment>");
+        $io->newLine();
+        
+        $io->writeln('To sync database and untracked files (uploads, etc.), use:');
+        $io->writeln("  <comment>movepress push local {$envName} --db --untracked-files</comment>");
     }
 }
