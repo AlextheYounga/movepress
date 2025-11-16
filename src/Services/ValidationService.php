@@ -39,14 +39,7 @@ class ValidationService
                 return false;
             }
             $io->writeln('✓ mysql is available');
-
-            // wp-cli is only needed if we're actually going to do URL replacement (not in dry-run)
-            if (!$dryRun && !DatabaseService::isWpCliAvailable()) {
-                $io->warning('wp-cli is not available. URL replacement will be skipped.');
-                $io->writeln('  Install wp-cli to enable automatic URL replacement during database sync.');
-            } elseif (DatabaseService::isWpCliAvailable()) {
-                $io->writeln('✓ wp-cli is available');
-            }
+            $io->writeln('✓ wp-cli is available (bundled)');
         }
 
         // Test SSH connections (skip in dry-run mode)

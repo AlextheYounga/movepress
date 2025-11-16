@@ -54,20 +54,18 @@ class DatabaseServiceTest extends TestCase
         $this->assertTrue($verboseProp->getValue($service));
     }
 
-    public function testFindWpCliBinaryReturnsVendorPath(): void
+    public function testGetWpCliBinaryReturnsVendorPath(): void
     {
         $service = new DatabaseService($this->output);
 
         $reflection = new ReflectionClass($service);
-        $method = $reflection->getMethod('findWpCliBinary');
+        $method = $reflection->getMethod('getWpCliBinary');
         $method->setAccessible(true);
 
         $binary = $method->invoke($service);
 
-        // Should return either vendor path or 'wp'
-        $this->assertTrue(
-            str_contains($binary, 'vendor/bin/wp') || $binary === 'wp'
-        );
+        // Should return PHP + vendor boot-fs.php
+        $this->assertStringContainsString('vendor/wp-cli/wp-cli/php/boot-fs.php', $binary);
     }
 
     public function testIsMysqldumpAvailable(): void
@@ -81,12 +79,6 @@ class DatabaseServiceTest extends TestCase
     public function testIsMysqlAvailable(): void
     {
         $result = DatabaseService::isMysqlAvailable();
-        $this->assertIsBool($result);
-    }
-
-    public function testIsWpCliAvailable(): void
-    {
-        $result = DatabaseService::isWpCliAvailable();
         $this->assertIsBool($result);
     }
 }

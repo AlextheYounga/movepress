@@ -3,18 +3,21 @@
     "output": "build/movepress.phar",
     "chmod": "0755",
     "directories": [
-        "src"
+        "src",
+        "vendor/symfony/console/Resources"
     ],
     "files": [
-        "composer.json",
-        "vendor/bin/wp"
+        "composer.json"
     ],
     "finder": [
         {
-            "name": "*.php",
+            "name": ["*.php", "*.txt"],
             "exclude": [
                 "tests",
                 "Tests"
+            ],
+            "notPath": [
+                "#humbug/php-scoper#"
             ],
             "in": "vendor"
         }

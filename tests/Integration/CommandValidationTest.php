@@ -62,16 +62,15 @@ class CommandValidationTest extends TestCase
 
     public function testWpCliAcceptsSearchReplaceCommand(): void
     {
-        // Check for bundled wp-cli first, then system wp
-        $bundledWp = dirname(__DIR__, 2) . '/vendor/bin/wp';
-        $wpCommand = file_exists($bundledWp) ? $bundledWp : 'wp';
+        // Use bundled wp-cli only
+        $bundledBootstrap = dirname(__DIR__, 2) . '/vendor/wp-cli/wp-cli/php/boot-fs.php';
         
-        if (!file_exists($bundledWp) && !$this->isCommandAvailable('wp')) {
-            $this->markTestSkipped('wp-cli not available');
+        if (!file_exists($bundledBootstrap)) {
+            $this->markTestSkipped('Bundled wp-cli not available');
         }
 
         // Check that search-replace command exists
-        $process = Process::fromShellCommandline("{$wpCommand} help search-replace 2>&1");
+        $process = new Process([PHP_BINARY, $bundledBootstrap, 'help', 'search-replace']);
         $process->run();
         
         $this->assertTrue(

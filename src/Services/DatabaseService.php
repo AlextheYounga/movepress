@@ -20,7 +20,7 @@ class DatabaseService
     {
         $this->output = $output;
         $this->verbose = $verbose;
-        $this->wpCliBinary = $this->findWpCliBinary();
+        $this->wpCliBinary = $this->getWpCliBinary();
         $this->commandBuilder = new DatabaseCommandBuilder();
         $this->remoteTransfer = new RemoteTransferService($output, $verbose);
     }
@@ -215,16 +215,13 @@ class DatabaseService
     }
 
     /**
-     * Find wp-cli binary (bundled or system)
+     * Get wp-cli binary path (always bundled)
      */
-    private function findWpCliBinary(): string
+    private function getWpCliBinary(): string
     {
-        $bundledPath = dirname(__DIR__, 2) . '/vendor/bin/wp';
-        if (file_exists($bundledPath)) {
-            return $bundledPath;
-        }
-
-        return 'wp';
+        // Use bundled wp-cli PHP entry point (works in PHAR and dev)
+        $bundledBootstrap = dirname(__DIR__, 2) . '/vendor/wp-cli/wp-cli/php/boot-fs.php';
+        return PHP_BINARY . ' ' . escapeshellarg($bundledBootstrap);
     }
 
     /**
@@ -247,13 +244,4 @@ class DatabaseService
         return $process->isSuccessful();
     }
 
-    /**
-     * Check if wp-cli is available
-     */
-    public static function isWpCliAvailable(): bool
-    {
-        $process = Process::fromShellCommandline('which wp');
-        $process->run();
-        return $process->isSuccessful();
-    }
 }
