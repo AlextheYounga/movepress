@@ -78,10 +78,10 @@ cd tests/docker
 bash setup-ssh.sh
 
 # Start containers
-docker-compose up -d
+docker compose up -d
 
 # Watch logs
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ### Access the environments
@@ -175,10 +175,10 @@ Both environments are pre-populated with:
 ```bash
 # Stop and remove containers
 cd tests/docker
-docker-compose down
+docker compose down
 
 # Remove all data (including volumes)
-docker-compose down -v
+docker compose down -v
 
 # Remove SSH keys (optional)
 rm -rf ssh/

@@ -46,12 +46,12 @@ class DockerIntegrationTest extends TestCase
         // Generate SSH keys
         self::executeCommand('bash setup-ssh.sh', self::$dockerDir);
 
-        // Stop any existing containers
-        self::executeCommand('docker-compose down -v 2>/dev/null || true', self::$dockerDir);
+        // Stop and remove any existing containers
+        self::executeCommand('docker compose down -v 2>/dev/null || true', self::$dockerDir);
 
         // Build and start containers
-        self::executeCommand('docker-compose build --quiet', self::$dockerDir);
-        self::executeCommand('docker-compose up -d', self::$dockerDir);
+        self::executeCommand('docker compose build --quiet', self::$dockerDir);
+        self::executeCommand('docker compose up -d', self::$dockerDir);
 
         // Wait for containers to be ready
         echo "⏳ Waiting for WordPress installations to complete...\n";
@@ -65,7 +65,7 @@ class DockerIntegrationTest extends TestCase
     {
         if (self::$environmentReady) {
             echo "\n🧹 Cleaning up Docker environment...\n";
-            self::executeCommand('docker-compose down -v', self::$dockerDir);
+            self::executeCommand('docker compose down -v', self::$dockerDir);
             echo "✅ Cleanup complete\n";
         }
     }

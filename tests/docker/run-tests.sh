@@ -34,13 +34,13 @@ bash "${SCRIPT_DIR}/setup-ssh.sh"
 echo ""
 echo -e "${YELLOW}Cleaning up existing containers...${NC}"
 cd "$SCRIPT_DIR"
-docker-compose down -v 2>/dev/null || true
+docker compose down -v 2>/dev/null || true
 
 # Build and start containers
 echo ""
 echo -e "${YELLOW}Building and starting containers...${NC}"
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 
 # Wait for containers to be healthy
 echo ""
@@ -183,5 +183,5 @@ echo "  • Access remote WordPress: http://localhost:8081 (admin/admin)"
 echo "  • SSH to remote: ssh -i tests/docker/ssh/id_rsa -p 2222 root@localhost"
 echo ""
 echo "To stop the test environment:"
-echo "  cd tests/docker && docker-compose down"
+echo "  cd tests/docker && docker compose down"
 echo ""
