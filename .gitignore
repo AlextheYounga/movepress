@@ -5,4 +5,5 @@ composer.lock
 .env
 movefile.yml
 *.phar
+.phpunit.cache/
 *.DS_Store

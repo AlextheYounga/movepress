@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Movepress;
 
+use Movepress\Commands\InitCommand;
+use Movepress\Commands\PullCommand;
+use Movepress\Commands\PushCommand;
 use Symfony\Component\Console\Application as ConsoleApplication;
 
 class Application extends ConsoleApplication
@@ -20,9 +23,8 @@ class Application extends ConsoleApplication
 
     private function registerCommands(): void
     {
-        // Commands will be registered here
-        // $this->add(new Commands\PushCommand());
-        // $this->add(new Commands\PullCommand());
-        // $this->add(new Commands\InitCommand());
+        $this->add(new PushCommand());
+        $this->add(new PullCommand());
+        $this->add(new InitCommand());
     }
 }
