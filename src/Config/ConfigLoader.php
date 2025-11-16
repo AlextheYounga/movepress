@@ -13,12 +13,12 @@ class ConfigLoader
     private array $config = [];
     private string $workingDir;
 
-    public function __construct(string $workingDir = null)
+    public function __construct(?string $workingDir = null)
     {
         $this->workingDir = $workingDir ?? getcwd();
     }
 
-    public function load(string $configPath = null): array
+    public function load(?string $configPath = null): array
     {
         $configPath = $configPath ?? $this->workingDir . '/movefile.yml';
 

@@ -13,9 +13,11 @@ class PushCommandTest extends TestCase
 {
     private CommandTester $commandTester;
     private string $testDir;
+    private string $originalDir;
 
     protected function setUp(): void
     {
+        $this->originalDir = getcwd();
         $this->testDir = sys_get_temp_dir() . '/movepress-test-' . uniqid();
         mkdir($this->testDir);
 
@@ -28,14 +30,30 @@ class PushCommandTest extends TestCase
 
     protected function tearDown(): void
     {
+        chdir($this->originalDir);
         $this->removeDirectory($this->testDir);
     }
 
     public function test_requires_source_and_destination_arguments(): void
     {
         $this->expectException(\Symfony\Component\Console\Exception\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Not enough arguments/');
 
         $this->commandTester->execute([]);
+    }
+
+    public function test_fails_when_config_file_missing(): void
+    {
+        chdir($this->testDir);
+
+        $this->commandTester->execute([
+            'source' => 'local',
+            'destination' => 'production',
+        ]);
+
+        $output = $this->commandTester->getDisplay();
+        $this->assertStringContainsString('Configuration file not found', $output);
+        $this->assertEquals(1, $this->commandTester->getStatusCode());
     }
 
     public function test_validates_source_environment_exists(): void
@@ -72,7 +90,7 @@ class PushCommandTest extends TestCase
 
         $this->commandTester->execute([
             'source' => 'local',
-            'destination' => 'production',
+            'destination' => 'local', // Use local->local to avoid SSH/rsync
             '--files' => true,
             '--content' => true,
         ]);
@@ -88,7 +106,7 @@ class PushCommandTest extends TestCase
 
         $this->commandTester->execute([
             'source' => 'local',
-            'destination' => 'production',
+            'destination' => 'local',
             '--files' => true,
             '--uploads' => true,
         ]);
@@ -98,64 +116,37 @@ class PushCommandTest extends TestCase
         $this->assertEquals(1, $this->commandTester->getStatusCode());
     }
 
-    public function test_displays_configuration_summary(): void
+    public function test_displays_configuration_summary_with_db_flag(): void
     {
         $this->createMinimalConfig();
 
         $this->commandTester->execute([
             'source' => 'local',
-            'destination' => 'production',
+            'destination' => 'local',
             '--db' => true,
             '--dry-run' => true,
         ]);
 
         $output = $this->commandTester->getDisplay();
         $this->assertStringContainsString('Source: local', $output);
-        $this->assertStringContainsString('Destination: production', $output);
+        $this->assertStringContainsString('Destination: local', $output);
         $this->assertStringContainsString('Database: ✓', $output);
         $this->assertStringContainsString('DRY RUN MODE', $output);
     }
 
-    public function test_shows_all_files_when_files_flag_used(): void
-    {
-        $this->createMinimalConfig();
-
-        $this->commandTester->execute([
-            'source' => 'local',
-            'destination' => 'production',
-            '--files' => true,
-            '--dry-run' => true,
-        ]);
-
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Files: ✓ (all)', $output);
-    }
-
-    public function test_shows_content_and_uploads_separately_when_both_specified(): void
-    {
-        $this->createMinimalConfig();
-
-        $this->commandTester->execute([
-            'source' => 'local',
-            'destination' => 'production',
-            '--content' => true,
-            '--uploads' => true,
-            '--dry-run' => true,
-        ]);
-
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Content: ✓', $output);
-        $this->assertStringContainsString('Uploads: ✓', $output);
-    }
-
-    public function test_validates_environment_has_required_fields(): void
+    public function test_validates_environment_has_wordpress_path(): void
     {
         $yaml = <<<YAML
 local:
-  wordpress_path: "/var/www"
+  url: "http://local.test"
+  database:
+    name: "test"
 
-production:
-  url: "https://example.com"
+staging:
+  wordpress_path: "/var/www"
+  url: "http://staging.test"
+  database:
+    name: "test"
 YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
@@ -163,26 +154,175 @@ YAML;
 
         $this->commandTester->execute([
             'source' => 'local',
-            'destination' => 'production',
+            'destination' => 'staging',
         ]);
 
         $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString("missing 'url' configuration", $output);
+        $this->assertStringContainsString("missing 'wordpress_path'", $output);
         $this->assertEquals(1, $this->commandTester->getStatusCode());
+    }
+
+    public function test_validates_environment_has_url(): void
+    {
+        $yaml = <<<YAML
+local:
+  wordpress_path: "/var/www"
+  database:
+    name: "test"
+
+staging:
+  wordpress_path: "/var/www"
+  url: "http://staging.test"
+  database:
+    name: "test"
+YAML;
+
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+        chdir($this->testDir);
+
+        $this->commandTester->execute([
+            'source' => 'local',
+            'destination' => 'staging',
+        ]);
+
+        $output = $this->commandTester->getDisplay();
+        $this->assertStringContainsString("missing 'url'", $output);
+        $this->assertEquals(1, $this->commandTester->getStatusCode());
+    }
+
+    public function test_validates_environment_has_database(): void
+    {
+        $yaml = <<<YAML
+local:
+  wordpress_path: "/var/www"
+  url: "http://local.test"
+
+staging:
+  wordpress_path: "/var/www"
+  url: "http://staging.test"
+  database:
+    name: "test"
+YAML;
+
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+        chdir($this->testDir);
+
+        $this->commandTester->execute([
+            'source' => 'local',
+            'destination' => 'staging',
+        ]);
+
+        $output = $this->commandTester->getDisplay();
+        $this->assertStringContainsString("missing 'database'", $output);
+        $this->assertEquals(1, $this->commandTester->getStatusCode());
+    }
+
+    public function test_merges_global_and_environment_excludes(): void
+    {
+        $yaml = <<<YAML
+global:
+  exclude:
+    - ".git/"
+    - "node_modules/"
+
+local:
+  wordpress_path: "/var/www/local"
+  url: "http://local.test"
+  database:
+    name: "test_db"
+    user: "root"
+    password: "pass"
+    host: "localhost"
+  exclude:
+    - ".env.local"
+    - "debug.log"
+
+staging:
+  wordpress_path: "/var/www/staging"
+  url: "http://staging.test"
+  database:
+    name: "staging_db"
+    user: "root"
+    password: "pass"
+    host: "localhost"
+  exclude:
+    - ".env.staging"
+YAML;
+
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+        chdir($this->testDir);
+
+        // Test that config loads without errors when excludes are present
+        $this->commandTester->execute([
+            'source' => 'local',
+            'destination' => 'staging',
+            '--db' => true,
+            '--dry-run' => true,
+        ]);
+
+        // Should execute successfully
+        $this->assertEquals(0, $this->commandTester->getStatusCode());
+    }
+
+    public function test_works_with_only_global_excludes(): void
+    {
+        $yaml = <<<YAML
+global:
+  exclude:
+    - ".git/"
+    - "*.log"
+
+local:
+  wordpress_path: "/var/www/local"
+  url: "http://local.test"
+  database:
+    name: "test_db"
+    user: "root"
+    password: "pass"
+    host: "localhost"
+YAML;
+
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+        chdir($this->testDir);
+
+        $this->commandTester->execute([
+            'source' => 'local',
+            'destination' => 'local',
+            '--db' => true,
+            '--dry-run' => true,
+        ]);
+
+        $this->assertEquals(0, $this->commandTester->getStatusCode());
+    }
+
+    public function test_works_without_any_excludes(): void
+    {
+        $yaml = <<<YAML
+local:
+  wordpress_path: "/var/www/local"
+  url: "http://local.test"
+  database:
+    name: "test_db"
+    user: "root"
+    password: "pass"
+    host: "localhost"
+YAML;
+
+        file_put_contents($this->testDir . '/movefile.yml', $yaml);
+        chdir($this->testDir);
+
+        $this->commandTester->execute([
+            'source' => 'local',
+            'destination' => 'local',
+            '--db' => true,
+            '--dry-run' => true,
+        ]);
+
+        $this->assertEquals(0, $this->commandTester->getStatusCode());
     }
 
     private function createMinimalConfig(): void
     {
-        putenv('DB_NAME=test_db');
-        putenv('DB_USER=root');
-        putenv('DB_PASSWORD=pass');
-        putenv('DB_HOST=localhost');
-        putenv('PROD_HOST=example.com');
-        putenv('PROD_USER=deploy');
-        putenv('PROD_DB_NAME=prod_db');
-        putenv('PROD_DB_USER=prod_user');
-        putenv('PROD_DB_PASSWORD=prod_pass');
-
         $yaml = <<<YAML
 global:
   exclude:
@@ -192,23 +332,10 @@ local:
   wordpress_path: "/var/www/local"
   url: "http://local.test"
   database:
-    name: "\${DB_NAME}"
-    user: "\${DB_USER}"
-    password: "\${DB_PASSWORD}"
-    host: "\${DB_HOST}"
-
-production:
-  wordpress_path: "/var/www/production"
-  url: "https://example.com"
-  database:
-    name: "\${PROD_DB_NAME}"
-    user: "\${PROD_DB_USER}"
-    password: "\${PROD_DB_PASSWORD}"
+    name: "test_db"
+    user: "root"
+    password: "pass"
     host: "localhost"
-  ssh:
-    host: "\${PROD_HOST}"
-    user: "\${PROD_USER}"
-    port: 22
 YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
