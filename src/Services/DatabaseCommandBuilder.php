@@ -64,24 +64,6 @@ class DatabaseCommandBuilder
     }
 
     /**
-     * Build wp-cli search-replace command
-     */
-    public function buildSearchReplaceCommand(
-        string $wpCliBinary,
-        string $wordpressPath,
-        string $oldUrl,
-        string $newUrl,
-    ): string {
-        return sprintf(
-            '%s search-replace %s %s --path=%s --skip-columns=guid --quiet',
-            escapeshellarg($wpCliBinary),
-            escapeshellarg($oldUrl),
-            escapeshellarg($newUrl),
-            escapeshellarg($wordpressPath),
-        );
-    }
-
-    /**
      * Validate database configuration has required fields
      */
     public function validateDatabaseConfig(array $dbConfig): void

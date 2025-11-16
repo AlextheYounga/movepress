@@ -12,7 +12,6 @@ class DatabaseService
 {
     private OutputInterface $output;
     private bool $verbose;
-    private string $wpCliBinary;
     private DatabaseCommandBuilder $commandBuilder;
     private RemoteTransferService $remoteTransfer;
 
@@ -20,7 +19,6 @@ class DatabaseService
     {
         $this->output = $output;
         $this->verbose = $verbose;
-        $this->wpCliBinary = $this->getWpCliBinary();
         $this->commandBuilder = new DatabaseCommandBuilder();
         $this->remoteTransfer = new RemoteTransferService($output, $verbose);
     }
@@ -162,7 +160,7 @@ class DatabaseService
     }
 
     /**
-     * Perform search-replace using wp-cli
+     * Perform search-replace using wp-cli as a library
      */
     public function searchReplace(
         string $wordpressPath,
@@ -170,86 +168,140 @@ class DatabaseService
         string $newUrl,
         ?SshService $sshService = null,
     ): bool {
-        $command = $this->commandBuilder->buildSearchReplaceCommand(
-            $this->wpCliBinary,
-            $wordpressPath,
-            $oldUrl,
-            $newUrl,
-        );
-
-        if ($sshService !== null) {
-            if ($this->verbose) {
-                $this->output->writeln("Search-replace: {$oldUrl} → {$newUrl}");
-            }
-
-            // For remote execution, we need to transfer movepress PHAR and execute bundled wp-cli from there
-            // This ensures we use our bundled wp-cli version, not a global installation
-            return $this->executeRemoteWpCli($sshService, $wordpressPath, $oldUrl, $newUrl);
-        }
-
         if ($this->verbose) {
             $this->output->writeln("Search-replace: {$oldUrl} → {$newUrl}");
-            $this->output->writeln("Executing: {$command}");
         }
 
-        return $this->executeCommand($command);
+        if ($sshService !== null) {
+            return $this->executeRemoteSearchReplace($sshService, $wordpressPath, $oldUrl, $newUrl);
+        }
+
+        return $this->executeLocalSearchReplace($wordpressPath, $oldUrl, $newUrl);
     }
 
     /**
-     * Execute bundled wp-cli on remote server by temporarily transferring movepress PHAR
+     * Execute search-replace locally using wp-cli as a library
      */
-    private function executeRemoteWpCli(
+    private function executeLocalSearchReplace(string $wordpressPath, string $oldUrl, string $newUrl): bool
+    {
+        try {
+            // Load wp-cli classes from bundled vendor
+            $vendorPath = dirname(__DIR__, 2) . '/vendor';
+            require_once $vendorPath . '/autoload.php';
+
+            // WordPress is already running, just instantiate and call the command
+            $searchReplace = new \Search_Replace_Command();
+            $searchReplace->__invoke(
+                [$oldUrl, $newUrl],
+                [
+                    'skip-columns' => 'guid',
+                    'quiet' => true,
+                ],
+            );
+
+            return true;
+        } catch (\Exception $e) {
+            $this->output->writeln('<error>Search-replace failed: ' . $e->getMessage() . '</error>');
+            return false;
+        }
+    }
+
+    /**
+     * Execute search-replace on remote server using wp-cli as a library
+     */
+    private function executeRemoteSearchReplace(
         SshService $sshService,
         string $wordpressPath,
         string $oldUrl,
         string $newUrl,
     ): bool {
-        // Get the movepress PHAR path (Phar::running() returns phar:// path or empty string)
-        $pharPath = \Phar::running(false);
-
-        if (empty($pharPath)) {
-            // Running in dev mode - need to find the actual PHAR or fail gracefully
-            throw new RuntimeException(
-                'Cannot execute remote wp-cli in development mode. ' . 'Build the PHAR with: ./vendor/bin/box compile',
-            );
-        }
-
-        // Transfer movepress PHAR to WordPress root (temporary)
-        $remotePhar = rtrim($wordpressPath, '/') . '/movepress.phar';
+        // Generate PHP script that uses wp-cli as a library
+        // WordPress is already running on the remote server
+        $script = $this->generateSearchReplaceScript($wordpressPath, $oldUrl, $newUrl);
+        $remoteTempScript = rtrim($wordpressPath, '/') . '/movepress-search-replace-' . uniqid() . '.php';
 
         if ($this->verbose) {
-            $this->output->writeln('Transferring movepress PHAR to remote WordPress root for wp-cli execution...');
+            $this->output->writeln('Transferring search-replace script to remote...');
         }
 
-        if (!$this->remoteTransfer->uploadFile($sshService, $pharPath, $remotePhar)) {
-            throw new RuntimeException('Failed to transfer movepress PHAR to remote server');
+        // Create temporary script file locally
+        $localTempScript = sys_get_temp_dir() . '/movepress-search-replace-' . uniqid() . '.php';
+        file_put_contents($localTempScript, $script);
+
+        // Transfer script to remote
+        if (!$this->remoteTransfer->uploadFile($sshService, $localTempScript, $remoteTempScript)) {
+            unlink($localTempScript);
+            throw new RuntimeException('Failed to transfer search-replace script to remote server');
         }
 
-        // Build command to execute bundled wp-cli using our runner script
-        // The runner script bootstraps WordPress and wp-cli from within the PHAR
-        $runnerPath = sprintf('phar://%s/src/wp-cli-runner.php', $remotePhar);
-        $command = sprintf(
-            'php %s %s search-replace %s %s --path=%s --skip-columns=guid --quiet',
-            escapeshellarg($runnerPath),
-            escapeshellarg($wordpressPath),
-            escapeshellarg($oldUrl),
-            escapeshellarg($newUrl),
-            escapeshellarg($wordpressPath),
-        );
+        unlink($localTempScript);
 
+        // Execute the script
         if ($this->verbose) {
             $this->output->writeln('Executing wp-cli search-replace on remote...');
         }
 
+        $command = sprintf('cd %s && php %s', escapeshellarg($wordpressPath), escapeshellarg($remoteTempScript));
         $success = $this->remoteTransfer->executeRemoteCommand($sshService, $command);
 
-        // Clean up remote PHAR
+        // Clean up remote script
         if ($this->verbose) {
-            $this->output->writeln('Cleaning up temporary PHAR on remote...');
+            $this->output->writeln('Cleaning up temporary script on remote...');
         }
-        $this->remoteTransfer->executeRemoteCommand($sshService, "rm -f {$remotePhar}");
+        $this->remoteTransfer->executeRemoteCommand($sshService, "rm -f {$remoteTempScript}");
 
         return $success;
+    }
+
+    /**
+     * Generate PHP script for remote search-replace execution
+     */
+    private function generateSearchReplaceScript(string $wordpressPath, string $oldUrl, string $newUrl): string
+    {
+        $oldUrlEscaped = addslashes($oldUrl);
+        $newUrlEscaped = addslashes($newUrl);
+        $wordpressPathEscaped = addslashes($wordpressPath);
+
+        $script = "<?php\n";
+        $script .= "/**\n";
+        $script .= " * Movepress search-replace script\n";
+        $script .= " * WordPress is already running, we just use wp-cli as a library\n";
+        $script .= " */\n\n";
+        $script .= "// Find vendor autoloader\n";
+        $script .= "\$vendorPaths = [\n";
+        $script .= "    '{$wordpressPathEscaped}/vendor/autoload.php',\n";
+        $script .= "    '{$wordpressPathEscaped}/../vendor/autoload.php',\n";
+        $script .= "    '{$wordpressPathEscaped}/wp-content/vendor/autoload.php',\n";
+        $script .= "];\n\n";
+        $script .= "\$autoloaderFound = false;\n";
+        $script .= "foreach (\$vendorPaths as \$vendorPath) {\n";
+        $script .= "    if (file_exists(\$vendorPath)) {\n";
+        $script .= "        require_once \$vendorPath;\n";
+        $script .= "        \$autoloaderFound = true;\n";
+        $script .= "        break;\n";
+        $script .= "    }\n";
+        $script .= "}\n\n";
+        $script .= "if (!\$autoloaderFound) {\n";
+        $script .= "    fwrite(STDERR, \"Error: Could not find vendor autoloader\\n\");\n";
+        $script .= "    exit(1);\n";
+        $script .= "}\n\n";
+        $script .= "try {\n";
+        $script .= "    // WordPress is already running, just use wp-cli classes\n";
+        $script .= "    \$searchReplace = new Search_Replace_Command();\n";
+        $script .= "    \$searchReplace->__invoke(\n";
+        $script .= "        ['{$oldUrlEscaped}', '{$newUrlEscaped}'],\n";
+        $script .= "        [\n";
+        $script .= "            'skip-columns' => 'guid',\n";
+        $script .= "            'quiet' => true,\n";
+        $script .= "        ]\n";
+        $script .= "    );\n";
+        $script .= "    exit(0);\n";
+        $script .= "} catch (Exception \$e) {\n";
+        $script .= "    fwrite(STDERR, 'Error: ' . \$e->getMessage() . \"\\n\");\n";
+        $script .= "    exit(1);\n";
+        $script .= "}\n";
+
+        return $script;
     }
 
     /**
@@ -271,16 +323,6 @@ class DatabaseService
         }
 
         return true;
-    }
-
-    /**
-     * Get wp-cli binary path (always bundled)
-     */
-    private function getWpCliBinary(): string
-    {
-        // Use bundled wp-cli PHP entry point (works in PHAR and dev)
-        $bundledBootstrap = dirname(__DIR__, 2) . '/vendor/wp-cli/wp-cli/php/boot-fs.php';
-        return PHP_BINARY . ' ' . escapeshellarg($bundledBootstrap);
     }
 
     /**

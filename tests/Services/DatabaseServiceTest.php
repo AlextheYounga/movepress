@@ -54,20 +54,6 @@ class DatabaseServiceTest extends TestCase
         $this->assertTrue($verboseProp->getValue($service));
     }
 
-    public function testGetWpCliBinaryReturnsVendorPath(): void
-    {
-        $service = new DatabaseService($this->output);
-
-        $reflection = new ReflectionClass($service);
-        $method = $reflection->getMethod('getWpCliBinary');
-        $method->setAccessible(true);
-
-        $binary = $method->invoke($service);
-
-        // Should return PHP + vendor boot-fs.php
-        $this->assertStringContainsString('vendor/wp-cli/wp-cli/php/boot-fs.php', $binary);
-    }
-
     public function testIsMysqldumpAvailable(): void
     {
         // This test just verifies the method runs without error

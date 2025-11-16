@@ -43,14 +43,16 @@ Agents should reference this before making any design or implementation decision
 
 ## WP-CLI Integration (CRITICAL)
 
-**NEVER use global `wp` command for movepress operations.** Movepress bundles wp-cli and MUST use the bundled version exclusively.
+**NEVER use global `wp` command or call wp-cli as an external command.** Movepress bundles wp-cli and uses it as a PHP library.
 
-- ✅ **Correct:** Use bundled wp-cli from movepress PHAR (via runner script that bootstraps WP + wp-cli)
-- ❌ **Wrong:** Call external `wp` command or system-installed wp-cli for movepress operations
-- **Why:** We control the wp-cli version, ensure consistency, and eliminate external dependencies
-- **Local execution:** Use `getWpCliBinary()` which points to `vendor/wp-cli/wp-cli/php/boot-fs.php`
-- **Remote execution:** Transfer movepress PHAR to remote WordPress root, execute wp-cli-runner.php from within PHAR
-- **Never assume:** Do not assume remote servers have wp-cli installed globally
+- ✅ **Correct:** Load WordPress, require bundled wp-cli classes, call methods directly (e.g., `new Search_Replace_Command()`)
+- ❌ **Wrong:** Execute `wp` command, call `php boot-fs.php`, or run wp-cli as external process
+- **Why:** wp-cli is a PHP library. We have the entire codebase bundled. Just require and call the classes.
+- **Local execution:** Load WP, require vendor classes, instantiate wp-cli command classes, call their methods
+- **Remote execution:** Same approach - movepress code runs on remote, loads WP + bundled wp-cli, calls methods
+- **Never:** Try to execute PHP files from within PHAR using `php phar://...` - this doesn't work
+- **Never:** Extract wp-cli files to temporary locations - defeats the purpose of bundling
+- **Remember:** WordPress is always loaded when we need wp-cli. Just require the classes and call them.
 - **Exception:** Test environment setup scripts (entrypoint.sh) may download wp-cli for initial WordPress installation ONLY
 
 ---
