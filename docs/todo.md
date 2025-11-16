@@ -92,8 +92,11 @@
 - [x] Database operation tests
 
 #### wp-cli Integration
-- [x] Initialize wp-cli in commands
-- [x] Verify wp-cli is available
+- [x] Bundle wp-cli as required dependency
+- [x] Use PHP entry point (boot-fs.php) instead of shell wrapper
+- [x] Verify wp-cli works in both dev and PHAR environments
+- [x] Remove all system wp-cli fallbacks
+- [x] Simplify wp-cli availability checking (always bundled)
 - [x] Handle wp-cli errors gracefully
 - [x] Search-replace command integration
 - [x] wp-cli operation tests
@@ -119,22 +122,65 @@
 
 ### Testing
 - [x] Integration tests (command validation)
+  - [x] rsync flag validation
+  - [x] mysqldump flag validation
+  - [x] mysql flag validation
+  - [x] wp-cli search-replace command validation
+  - [x] ssh flag validation
+  - [x] scp flag validation
 - [x] Database operation tests
 - [x] SSH connection testing
 - [x] wp-cli command structure tests
-- [ ] End-to-end tests (optional - not needed)
-- [ ] Performance tests
+- [x] Code coverage reporting (78 tests, 184 assertions)
+- [x] Remove system wp-cli fallbacks (bundled only)
+- [x] Simplify wp-cli availability checking
 
 ### Build & Distribution
-- [ ] Build PHAR with Box
-- [ ] Test PHAR executable
-- [ ] Add version command
+- [x] Build PHAR with Box
+  - [x] Configure box.json with proper file inclusion
+  - [x] Exclude humbug/php-scoper to avoid compilation errors
+  - [x] Include Symfony Console Resources directory
+  - [x] Bundle wp-cli PHP entry point (boot-fs.php)
+  - [x] Use PHP entry point instead of shell wrapper for wp-cli
+- [x] Test PHAR executable
+  - [x] Verify all commands work from PHAR
+  - [x] Confirm wp-cli is bundled and accessible
+  - [x] Test status, validate, and other commands
+  - [x] Verify wp-cli always shows as available (bundled dependency)
+- [x] Add version command (--version flag works via Symfony Console)
 
 ### Documentation
-- [ ] Detailed command documentation
-- [ ] Configuration file reference
-- [ ] Use case examples
-- [ ] Troubleshooting guide
+- [x] Detailed command documentation (docs/COMMANDS.md)
+  - All 7 commands documented with syntax, options, and examples
+  - Global options reference
+  - Exit codes and environment variables
+- [x] Configuration file reference (docs/CONFIGURATION.md)
+  - Complete movefile.yml structure
+  - All required and optional fields
+  - Environment variables usage
+  - Best practices and validation
+- [x] Use case examples (docs/EXAMPLES.md)
+  - Basic workflows (deploy, pull, staging)
+  - File syncing patterns
+  - Database patterns
+  - Team workflows
+  - Multi-environment workflows
+  - Automation examples (cron, scripts, CI/CD)
+- [x] Troubleshooting guide (docs/TROUBLESHOOTING.md)
+  - Installation issues
+  - Configuration issues
+  - SSH connection problems
+  - Database issues
+  - File sync issues
+  - Command issues
+  - Performance issues
+- [x] Enhanced README.md
+  - Installation instructions
+  - Quick start guide
+  - Commands overview
+  - Configuration basics
+  - Examples
+  - Troubleshooting tips
 - [ ] Migration guide from wordmove
 - [ ] Video tutorials
 - [ ] API documentation
