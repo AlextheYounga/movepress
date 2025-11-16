@@ -6,7 +6,8 @@
         "src"
     ],
     "files": [
-        "composer.json"
+        "composer.json",
+        "vendor/bin/wp"
     ],
     "finder": [
         {

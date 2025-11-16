@@ -168,4 +168,23 @@ class DatabaseCommandBuilderTest extends TestCase
         $this->builder->validateDatabaseConfig($dbConfig);
         $this->assertTrue(true);
     }
+
+    public function testSearchReplaceCommandStructure(): void
+    {
+        $command = $this->builder->buildSearchReplaceCommand(
+            '/path/to/wp',
+            '/var/www/wordpress',
+            'http://old.test',
+            'http://new.test'
+        );
+
+        // Verify command structure
+        $this->assertStringContainsString('search-replace', $command);
+        $this->assertStringContainsString('http://old.test', $command);
+        $this->assertStringContainsString('http://new.test', $command);
+        $this->assertStringContainsString('--path=', $command);
+        $this->assertStringContainsString('/var/www/wordpress', $command);
+        $this->assertStringContainsString('--skip-columns=guid', $command);
+        $this->assertStringContainsString('--quiet', $command);
+    }
 }

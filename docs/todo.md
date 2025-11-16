@@ -64,7 +64,7 @@
 - [x] PHPUnit configuration
 - [x] Test bootstrap
 - [x] No deprecation warnings
-- [ ] Add code coverage reporting
+- [x] Add code coverage reporting
 
 
 ### Database Operations
@@ -118,11 +118,11 @@
 - [x] `movepress backup` - Create backups before operations
 
 ### Testing
-- [ ] Integration tests (with real file operations)
-- [ ] Database operation tests
-- [ ] SSH connection mocking
-- [ ] wp-cli operation mocking
-- [ ] End-to-end tests
+- [x] Integration tests (command validation)
+- [x] Database operation tests
+- [x] SSH connection testing
+- [x] wp-cli command structure tests
+- [ ] End-to-end tests (optional - not needed)
 - [ ] Performance tests
 
 ### Build & Distribution

@@ -69,6 +69,15 @@ See `movefile.yml.example` for a complete configuration reference.
 - SSH access to remote servers
 - rsync installed on local and remote systems
 
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+./vendor/bin/phpunit
+```
+
 ## License
 
 MIT
