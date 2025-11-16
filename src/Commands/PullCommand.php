@@ -60,8 +60,8 @@ class PullCommand extends AbstractSyncCommand
                 return Command::SUCCESS;
             }
 
-            // Sync files if requested
-            if ($flags['files'] || $flags['content'] || $flags['uploads']) {
+            // Sync untracked files if requested
+            if ($flags['untracked_files']) {
                 $io->section('File Synchronization');
 
                 $excludes = $config->getExcludes($destination);
@@ -71,7 +71,6 @@ class PullCommand extends AbstractSyncCommand
                     $sourceEnv,
                     $destEnv,
                     $excludes,
-                    $flags,
                     $input->getOption('dry-run'),
                     $input->getOption('verbose'),
                     $output,
@@ -83,7 +82,7 @@ class PullCommand extends AbstractSyncCommand
                     return Command::FAILURE;
                 }
 
-                $io->success('Files synchronized successfully');
+                $io->success('Untracked files synchronized successfully');
             }
 
             // Sync database if requested

@@ -54,6 +54,13 @@ staging:
     # Optional: path to SSH key
     # key: "~/.ssh/id_rsa"
   
+  # Git deployment settings (optional)
+  # Used by 'movepress git:setup' command
+  git:
+    # Path to bare Git repository on remote server
+    # If not specified, defaults to /var/repos/{site-name}.git
+    repo_path: "/var/repos/staging.example.git"
+  
   exclude:
     - ".env.staging"
 
@@ -73,6 +80,10 @@ production:
     host: "${PROD_HOST}"
     user: "${PROD_USER}"
     port: 22
+  
+  # Git deployment settings (optional)
+  git:
+    repo_path: "/var/repos/example.git"
   
   exclude:
     - ".env.production"

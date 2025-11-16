@@ -84,36 +84,22 @@ class PushCommandTest extends TestCase
         $this->assertEquals(1, $this->commandTester->getStatusCode());
     }
 
-    public function test_fails_when_files_and_content_flags_used_together(): void
-    {
-        $this->createMinimalConfig();
-
-        $this->commandTester->execute([
-            'source' => 'local',
-            'destination' => 'local', // Use local->local to avoid SSH/rsync
-            '--files' => true,
-            '--content' => true,
-        ]);
-
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Cannot use --files with --content', $output);
-        $this->assertEquals(1, $this->commandTester->getStatusCode());
-    }
-
-    public function test_fails_when_files_and_uploads_flags_used_together(): void
+    public function test_displays_configuration_with_untracked_files_flag(): void
     {
         $this->createMinimalConfig();
 
         $this->commandTester->execute([
             'source' => 'local',
             'destination' => 'local',
-            '--files' => true,
-            '--uploads' => true,
+            '--untracked-files' => true,
+            '--dry-run' => true,
         ]);
 
         $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Cannot use --files with', $output);
-        $this->assertEquals(1, $this->commandTester->getStatusCode());
+        $this->assertStringContainsString('Source: local', $output);
+        $this->assertStringContainsString('Destination: local', $output);
+        $this->assertStringContainsString('Untracked Files: ✓', $output);
+        $this->assertStringContainsString('deployed via Git', $output);
     }
 
     public function test_displays_configuration_summary_with_db_flag(): void

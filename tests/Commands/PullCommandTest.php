@@ -84,36 +84,22 @@ class PullCommandTest extends TestCase
         $this->assertEquals(1, $this->commandTester->getStatusCode());
     }
 
-    public function test_fails_when_files_and_content_flags_used_together(): void
+    public function test_displays_configuration_with_untracked_files_flag(): void
     {
         $this->createMinimalConfig();
 
         $this->commandTester->execute([
             'source' => 'local',
             'destination' => 'local',
-            '--files' => true,
-            '--content' => true,
+            '--untracked-files' => true,
+            '--dry-run' => true,
         ]);
 
         $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Cannot use --files with --content', $output);
-        $this->assertEquals(1, $this->commandTester->getStatusCode());
-    }
-
-    public function test_fails_when_files_and_uploads_flags_used_together(): void
-    {
-        $this->createMinimalConfig();
-
-        $this->commandTester->execute([
-            'source' => 'local',
-            'destination' => 'local',
-            '--files' => true,
-            '--uploads' => true,
-        ]);
-
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Cannot use --files with', $output);
-        $this->assertEquals(1, $this->commandTester->getStatusCode());
+        $this->assertStringContainsString('Source: local', $output);
+        $this->assertStringContainsString('Destination: local', $output);
+        $this->assertStringContainsString('Untracked Files: ✓', $output);
+        $this->assertStringContainsString('deployed via Git', $output);
     }
 
     public function test_displays_configuration_summary_with_db_flag(): void
@@ -319,51 +305,19 @@ YAML;
         $this->assertEquals(0, $this->commandTester->getStatusCode());
     }
 
-    public function test_displays_content_flag_in_summary(): void
+    public function test_syncs_both_database_and_untracked_files_by_default(): void
     {
         $this->createMinimalConfig();
 
         $this->commandTester->execute([
             'source' => 'local',
             'destination' => 'local',
-            '--content' => true,
             '--dry-run' => true,
         ]);
 
         $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Content: ✓', $output);
-        $this->assertStringContainsString('themes + plugins', $output);
-    }
-
-    public function test_displays_uploads_flag_in_summary(): void
-    {
-        $this->createMinimalConfig();
-
-        $this->commandTester->execute([
-            'source' => 'local',
-            'destination' => 'local',
-            '--uploads' => true,
-            '--dry-run' => true,
-        ]);
-
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Uploads: ✓', $output);
-        $this->assertStringContainsString('wp-content/uploads', $output);
-    }
-
-    public function test_displays_all_files_flag_in_summary(): void
-    {
-        $this->createMinimalConfig();
-
-        $this->commandTester->execute([
-            'source' => 'local',
-            'destination' => 'local',
-            '--files' => true,
-            '--dry-run' => true,
-        ]);
-
-        $output = $this->commandTester->getDisplay();
-        $this->assertStringContainsString('Files: ✓ (all)', $output);
+        $this->assertStringContainsString('Database: ✓', $output);
+        $this->assertStringContainsString('Untracked Files: ✓', $output);
     }
 
     private function createMinimalConfig(): void

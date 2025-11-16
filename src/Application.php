@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Movepress;
 
 use Movepress\Commands\BackupCommand;
+use Movepress\Commands\GitSetupCommand;
 use Movepress\Commands\InitCommand;
 use Movepress\Commands\PullCommand;
 use Movepress\Commands\PushCommand;
@@ -34,5 +35,6 @@ class Application extends ConsoleApplication
         $this->add(new ValidateCommand());
         $this->add(new SshCommand());
         $this->add(new BackupCommand());
+        $this->add(new GitSetupCommand());
     }
 }

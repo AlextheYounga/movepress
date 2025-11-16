@@ -41,22 +41,10 @@ abstract class AbstractSyncCommand extends Command
             'Sync database only'
         )
         ->addOption(
-            'files',
+            'untracked-files',
             null,
             InputOption::VALUE_NONE,
-            'Sync all files (themes, plugins, uploads)'
-        )
-        ->addOption(
-            'content',
-            null,
-            InputOption::VALUE_NONE,
-            'Sync themes and plugins only (excludes uploads)'
-        )
-        ->addOption(
-            'uploads',
-            null,
-            InputOption::VALUE_NONE,
-            'Sync wp-content/uploads only'
+            'Sync files not tracked by Git (uploads, caches, etc.)'
         )
         ->addOption(
             'dry-run',
@@ -75,31 +63,23 @@ abstract class AbstractSyncCommand extends Command
     protected function parseSyncFlags(InputInterface $input): array
     {
         $syncDb = $input->getOption('db');
-        $syncFiles = $input->getOption('files');
-        $syncContent = $input->getOption('content');
-        $syncUploads = $input->getOption('uploads');
+        $syncUntrackedFiles = $input->getOption('untracked-files');
 
         // If no flags are set, sync everything
-        if (!$syncDb && !$syncFiles && !$syncContent && !$syncUploads) {
+        if (!$syncDb && !$syncUntrackedFiles) {
             $syncDb = true;
-            $syncFiles = true;
+            $syncUntrackedFiles = true;
         }
 
         return [
             'db' => $syncDb,
-            'files' => $syncFiles,
-            'content' => $syncContent,
-            'uploads' => $syncUploads,
+            'untracked_files' => $syncUntrackedFiles,
         ];
     }
 
     protected function validateFlagCombinations(array $flags, SymfonyStyle $io): bool
     {
-        if ($flags['files'] && ($flags['content'] || $flags['uploads'])) {
-            $io->error('Cannot use --files with --content or --uploads. Use either --files (all) or specific flags.');
-            return false;
-        }
-
+        // No conflicting flags with the new simplified structure
         return true;
     }
 
@@ -131,36 +111,26 @@ abstract class AbstractSyncCommand extends Command
             "Source: {$source}",
             "Destination: {$destination}",
             "Database: " . ($flags['db'] ? '✓' : '✗'),
+            "Untracked Files: " . ($flags['untracked_files'] ? '✓' : '✗'),
+            "Dry Run: " . ($dryRun ? 'Yes' : 'No'),
         ];
-
-        if ($flags['files']) {
-            $items[] = "Files: ✓ (all)";
-        } else {
-            if ($flags['content']) {
-                $items[] = "Content: ✓ (themes + plugins)";
-            }
-            if ($flags['uploads']) {
-                $items[] = "Uploads: ✓ (wp-content/uploads)";
-            }
-            if (!$flags['content'] && !$flags['uploads']) {
-                $items[] = "Files: ✗";
-            }
-        }
-
-        $items[] = "Dry Run: " . ($dryRun ? 'Yes' : 'No');
 
         $io->listing($items);
 
         if ($dryRun) {
             $io->warning('DRY RUN MODE - No changes will be made');
         }
+
+        $io->note([
+            'Tracked files (themes, plugins, core) should be deployed via Git.',
+            'Use: git push ' . $destination . ' master',
+        ]);
     }
 
     protected function syncFiles(
         array $sourceEnv,
         array $destEnv,
         array $excludes,
-        array $flags,
         bool $dryRun,
         bool $verbose,
         OutputInterface $output,
@@ -172,24 +142,17 @@ abstract class AbstractSyncCommand extends Command
         $sourcePath = $this->buildPath($sourceEnv);
         $destPath = $this->buildPath($destEnv);
 
-        if ($flags['files']) {
-            $io->text("Syncing all files...");
-            return $rsync->sync($sourcePath, $destPath, $excludes, $remoteSsh);
+        // Determine .gitignore path (use local path if source is local)
+        $gitignorePath = null;
+        if (!isset($sourceEnv['ssh'])) {
+            $possiblePath = $sourceEnv['wordpress_path'] . '/.gitignore';
+            if (file_exists($possiblePath)) {
+                $gitignorePath = $possiblePath;
+            }
         }
 
-        $success = true;
-
-        if ($flags['content']) {
-            $io->text("Syncing themes and plugins...");
-            $success = $rsync->syncContent($sourcePath, $destPath, $excludes, $remoteSsh);
-        }
-
-        if ($flags['uploads'] && $success) {
-            $io->text("Syncing uploads...");
-            $success = $rsync->syncUploads($sourcePath, $destPath, $excludes, $remoteSsh);
-        }
-
-        return $success;
+        $io->text("Syncing untracked files (uploads, caches, etc.)...");
+        return $rsync->syncUntrackedFiles($sourcePath, $destPath, $excludes, $remoteSsh, $gitignorePath);
     }
 
     protected function syncDatabase(
