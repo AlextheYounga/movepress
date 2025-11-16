@@ -142,22 +142,17 @@ class DatabaseService
         $filename = "backup_{$dbName}_{$timestamp}.sql.gz";
         $backupPath = $backupDir . '/' . $filename;
 
-        if ($sshService === null) {
-            // Ensure local backup directory exists
-            if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true)) {
-                throw new RuntimeException("Failed to create backup directory: {$backupDir}");
-            }
+        // Always ensure local backup directory exists (backups are downloaded locally)
+        if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true)) {
+            throw new RuntimeException("Failed to create backup directory: {$backupDir}");
+        }
 
+        if ($sshService === null) {
             if (!$this->exportLocal($dbConfig, $backupPath, true)) {
                 throw new RuntimeException('Failed to create local backup');
             }
         } else {
-            // Ensure remote backup directory exists
-            $mkdirCmd = sprintf('mkdir -p %s', escapeshellarg($backupDir));
-            if (!$this->remoteTransfer->executeRemoteCommand($sshService, $mkdirCmd)) {
-                throw new RuntimeException("Failed to create remote backup directory: {$backupDir}");
-            }
-
+            // exportRemote downloads the backup to local $backupPath
             if (!$this->exportRemote($dbConfig, $sshService, $backupPath, true)) {
                 throw new RuntimeException('Failed to create remote backup');
             }
@@ -186,7 +181,10 @@ class DatabaseService
             if ($this->verbose) {
                 $this->output->writeln("Search-replace: {$oldUrl} → {$newUrl}");
             }
-            return $this->remoteTransfer->executeRemoteCommand($sshService, $command);
+
+            // For remote execution, we need to transfer movepress PHAR and execute bundled wp-cli from there
+            // This ensures we use our bundled wp-cli version, not a global installation
+            return $this->executeRemoteWpCli($sshService, $wordpressPath, $oldUrl, $newUrl);
         }
 
         if ($this->verbose) {
@@ -195,6 +193,57 @@ class DatabaseService
         }
 
         return $this->executeCommand($command);
+    }
+
+    /**
+     * Execute bundled wp-cli on remote server by temporarily transferring movepress PHAR
+     */
+    private function executeRemoteWpCli(
+        SshService $sshService,
+        string $wordpressPath,
+        string $oldUrl,
+        string $newUrl,
+    ): bool {
+        // Get the movepress PHAR path (Phar::running() returns phar:// path or empty string)
+        $pharPath = \Phar::running(false);
+
+        if (empty($pharPath)) {
+            // Running in dev mode - need to find the actual PHAR or fail gracefully
+            throw new RuntimeException(
+                'Cannot execute remote wp-cli in development mode. ' . 'Build the PHAR with: ./vendor/bin/box compile',
+            );
+        }
+
+        // Transfer movepress PHAR to WordPress root (temporary)
+        $remotePhar = rtrim($wordpressPath, '/') . '/movepress.phar';
+
+        if ($this->verbose) {
+            $this->output->writeln('Transferring movepress PHAR to remote WordPress root for wp-cli execution...');
+        }
+
+        if (!$this->remoteTransfer->uploadFile($sshService, $pharPath, $remotePhar)) {
+            throw new RuntimeException('Failed to transfer movepress PHAR to remote server');
+        }
+
+        // Build command to execute bundled wp-cli from the transferred PHAR
+        // Use the PHAR directly with -- to pass wp-cli commands
+        $wpBinary = sprintf('php %s --', escapeshellarg($remotePhar));
+
+        $command = $this->commandBuilder->buildSearchReplaceCommand($wpBinary, $wordpressPath, $oldUrl, $newUrl);
+
+        if ($this->verbose) {
+            $this->output->writeln('Executing wp-cli search-replace on remote...');
+        }
+
+        $success = $this->remoteTransfer->executeRemoteCommand($sshService, $command);
+
+        // Clean up remote PHAR
+        if ($this->verbose) {
+            $this->output->writeln('Cleaning up temporary PHAR on remote...');
+        }
+        $this->remoteTransfer->executeRemoteCommand($sshService, "rm -f {$remotePhar}");
+
+        return $success;
     }
 
     /**

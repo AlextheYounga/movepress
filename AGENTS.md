@@ -41,6 +41,18 @@ Agents should reference this before making any design or implementation decision
 
 ---
 
+## WP-CLI Integration (CRITICAL)
+
+**NEVER use global `wp` command.** Movepress bundles wp-cli and MUST use the bundled version exclusively.
+
+- ✅ **Correct:** Use bundled wp-cli from movepress PHAR (via `boot-fs.php` or transferring PHAR)
+- ❌ **Wrong:** Call external `wp` command installed on system
+- **Why:** We control the wp-cli version, ensure consistency, and eliminate external dependencies
+- **Remote execution:** Transfer movepress PHAR to remote server, then execute bundled wp-cli there
+- **Never assume:** Do not assume remote servers have wp-cli installed globally
+
+---
+
 ## Test-Driven Development
 
 - Always write tests **before** implementing code.

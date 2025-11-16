@@ -41,6 +41,7 @@ class RemoteTransferService
 
         if ($this->verbose) {
             $this->output->writeln("Uploading: {$localPath} → {$remotePath}");
+            $this->output->writeln("SCP command: {$command}");
         }
 
         return $this->executeCommand($command);

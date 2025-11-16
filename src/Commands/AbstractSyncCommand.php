@@ -210,7 +210,8 @@ abstract class AbstractSyncCommand extends Command
                 }
             }
 
-            // Perform search-replace on live database using wp-cli
+            // Perform search-replace on destination database using bundled wp-cli
+            // For remote destinations, movepress PHAR is temporarily transferred
             $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
             $destWordpressPath = $this->destEnv['wordpress_path'];
             $replacedSuccess = $dbService->searchReplace($destWordpressPath, $sourceUrl, $destUrl, $destSsh);

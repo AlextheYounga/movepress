@@ -11,11 +11,13 @@ class DatabaseCommandBuilder
      */
     public function buildExportCommand(array $dbConfig, string $outputPath, bool $compress): string
     {
-        $parts = [
-            'mysqldump',
-            '--user=' . escapeshellarg($dbConfig['user']),
-            '--host=' . escapeshellarg($dbConfig['host']),
-        ];
+        [$host, $port] = $this->parseHostPort($dbConfig['host']);
+
+        $parts = ['mysqldump', '--user=' . escapeshellarg($dbConfig['user']), '--host=' . escapeshellarg($host)];
+
+        if ($port !== null) {
+            $parts[] = '--port=' . escapeshellarg($port);
+        }
 
         if (!empty($dbConfig['password'])) {
             $parts[] = '--password=' . escapeshellarg($dbConfig['password']);
@@ -40,11 +42,13 @@ class DatabaseCommandBuilder
      */
     public function buildImportCommand(array $dbConfig, string $inputPath): string
     {
-        $parts = [
-            'mysql',
-            '--user=' . escapeshellarg($dbConfig['user']),
-            '--host=' . escapeshellarg($dbConfig['host']),
-        ];
+        [$host, $port] = $this->parseHostPort($dbConfig['host']);
+
+        $parts = ['mysql', '--user=' . escapeshellarg($dbConfig['user']), '--host=' . escapeshellarg($host)];
+
+        if ($port !== null) {
+            $parts[] = '--port=' . escapeshellarg($port);
+        }
 
         if (!empty($dbConfig['password'])) {
             $parts[] = '--password=' . escapeshellarg($dbConfig['password']);
@@ -88,5 +92,22 @@ class DatabaseCommandBuilder
                 throw new \RuntimeException("Database configuration missing required field: {$field}");
             }
         }
+    }
+
+    /**
+     * Parse host and port from a host string
+     * Supports formats: "localhost", "localhost:3306", "mysql-remote", "mysql-remote:3306"
+     *
+     * @return array{0: string, 1: string|null} [host, port]
+     */
+    private function parseHostPort(string $hostString): array
+    {
+        // Check if port is specified after colon
+        if (str_contains($hostString, ':')) {
+            $parts = explode(':', $hostString, 2);
+            return [$parts[0], $parts[1]];
+        }
+
+        return [$hostString, null];
     }
 }
