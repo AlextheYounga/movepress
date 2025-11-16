@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Movepress\Commands;
 
 use Movepress\Config\ConfigLoader;
+use Movepress\Services\DatabaseService;
 use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
 use Symfony\Component\Console\Command\Command;
@@ -170,10 +171,44 @@ class PushCommand extends Command
                 $io->success('Files synchronized successfully');
             }
             
-            // TODO: Implement database sync
+            // Sync database if requested
             if ($pushDb) {
                 $io->section('Database Synchronization');
-                $io->warning('Database sync not yet implemented');
+                
+                // Skip actual database operations in dry-run mode
+                if ($input->getOption('dry-run')) {
+                    $io->text('Would export source database');
+                    $io->text('Would perform search-replace: ' . $sourceEnv['url'] . ' → ' . $destEnv['url']);
+                    if (!$input->getOption('no-backup')) {
+                        $io->text('Would create backup of destination database');
+                    }
+                    $io->text('Would import to destination database');
+                } else {
+                    // Check if mysql tools are available
+                    if (!DatabaseService::isMysqldumpAvailable()) {
+                        $io->error('mysqldump is not installed or not available in PATH');
+                        return Command::FAILURE;
+                    }
+                    if (!DatabaseService::isMysqlAvailable()) {
+                        $io->error('mysql is not installed or not available in PATH');
+                        return Command::FAILURE;
+                    }
+                    
+                    $success = $this->syncDatabase(
+                        $sourceEnv,
+                        $destEnv,
+                        $input->getOption('no-backup'),
+                        $input->getOption('verbose'),
+                        $output,
+                        $io
+                    );
+                    
+                    if (!$success) {
+                        return Command::FAILURE;
+                    }
+                    
+                    $io->success('Database synchronized successfully');
+                }
             }
             
             if (!$input->getOption('dry-run')) {
@@ -266,5 +301,119 @@ class PushCommand extends Command
         }
         
         return null;
+    }
+
+    private function syncDatabase(
+        array $sourceEnv,
+        array $destEnv,
+        bool $noBackup,
+        bool $verbose,
+        OutputInterface $output,
+        SymfonyStyle $io
+    ): bool {
+        $dbService = new DatabaseService($output, $verbose);
+        
+        $sourceDb = $sourceEnv['database'];
+        $destDb = $destEnv['database'];
+        $sourceUrl = $sourceEnv['url'];
+        $destUrl = $destEnv['url'];
+        $sourceWpPath = $sourceEnv['wordpress_path'];
+        $destWpPath = $destEnv['wordpress_path'];
+        
+        // Get SSH services
+        $sourceSsh = $this->getSshService($sourceEnv);
+        $destSsh = $this->getSshService($destEnv);
+        
+        $tempDir = sys_get_temp_dir();
+        $exportFile = $tempDir . '/movepress_export_' . uniqid() . '.sql.gz';
+        
+        try {
+            // Step 1: Export source database
+            $io->text("Exporting source database...");
+            if ($sourceSsh === null) {
+                if (!$dbService->exportLocal($sourceDb, $exportFile, true)) {
+                    throw new \RuntimeException('Failed to export source database');
+                }
+            } else {
+                if (!$dbService->exportRemote($sourceDb, $sourceSsh, $exportFile, true)) {
+                    throw new \RuntimeException('Failed to export source database');
+                }
+            }
+            
+            // Step 2: Search-replace on exported file (decompress, replace, recompress)
+            $io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
+            $decompressedFile = str_replace('.gz', '', $exportFile);
+            
+            // Decompress
+            $process = \Symfony\Component\Process\Process::fromShellCommandline(
+                'gunzip ' . escapeshellarg($exportFile)
+            );
+            $process->run();
+            
+            if (!$process->isSuccessful()) {
+                throw new \RuntimeException('Failed to decompress database export');
+            }
+            
+            // Use wp-cli search-replace on the SQL file
+            // For now, use sed as a simpler approach (wp-cli can't work on SQL files directly)
+            $sedCommand = sprintf(
+                'sed -i.bak %s %s',
+                escapeshellarg('s|' . addcslashes($sourceUrl, '|/') . '|' . addcslashes($destUrl, '|/') . '|g'),
+                escapeshellarg($decompressedFile)
+            );
+            
+            $process = \Symfony\Component\Process\Process::fromShellCommandline($sedCommand);
+            $process->run();
+            
+            if (!$process->isSuccessful()) {
+                throw new \RuntimeException('Failed to perform search-replace');
+            }
+            
+            // Remove sed backup file
+            @unlink($decompressedFile . '.bak');
+            
+            // Recompress
+            $process = \Symfony\Component\Process\Process::fromShellCommandline(
+                'gzip ' . escapeshellarg($decompressedFile)
+            );
+            $process->run();
+            
+            if (!$process->isSuccessful()) {
+                throw new \RuntimeException('Failed to recompress database export');
+            }
+            
+            // Step 3: Backup destination database (unless --no-backup)
+            if (!$noBackup) {
+                $io->text("Creating backup of destination database...");
+                $backupPath = $dbService->backup($destDb, $destSsh);
+                $io->text("Backup created: {$backupPath}");
+            }
+            
+            // Step 4: Import to destination database
+            $io->text("Importing to destination database...");
+            if ($destSsh === null) {
+                if (!$dbService->importLocal($destDb, $exportFile)) {
+                    throw new \RuntimeException('Failed to import to destination database');
+                }
+            } else {
+                if (!$dbService->importRemote($destDb, $destSsh, $exportFile)) {
+                    throw new \RuntimeException('Failed to import to destination database');
+                }
+            }
+            
+            // Clean up temp file
+            @unlink($exportFile);
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            // Clean up temp files on error
+            @unlink($exportFile);
+            @unlink(str_replace('.gz', '', $exportFile));
+            @unlink(str_replace('.gz', '', $exportFile) . '.bak');
+            
+            $io->error($e->getMessage());
+            return false;
+        }
     }
 }
