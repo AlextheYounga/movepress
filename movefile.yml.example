@@ -30,6 +30,10 @@ local:
   # URL of your local WordPress site
   url: "http://local.test"
   
+  # Optional: Directory for database backups
+  # Defaults to system temp directory if not specified
+  backup_path: "/path/to/backups"
+  
   # Additional excludes specific to local environment
   exclude:
     - ".env.local"
@@ -61,6 +65,9 @@ staging:
     # If not specified, defaults to /var/repos/{site-name}.git
     repo_path: "/var/repos/staging.example.git"
   
+  # Optional: Directory for database backups
+  backup_path: "/var/backups/movepress"
+  
   exclude:
     - ".env.staging"
 
@@ -84,6 +91,9 @@ production:
   # Git deployment settings (optional)
   git:
     repo_path: "/var/repos/example.git"
+  
+  # Optional: Directory for database backups
+  backup_path: "/var/backups/movepress"
   
   exclude:
     - ".env.production"

@@ -304,21 +304,28 @@ Create a database backup for an environment.
 ### Syntax
 
 ```bash
-movepress backup <environment>
+movepress backup <environment> [--output=<directory>]
 ```
 
 ### Arguments
 
 - `environment` - Environment name to backup
 
+### Options
+
+- `--output` or `-o` - Directory where backup should be saved (overrides `backup_path` from config)
+
 ### Examples
 
 ```bash
-# Backup local database
+# Backup local database (uses backup_path from movefile.yml or /tmp)
 movepress backup local
 
 # Backup production database (via SSH)
 movepress backup production
+
+# Save backup to specific directory
+movepress backup production --output=/backups/critical
 ```
 
 ### Output
@@ -330,8 +337,14 @@ movepress backup production
 ### Notes
 
 - Works for both local and remote (SSH) environments
-- Backups are created in the format: `<database_name>_backup_YYYYMMDD_HHMMSS.sql`
+- Backups are created in the format: `backup_{database_name}_YYYY-MM-DD_HH-mm-ss.sql.gz`
 - You'll be prompted to confirm before creating the backup
+- Backup location priority: `--output` flag > `backup_path` in config > system temp directory
+- Configure default backup location in `movefile.yml`:
+  ```yaml
+  production:
+    backup_path: /var/backups/movepress
+  ```
 
 ---
 

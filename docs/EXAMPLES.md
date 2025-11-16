@@ -284,11 +284,20 @@ movepress push staging production --db --untracked-files
 Create regular backups:
 
 ```bash
-# Backup production database
+# Backup production database (uses backup_path from movefile.yml)
 movepress backup production
+
+# Backup to specific directory (overrides config)
+movepress backup production --output=/custom/backup/path
 
 # Could be added to cron:
 # 0 2 * * * /usr/local/bin/movepress backup production
+```
+
+**Tip:** Configure `backup_path` in your `movefile.yml` for each environment:
+```yaml
+production:
+  backup_path: /var/backups/movepress
 ```
 
 ---

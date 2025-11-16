@@ -81,7 +81,9 @@ class BackupCommand extends Command
             $io->section('Creating Backup');
             $dbService = new DatabaseService($output, true);
 
-            $backupFile = $dbService->backup($dbConfig, $sshService, $outputDir);
+            // Use --output flag, or backup_path from config, or default to current directory
+            $backupDir = $outputDir ?? $env['backup_path'] ?? null;
+            $backupFile = $dbService->backup($dbConfig, $sshService, $backupDir);
 
             if ($backupFile) {
                 $fileSize = filesize($backupFile);

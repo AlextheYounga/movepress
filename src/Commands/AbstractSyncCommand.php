@@ -214,7 +214,8 @@ abstract class AbstractSyncCommand extends Command
             // Backup destination database
             if (!$noBackup) {
                 $this->io->text("Creating backup of destination database...");
-                $backupPath = $dbService->backup($destDb, $destSsh);
+                $backupDir = $this->destEnv['backup_path'] ?? null;
+                $backupPath = $dbService->backup($destDb, $destSsh, $backupDir);
                 $this->io->text("Backup created: {$backupPath}");
             }
 

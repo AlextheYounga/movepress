@@ -119,6 +119,18 @@ git push production master
 movepress push local production --db --untracked-files
 ```
 
+### backup_path
+Directory where database backups are stored (optional).
+
+```yaml
+production:
+  backup_path: /var/backups/movepress
+```
+
+**Default:** System temp directory (`/tmp` on Unix-like systems)
+
+When database sync operations create automatic backups, or when using the `backup` command without the `--output` flag, backups will be saved to this directory.
+
 ### exclude
 Environment-specific exclude patterns. These are merged with global excludes.
 
