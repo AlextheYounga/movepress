@@ -143,10 +143,21 @@ class DatabaseService
         $backupPath = $backupDir . '/' . $filename;
 
         if ($sshService === null) {
+            // Ensure local backup directory exists
+            if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true)) {
+                throw new RuntimeException("Failed to create backup directory: {$backupDir}");
+            }
+
             if (!$this->exportLocal($dbConfig, $backupPath, true)) {
                 throw new RuntimeException('Failed to create local backup');
             }
         } else {
+            // Ensure remote backup directory exists
+            $mkdirCmd = sprintf('mkdir -p %s', escapeshellarg($backupDir));
+            if (!$this->remoteTransfer->executeRemoteCommand($sshService, $mkdirCmd)) {
+                throw new RuntimeException("Failed to create remote backup directory: {$backupDir}");
+            }
+
             if (!$this->exportRemote($dbConfig, $sshService, $backupPath, true)) {
                 throw new RuntimeException('Failed to create remote backup');
             }

@@ -74,7 +74,14 @@ class DockerIntegrationTest extends TestCase
     {
         $process = $this->runMovepress('validate');
 
-        $this->assertTrue($process->isSuccessful(), 'Configuration validation should succeed');
+        $this->assertTrue(
+            $process->isSuccessful(),
+            sprintf(
+                "Configuration validation failed.\nOutput: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
         $this->assertStringContainsString('valid', $process->getOutput());
     }
 
@@ -87,10 +94,9 @@ class DockerIntegrationTest extends TestCase
 
     public function testSshConnectivity(): void
     {
-        $sshCommand = sprintf(
-            'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i %s/ssh/id_rsa -p 2222 root@localhost "echo \'SSH OK\'" 2>/dev/null',
-            self::$dockerDir,
-        );
+        // Test SSH from inside local container to remote container
+        $sshCommand =
+            'docker exec movepress-local ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa root@wordpress-remote "echo \'SSH OK\'"';
 
         $process = Process::fromShellCommandline($sshCommand);
         $process->run();
@@ -101,7 +107,7 @@ class DockerIntegrationTest extends TestCase
 
     public function testDatabasePush(): void
     {
-        $process = $this->runMovepress('push local remote --db --verbose');
+        $process = $this->runMovepress('push local remote --db --verbose --no-interaction');
 
         $this->assertTrue($process->isSuccessful(), 'Database push should succeed');
 
@@ -112,7 +118,7 @@ class DockerIntegrationTest extends TestCase
 
     public function testFilePush(): void
     {
-        $process = $this->runMovepress('push local remote --files --verbose');
+        $process = $this->runMovepress('push local remote --files --verbose --no-interaction');
 
         $this->assertTrue($process->isSuccessful(), 'File push should succeed');
 
@@ -124,10 +130,10 @@ class DockerIntegrationTest extends TestCase
     public function testDatabasePull(): void
     {
         // First ensure remote has data
-        $this->runMovepress('push local remote --db');
+        $this->runMovepress('push local remote --db --no-interaction');
 
         // Now pull it back
-        $process = $this->runMovepress('pull local remote --db --verbose');
+        $process = $this->runMovepress('pull local remote --db --verbose --no-interaction');
 
         $this->assertTrue($process->isSuccessful(), 'Database pull should succeed');
 
@@ -154,10 +160,18 @@ class DockerIntegrationTest extends TestCase
 
     private function runMovepress(string $command): Process
     {
-        $fullCommand = sprintf('%s %s --config=%s/movefile.yml', self::$movepressBin, $command, self::$dockerDir);
+        // Execute movepress inside the local container
+        // Use -i flag for interactive mode to allow stdin input
+        $fullCommand = sprintf('docker exec -i movepress-local movepress %s', $command);
 
         $process = Process::fromShellCommandline($fullCommand);
         $process->setTimeout(300);
+
+        // For destructive operations (push/pull with --db), provide "yes" as input
+        if (str_contains($command, 'push') || str_contains($command, 'pull')) {
+            $process->setInput("yes\n");
+        }
+
         $process->run();
 
         return $process;
@@ -187,9 +201,9 @@ class DockerIntegrationTest extends TestCase
 
     private function remoteFileExists(string $path): bool
     {
+        // Check file existence from local container via SSH to remote
         $command = sprintf(
-            'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i %s/ssh/id_rsa -p 2222 root@localhost "[ -f %s ]" 2>/dev/null',
-            self::$dockerDir,
+            'docker exec movepress-local ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa root@wordpress-remote "[ -f %s ]"',
             escapeshellarg($path),
         );
 

@@ -3,7 +3,9 @@ version: '3.8'
 services:
     # Local WordPress environment (source)
     wordpress-local:
-        image: wordpress:latest
+        build:
+            context: ./local
+            dockerfile: Dockerfile
         container_name: movepress-local
         ports:
             - '8080:80'
@@ -14,7 +16,9 @@ services:
             WORDPRESS_DB_PASSWORD: wordpress
         volumes:
             - ./local/entrypoint.sh:/usr/local/bin/custom-entrypoint.sh
-            - ../../build/movepress.phar:/usr/local/bin/movepress
+            - ./movefile.yml:/var/www/html/movefile.yml:ro
+            - ./ssh:/root/.ssh:ro
+            - ../../build/movepress.phar:/usr/local/bin/movepress:ro
         networks:
             - movepress-test
         depends_on:

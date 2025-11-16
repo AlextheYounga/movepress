@@ -73,9 +73,14 @@ mkdir -p /var/www/html/wp-content/uploads/2024/11
 echo "Test upload file from local environment" > /var/www/html/wp-content/uploads/2024/11/test-local.txt
 chown -R www-data:www-data /var/www/html/wp-content/uploads
 
-# Fix permissions
-chown -R www-data:www-data /var/www/html
-chmod -R 755 /var/www/html
+# Fix permissions (skip read-only mounted files)
+echo "Setting permissions (skipping read-only mounts)..."
+find /var/www/html -maxdepth 1 ! -name movefile.yml -type f -exec chown www-data:www-data {} \; 2> /dev/null || true
+find /var/www/html -maxdepth 1 ! -name movefile.yml -type d -exec chown www-data:www-data {} \; 2> /dev/null || true
+chown -R www-data:www-data /var/www/html/wp-* 2> /dev/null || true
+find /var/www/html -maxdepth 1 ! -name movefile.yml -type f -exec chmod 644 {} \; 2> /dev/null || true
+find /var/www/html -maxdepth 1 ! -name movefile.yml -type d -exec chmod 755 {} \; 2> /dev/null || true
+chmod -R 755 /var/www/html/wp-* 2> /dev/null || true
 
 echo "===== Local environment ready! ====="
 echo "WordPress URL: http://localhost:8080"

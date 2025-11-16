@@ -6,31 +6,42 @@ This directory contains a complete Docker-based integration testing environment 
 
 The test environment simulates a real-world WordPress deployment scenario with two environments:
 
-- **Local**: Source environment (simulates dev machine)
-- **Remote**: Destination environment with SSH access (simulates production server)
+- **Local Container**: Represents your local development machine with WordPress + movepress
+- **Remote Container**: Represents a remote production server with SSH access
+
+This mirrors the real-world use case where movepress runs on your local machine and connects to a remote server.
 
 ## Architecture
 
 ```
-┌─────────────────────┐         ┌─────────────────────┐
-│  Local Environment  │         │ Remote Environment  │
-│                     │         │                     │
-│  WordPress          │         │  WordPress          │
-│  MySQL (port 3306)  │  ────▶  │  MySQL (port 3307)  │
-│  http://localhost:8080        │  SSH (port 2222)    │
-│                     │         │  Git bare repo      │
-│                     │         │  http://localhost:8081
-└─────────────────────┘         └─────────────────────┘
-           │                               │
-           └───────── Movepress ───────────┘
-                  (runs from host)
+┌─────────────────────────────┐         ┌─────────────────────┐
+│  Local Container            │         │ Remote Container    │
+│  (Your Dev Machine)         │         │ (Production Server) │
+│                             │         │                     │
+│  WordPress                  │         │  WordPress          │
+│  MySQL (mysql-local:3306)   │  ────▶  │  MySQL (remote)     │
+│  Movepress CLI              │   SSH   │  SSH Server (port 22)│
+│  SSH/Rsync/Git clients      │         │  Git bare repo      │
+│  http://localhost:8080      │         │  http://localhost:8081
+│                             │         │                     │
+│  movefile.yml mounted       │         │                     │
+│  /var/www/html/             │         │  /var/www/html/     │
+└─────────────────────────────┘         └─────────────────────┘
+         Movepress runs HERE
 ```
+
+**Key Points:**
+
+- Movepress runs **inside** the local container (at `/usr/local/bin/movepress`)
+- Configuration file is mounted at `/var/www/html/movefile.yml`
+- Both containers are on the same Docker network
+- SSH keys are mounted into local container at `/root/.ssh/`
+- All commands execute from within the local container
 
 ## Prerequisites
 
 - Docker and Docker Compose
 - Movepress built as PHAR: `composer install && ./vendor/bin/box compile`
-- Standard command-line tools: `ssh`, `rsync`, `mysql` (should be on host)
 
 ## Quick Start
 
@@ -88,41 +99,43 @@ docker compose logs -f
 
 **Local WordPress:**
 
-- URL: http://localhost:8080
+- URL: http://localhost:8080 (host machine can access)
 - Admin: admin / admin
-- Database: localhost:3306
+- Container: `docker exec -it movepress-local bash`
 
 **Remote WordPress:**
 
-- URL: http://localhost:8081
+- URL: http://localhost:8081 (host machine can access)
 - Admin: admin / admin
-- SSH: `ssh -i ssh/id_rsa -p 2222 root@localhost`
-- Database: localhost:3307
+- SSH from local container: `docker exec movepress-local ssh root@wordpress-remote`
+- Container: `docker exec -it movepress-remote bash`
 - Git repo: `/var/repos/movepress-test.git`
 
 ### Run Movepress commands
 
-```bash
-# From project root
-cd ../..
+All movepress commands run **inside the local container**:
 
+```bash
 # Validate configuration
-./build/movepress.phar validate --config=tests/docker/movefile.yml
+docker exec movepress-local movepress validate
 
 # Check status
-./build/movepress.phar status --config=tests/docker/movefile.yml
+docker exec movepress-local movepress status
 
 # Push database
-./build/movepress.phar push local remote --db --config=tests/docker/movefile.yml
+docker exec movepress-local movepress push local remote --db
 
 # Push files
-./build/movepress.phar push local remote --files --config=tests/docker/movefile.yml
+docker exec movepress-local movepress push local remote --files
 
 # Pull database
-./build/movepress.phar pull local remote --db --config=tests/docker/movefile.yml
+docker exec movepress-local movepress pull local remote --db
 
 # Backup
-./build/movepress.phar backup local --config=tests/docker/movefile.yml
+docker exec movepress-local movepress backup local
+
+# Test SSH connectivity
+docker exec movepress-local ssh -o StrictHostKeyChecking=no root@wordpress-remote "echo 'SSH works'"
 ```
 
 ### Inspect containers
@@ -139,6 +152,9 @@ docker exec -it movepress-remote bash
 # Check database
 docker exec movepress-mysql-local mysql -uwordpress -pwordpress wordpress_local -e "SELECT * FROM wp_posts"
 docker exec movepress-mysql-remote mysql -uwordpress -pwordpress wordpress_remote -e "SELECT * FROM wp_posts"
+
+# Check movefile.yml is mounted correctly
+docker exec movepress-local cat /var/www/html/movefile.yml
 ```
 
 ## Test Data
@@ -195,8 +211,8 @@ docker exec movepress-remote service ssh status
 # Check SSH key permissions
 ls -la tests/docker/ssh/
 
-# Test SSH manually
-ssh -vvv -i tests/docker/ssh/id_rsa -p 2222 root@localhost
+# Test SSH from local container to remote
+docker exec movepress-local ssh -vvv -o StrictHostKeyChecking=no -i /root/.ssh/id_rsa root@wordpress-remote
 ```
 
 ### WordPress not installing
@@ -222,21 +238,39 @@ docker exec movepress-remote chmod -R 755 /var/www/html
 
 ```bash
 # Verify databases exist
-docker exec movepress-mysql-local mysql -uroot -proot -e "SHOW DATABASES"
-docker exec movepress-mysql-remote mysql -uroot -proot -e "SHOW DATABASES"
+docker exec movepress-mysql-local mysql -uwordpress -pwordpress -e "SHOW DATABASES"
+docker exec movepress-mysql-remote mysql -uwordpress -pwordpress -e "SHOW DATABASES"
 
 # Check if WordPress is installed
-docker exec movepress-local php /usr/local/bin/movepress core is-installed --path=/var/www/html
+docker exec movepress-local ls -la /var/www/html/wp-config.php
+```
+
+### Movepress command not found
+
+```bash
+# Verify movepress is mounted
+docker exec movepress-local ls -la /usr/local/bin/movepress
+
+# Check if phar exists on host
+ls -la build/movepress.phar
+```
+
+### Configuration file not found
+
+```bash
+# Verify movefile.yml is mounted
+docker exec movepress-local cat /var/www/html/movefile.yml
 ```
 
 ## Files
 
 - `docker-compose.yml` - Container orchestration
-- `movefile.yml` - Movepress test configuration
+- `movefile.yml` - Movepress test configuration (mounted into local container)
 - `run-tests.sh` - Automated test runner
 - `setup-ssh.sh` - SSH key generator
+- `local/Dockerfile` - Local container image with SSH/rsync/git clients
 - `local/entrypoint.sh` - Local environment setup
-- `remote/Dockerfile` - Remote container image
+- `remote/Dockerfile` - Remote container image with SSH server
 - `remote/entrypoint.sh` - Remote environment setup
 
 ## Notes

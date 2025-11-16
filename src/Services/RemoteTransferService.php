@@ -90,7 +90,7 @@ class RemoteTransferService
 
         // Convert SSH options for SCP
         // SSH returns ['-p', '2222', '-i', '/path/key', '-o', 'StrictHostKeyChecking=no']
-        // SCP needs -P for port instead of -p, and can skip -o options
+        // SCP needs -P for port instead of -p, but supports -o options
         $scpOptions = [];
         $i = 0;
         while ($i < count($sshOptions)) {
@@ -101,13 +101,10 @@ class RemoteTransferService
                 $scpOptions[] = '-P';
                 $scpOptions[] = $sshOptions[$i + 1];
                 $i += 2;
-            } elseif ($option === '-i' && isset($sshOptions[$i + 1])) {
-                // Keep SSH key
+            } elseif (($option === '-i' || $option === '-o') && isset($sshOptions[$i + 1])) {
+                // Keep SSH key and -o options (SCP supports both)
                 $scpOptions[] = $option;
                 $scpOptions[] = $sshOptions[$i + 1];
-                $i += 2;
-            } elseif ($option === '-o') {
-                // Skip -o options for SCP
                 $i += 2;
             } else {
                 $i++;

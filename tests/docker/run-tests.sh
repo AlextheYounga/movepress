@@ -73,10 +73,10 @@ for i in {1..60}; do
     sleep 2
 done
 
-# Test SSH connectivity
+# Test SSH connectivity from local container to remote container
 echo ""
 echo -e "${YELLOW}Testing SSH connectivity...${NC}"
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "${SCRIPT_DIR}/ssh/id_rsa" -p 2222 root@localhost "echo 'SSH connection successful'" 2> /dev/null
+docker exec movepress-local ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa root@wordpress-remote "echo 'SSH connection successful'"
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ SSH connection successful${NC}"
 else
@@ -84,18 +84,16 @@ else
     exit 1
 fi
 
-# Run Movepress commands
+# Run Movepress commands (inside local container)
 echo ""
 echo -e "${BLUE}═══════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  Running Movepress Tests${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════${NC}"
 echo ""
 
-cd "$PROJECT_ROOT"
-
 # Test 1: Validate configuration
 echo -e "${YELLOW}Test 1: Validating configuration...${NC}"
-"$MOVEPRESS_BIN" validate --config="${SCRIPT_DIR}/movefile.yml"
+docker exec movepress-local movepress validate
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Configuration valid${NC}"
 else
@@ -106,12 +104,12 @@ fi
 # Test 2: Check status
 echo ""
 echo -e "${YELLOW}Test 2: Checking system status...${NC}"
-"$MOVEPRESS_BIN" status --config="${SCRIPT_DIR}/movefile.yml"
+docker exec movepress-local movepress status
 
 # Test 3: Push database from local to remote
 echo ""
 echo -e "${YELLOW}Test 3: Pushing database from local to remote...${NC}"
-"$MOVEPRESS_BIN" push local remote --db --config="${SCRIPT_DIR}/movefile.yml" --verbose
+docker exec movepress-local movepress push local remote --db --verbose
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Database push successful${NC}"
 else
@@ -132,7 +130,7 @@ fi
 # Test 4: Push files from local to remote
 echo ""
 echo -e "${YELLOW}Test 4: Pushing files from local to remote...${NC}"
-"$MOVEPRESS_BIN" push local remote --files --config="${SCRIPT_DIR}/movefile.yml" --verbose
+docker exec movepress-local movepress push local remote --files --verbose
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ File push successful${NC}"
 else
@@ -142,7 +140,7 @@ fi
 
 # Verify files were transferred
 echo "Verifying file transfer..."
-if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "${SCRIPT_DIR}/ssh/id_rsa" -p 2222 root@localhost "[ -f /var/www/html/wp-content/uploads/2024/11/test-local.txt ]" 2> /dev/null; then
+if docker exec movepress-local ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa root@wordpress-remote "[ -f /var/www/html/wp-content/uploads/2024/11/test-local.txt ]"; then
     echo -e "${GREEN}✓ Files transferred successfully${NC}"
 else
     echo -e "${RED}✗ Expected files not found${NC}"
@@ -152,7 +150,7 @@ fi
 # Test 5: Pull database from remote to local
 echo ""
 echo -e "${YELLOW}Test 5: Pulling database from remote to local...${NC}"
-"$MOVEPRESS_BIN" pull local remote --db --config="${SCRIPT_DIR}/movefile.yml" --verbose
+docker exec movepress-local movepress pull local remote --db --verbose
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Database pull successful${NC}"
 else
@@ -163,7 +161,7 @@ fi
 # Test 6: Test backup command
 echo ""
 echo -e "${YELLOW}Test 6: Testing database backup...${NC}"
-"$MOVEPRESS_BIN" backup local --config="${SCRIPT_DIR}/movefile.yml"
+docker exec movepress-local movepress backup local
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Backup successful${NC}"
 else

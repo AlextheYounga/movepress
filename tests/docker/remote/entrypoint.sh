@@ -84,6 +84,11 @@ mkdir -p /var/www/html/wp-content/uploads/2024/11
 echo "Test upload file from remote environment" > /var/www/html/wp-content/uploads/2024/11/test-remote.txt
 chown -R www-data:www-data /var/www/html/wp-content/uploads
 
+# Create backup directory for movepress
+echo "Creating backup directory..."
+mkdir -p /tmp/movepress/backups
+chmod 777 /tmp/movepress/backups
+
 # Set up Git bare repository for deployment testing
 echo "Setting up Git repository..."
 if [ ! -d /var/repos/movepress-test.git ]; then
