@@ -207,7 +207,7 @@ docker logs movepress-local
 docker logs movepress-remote
 
 # Verify MySQL is ready
-docker exec movepress-mysql-local mysqladmin ping -uroot -proot
+docker exec movepress-mysql-local mysql -uroot -proot -e "SELECT 1"
 ```
 
 ### Permission errors

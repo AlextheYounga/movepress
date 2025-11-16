@@ -13,7 +13,6 @@ services:
             WORDPRESS_DB_USER: wordpress
             WORDPRESS_DB_PASSWORD: wordpress
         volumes:
-            - ./local/wordpress:/var/www/html
             - ./local/entrypoint.sh:/usr/local/bin/custom-entrypoint.sh
             - ../../build/movepress.phar:/usr/local/bin/movepress
         networks:
@@ -57,7 +56,6 @@ services:
             WORDPRESS_DB_USER: wordpress
             WORDPRESS_DB_PASSWORD: wordpress
         volumes:
-            - ./remote/wordpress:/var/www/html
             - ./remote/entrypoint.sh:/usr/local/bin/custom-entrypoint.sh
             - ./ssh:/root/.ssh
             - ../../build/movepress.phar:/usr/local/bin/movepress

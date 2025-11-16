@@ -34,7 +34,7 @@ bash "${SCRIPT_DIR}/setup-ssh.sh"
 echo ""
 echo -e "${YELLOW}Cleaning up existing containers...${NC}"
 cd "$SCRIPT_DIR"
-docker compose down -v 2>/dev/null || true
+docker compose down -v 2> /dev/null || true
 
 # Build and start containers
 echo ""
@@ -76,7 +76,7 @@ done
 # Test SSH connectivity
 echo ""
 echo -e "${YELLOW}Testing SSH connectivity...${NC}"
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "${SCRIPT_DIR}/ssh/id_rsa" -p 2222 root@localhost "echo 'SSH connection successful'" 2>/dev/null
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "${SCRIPT_DIR}/ssh/id_rsa" -p 2222 root@localhost "echo 'SSH connection successful'" 2> /dev/null
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ SSH connection successful${NC}"
 else
@@ -142,7 +142,7 @@ fi
 
 # Verify files were transferred
 echo "Verifying file transfer..."
-if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "${SCRIPT_DIR}/ssh/id_rsa" -p 2222 root@localhost "[ -f /var/www/html/wp-content/uploads/2024/11/test-local.txt ]" 2>/dev/null; then
+if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "${SCRIPT_DIR}/ssh/id_rsa" -p 2222 root@localhost "[ -f /var/www/html/wp-content/uploads/2024/11/test-local.txt ]" 2> /dev/null; then
     echo -e "${GREEN}✓ Files transferred successfully${NC}"
 else
     echo -e "${RED}✗ Expected files not found${NC}"

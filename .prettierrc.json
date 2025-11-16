@@ -7,7 +7,7 @@
     "bracketSpacing": true,
     "arrowParens": "always",
     "endOfLine": "lf",
-    "plugins": ["@prettier/plugin-php"],
+    "plugins": ["@prettier/plugin-php", "prettier-plugin-sh"],
     "overrides": [
         {
             "files": "*.php",

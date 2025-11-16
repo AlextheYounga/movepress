@@ -137,12 +137,12 @@ Use --include to sync specific upload directories:
 ```bash
 # Current year only
 movepress push local production --untracked-files \
-  --include="wp-content/uploads/2024"
+    --include="wp-content/uploads/2024"
 
 # Specific months
 movepress push local production --untracked-files \
-  --include="wp-content/uploads/2024/01" \
-  --include="wp-content/uploads/2024/02"
+    --include="wp-content/uploads/2024/01" \
+    --include="wp-content/uploads/2024/02"
 ```
 
 ---
@@ -174,7 +174,7 @@ movepress pull production local --db --untracked-files
 # Safe deployment: backup, commit, deploy, test
 movepress backup production
 git push production master
-movepress push local production --db  # if needed
+movepress push local production --db # if needed
 ```
 
 ---
@@ -183,11 +183,11 @@ movepress push local production --db  # if needed
 
 ```bash
 # Share database between team members via staging
-movepress push local staging --db      # Developer A
-movepress pull staging local --db      # Developer B
+movepress push local staging --db # Developer A
+movepress pull staging local --db # Developer B
 
 # Deploy client changes from staging to production
-movepress pull staging local --db --untracked-files  # Review
+movepress pull staging local --db --untracked-files # Review
 git push production master
 movepress push staging production --db --untracked-files
 ```
@@ -207,7 +207,7 @@ movepress backup production --output=/custom/backup/path
 movepress push local production --db --untracked-files
 
 # Restore code to previous commit
-git push production <commit-hash>:refs/heads/master --force
+git push production --force < commit-hash > :refs/heads/master
 ```
 
 Configure `backup_path` in `movefile.yml` for automated backup locations. Can be added to cron for scheduled backups.
@@ -256,11 +256,11 @@ movepress push local production --db
 ```bash
 # Quick rollback: revert to previous commit
 git push production HEAD~1:refs/heads/master --force
-movepress push staging production --db  # restore DB from staging
+movepress push staging production --db # restore DB from staging
 
 # Restore single file
 movepress pull production local --untracked-files \
-  --include="wp-content/uploads/2024/01/logo.png"
+    --include="wp-content/uploads/2024/01/logo.png"
 ```
 
 ---
@@ -320,8 +320,7 @@ fi
 # Confirm
 read -p "Deploy code and uploads? (y/n) " -n 1 -r
 echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
+if [[ $REPLY =~ ^[Yy]$ ]]; then
     git push production master
     movepress push local production --untracked-files
     echo "Deployment complete!"

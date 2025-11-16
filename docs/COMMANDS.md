@@ -309,7 +309,7 @@ Create a database backup for an environment.
 ### Syntax
 
 ```bash
-movepress backup <environment> [--output=<directory>]
+movepress backup < environment > [--output= < directory > ]
 ```
 
 ### Arguments

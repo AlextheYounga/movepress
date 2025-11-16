@@ -9,45 +9,63 @@ APACHE_PID=$!
 
 # Wait for MySQL to be ready
 echo "Waiting for MySQL..."
-while ! mysqladmin ping -h"${WORDPRESS_DB_HOST%:*}" -u"${WORDPRESS_DB_USER}" -p"${WORDPRESS_DB_PASSWORD}" --silent; do
+until php -r "\$mysqli = @new mysqli('${WORDPRESS_DB_HOST%:*}', '${WORDPRESS_DB_USER}', '${WORDPRESS_DB_PASSWORD}', '${WORDPRESS_DB_NAME}'); exit(\$mysqli->connect_error ? 1 : 0);" 2> /dev/null; do
     sleep 2
 done
 echo "MySQL is ready!"
 
-# Wait for WordPress files to be available
-echo "Waiting for WordPress files..."
-while [ ! -f /var/www/html/wp-config.php ]; do
-    sleep 2
-done
+# Download wp-cli for initial setup only
+echo "Downloading wp-cli.phar for setup..."
+if [ ! -f /tmp/wp-cli.phar ]; then
+    curl -sS -o /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    chmod +x /tmp/wp-cli.phar
+fi
 
-# Install WordPress using bundled wp-cli
-echo "Installing WordPress..."
-php /usr/local/bin/movepress core download --path=/var/www/html --force || true
+# Give WordPress container a moment to set up initial files
+sleep 5
+
+# Download WordPress core files (with increased memory for extraction)
+echo "Downloading WordPress core..."
+php -d memory_limit=512M /tmp/wp-cli.phar core download --path=/var/www/html --allow-root --force || true
+
+# Create wp-config.php
+echo "Creating wp-config.php..."
+php /tmp/wp-cli.phar config create \
+    --path=/var/www/html \
+    --dbname="${WORDPRESS_DB_NAME}" \
+    --dbuser="${WORDPRESS_DB_USER}" \
+    --dbpass="${WORDPRESS_DB_PASSWORD}" \
+    --dbhost="${WORDPRESS_DB_HOST}" \
+    --allow-root \
+    --force || true
 
 # Check if WordPress is already installed
-if ! php /usr/local/bin/movepress core is-installed --path=/var/www/html 2>/dev/null; then
-    echo "Running WordPress installation..."
-    php /usr/local/bin/movepress core install \
+echo "Checking WordPress installation..."
+if ! php /tmp/wp-cli.phar core is-installed --path=/var/www/html --allow-root 2> /dev/null; then
+    echo "Installing WordPress with wp-cli..."
+    php /tmp/wp-cli.phar core install \
         --path=/var/www/html \
         --url="http://localhost:8080" \
         --title="Movepress Local Test" \
         --admin_user="admin" \
         --admin_password="admin" \
         --admin_email="local@movepress.test" \
-        --skip-email
+        --skip-email \
+        --allow-root
     echo "WordPress installed successfully!"
 else
     echo "WordPress already installed, skipping..."
 fi
 
-# Create test content
+# Create test content with wp-cli
 echo "Creating test content..."
-php /usr/local/bin/movepress post create \
+php /tmp/wp-cli.phar post create \
     --path=/var/www/html \
     --post_title="Test Post Local" \
     --post_content="This is test content from the local environment. URL: http://localhost:8080" \
     --post_status="publish" \
-    --porcelain || true
+    --porcelain \
+    --allow-root || true
 
 # Create test uploads directory with sample file
 echo "Creating test uploads..."

@@ -187,9 +187,9 @@ movepress git:setup production
 
 # Regular deployments
 git commit -am "Update theme"
-git push production master              # Deploy code
-movepress push local production --db    # Sync database
-movepress push local production --untracked-files  # Sync uploads
+git push production master                        # Deploy code
+movepress push local production --db              # Sync database
+movepress push local production --untracked-files # Sync uploads
 ```
 
 ## Requirements
