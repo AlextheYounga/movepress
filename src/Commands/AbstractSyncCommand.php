@@ -147,15 +147,7 @@ abstract class AbstractSyncCommand extends Command
 
         $sourcePath = $this->buildPath($this->sourceEnv);
         $destPath = $this->buildPath($this->destEnv);
-
-        // Determine .gitignore path (use local path if source is local)
-        $gitignorePath = null;
-        if (!isset($this->sourceEnv['ssh'])) {
-            $possiblePath = $this->sourceEnv['wordpress_path'] . '/.gitignore';
-            if (file_exists($possiblePath)) {
-                $gitignorePath = $possiblePath;
-            }
-        }
+		$gitignorePath = $this->getGitignorePath();
 
         $this->io->text("Syncing untracked files (uploads, caches, etc.)...");
         return $rsync->syncUntrackedFiles($sourcePath, $destPath, $excludes, $remoteSsh, $gitignorePath);
@@ -165,11 +157,11 @@ abstract class AbstractSyncCommand extends Command
     {
         if ($this->dryRun) {
             $this->io->text('Would export source database');
-            $this->io->text('Would perform search-replace: ' . $this->sourceEnv['url'] . ' → ' . $this->destEnv['url']);
             if (!$noBackup) {
                 $this->io->text('Would create backup of destination database');
             }
             $this->io->text('Would import to destination database');
+            $this->io->text('Would perform search-replace: ' . $this->sourceEnv['url'] . ' → ' . $this->destEnv['url']);
             return true;
         }
 
@@ -208,9 +200,6 @@ abstract class AbstractSyncCommand extends Command
                 }
             }
 
-            // Search-replace on exported file
-            $this->performSearchReplace($exportFile, $sourceUrl, $destUrl);
-
             // Backup destination database
             if (!$noBackup) {
                 $this->io->text("Creating backup of destination database...");
@@ -231,6 +220,14 @@ abstract class AbstractSyncCommand extends Command
                 }
             }
 
+            // Perform search-replace on live database using wp-cli
+            $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
+            $destWordpressPath = $this->destEnv['wordpress_path'];
+			$replacedSuccess = $dbService->searchReplace($destWordpressPath, $sourceUrl, $destUrl, $destSsh);
+            if (!$replacedSuccess) {
+                throw new \RuntimeException('Failed to perform search-replace');
+            }
+
             @unlink($exportFile);
             return true;
 
@@ -238,48 +235,6 @@ abstract class AbstractSyncCommand extends Command
             $this->cleanupTempFiles($exportFile);
             $this->io->error($e->getMessage());
             return false;
-        }
-    }
-
-    protected function performSearchReplace(string $exportFile, string $sourceUrl, string $destUrl): void
-    {
-        $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
-        $decompressedFile = str_replace('.gz', '', $exportFile);
-
-        // Decompress
-        $process = \Symfony\Component\Process\Process::fromShellCommandline(
-            'gunzip ' . escapeshellarg($exportFile)
-        );
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException('Failed to decompress database export');
-        }
-
-        // Search-replace using sed
-        $sedCommand = sprintf(
-            'sed -i.bak %s %s',
-            escapeshellarg('s|' . addcslashes($sourceUrl, '|/') . '|' . addcslashes($destUrl, '|/') . '|g'),
-            escapeshellarg($decompressedFile)
-        );
-
-        $process = \Symfony\Component\Process\Process::fromShellCommandline($sedCommand);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException('Failed to perform search-replace');
-        }
-
-        @unlink($decompressedFile . '.bak');
-
-        // Recompress
-        $process = \Symfony\Component\Process\Process::fromShellCommandline(
-            'gzip ' . escapeshellarg($decompressedFile)
-        );
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException('Failed to recompress database export');
         }
     }
 
@@ -323,4 +278,16 @@ abstract class AbstractSyncCommand extends Command
         $validator = new ValidationService($this->io);
         return $validator->confirmDestructiveOperation($destination, $this->flags);
     }
+
+	private function getGitignorePath(): ?string{
+		// Determine .gitignore path (use local path if source is local)
+        $gitignorePath = null;
+        if (!isset($this->sourceEnv['ssh'])) {
+            $possiblePath = $this->sourceEnv['wordpress_path'] . '/.gitignore';
+            if (file_exists($possiblePath)) {
+                $gitignorePath = $possiblePath;
+            }
+        }
+		return $gitignorePath;
+	}
 }
