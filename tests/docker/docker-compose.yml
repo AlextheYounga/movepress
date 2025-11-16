@@ -23,9 +23,9 @@ services:
                 condition: service_healthy
         entrypoint: /usr/local/bin/custom-entrypoint.sh
 
-    # Local MySQL database
+    # Local MariaDB database
     mysql-local:
-        image: mysql:8.0
+        image: mariadb:latest
         container_name: movepress-mysql-local
         ports:
             - '3306:3306'
@@ -37,7 +37,7 @@ services:
         networks:
             - movepress-test
         healthcheck:
-            test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-proot']
+            test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
             interval: 5s
             timeout: 5s
             retries: 10
@@ -68,9 +68,9 @@ services:
                 condition: service_healthy
         entrypoint: /usr/local/bin/custom-entrypoint.sh
 
-    # Remote MySQL database
+    # Remote MariaDB database
     mysql-remote:
-        image: mysql:8.0
+        image: mariadb:latest
         container_name: movepress-mysql-remote
         ports:
             - '3307:3306'
@@ -82,7 +82,7 @@ services:
         networks:
             - movepress-test
         healthcheck:
-            test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-proot']
+            test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
             interval: 5s
             timeout: 5s
             retries: 10
