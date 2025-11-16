@@ -266,6 +266,7 @@ movepress status
 - **[Command Reference](docs/COMMANDS.md)** - Complete guide to all commands and options
 - **[Configuration Reference](docs/CONFIGURATION.md)** - Detailed movefile.yml documentation
 - **[Examples](docs/EXAMPLES.md)** - Common workflows and use cases
+- **[Docker Setup](docs/DOCKER.md)** - Using Movepress with Docker environments
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Solutions to common problems
 - **[Migration from Wordmove](docs/MIGRATION.md)** - Step-by-step guide for Wordmove users
 

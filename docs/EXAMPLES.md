@@ -2,6 +2,8 @@
 
 Common use cases and workflow examples for Movepress.
 
+> **💡 Using Docker?** See the [Docker Setup Guide](DOCKER.md) for configuration examples with Docker Compose.
+
 ---
 
 ## Initial Setup
@@ -147,131 +149,46 @@ movepress push local production --untracked-files \
 
 ## Database Patterns
 
-### Database Only Operations
-
-Most common for pulling production data:
-
 ```bash
-# Pull production database
+# Pull production database (most common)
 movepress pull production local --db
 
 # Push local database to staging
 movepress push local staging --db
-```
 
----
-
-### Backup Before Pulling
-
-Create a backup of local database before overwriting:
-
-```bash
-# Backup first (automatic, but can be manual)
+# Manual backup (automatic by default)
 movepress backup local
 
-# Then pull
-movepress pull production local --db
-```
-
----
-
-### Skip Backup (Use Carefully)
-
-Skip automatic backup if you're sure:
-
-```bash
+# Skip backup (use carefully)
 movepress pull production local --db --no-backup
 ```
-
-⚠️ **Warning:** Only use this if you have another backup or don't need the local data.
 
 ---
 
 ## Development Workflows
 
-### Starting a New Feature
-
-Pull fresh data from production:
-
 ```bash
-# Get latest database
-movepress pull production local --db
+# Start new feature: pull fresh production data
+movepress pull production local --db --untracked-files
 
-# Get any new uploads
-movepress pull production local --untracked-files
-```
-
----
-
-### Testing Locally
-
-Test changes with production data:
-
-```bash
-# Pull production database
-movepress pull production local --db
-
-# Work on your feature locally
-# Test thoroughly
-
-# Commit and deploy when ready
-git add .
-git commit -m "New feature"
-git push staging develop
-```
-
----
-
-### Deploying a Release
-
-Safe deployment workflow:
-
-```bash
-# 1. Backup production first
+# Safe deployment: backup, commit, deploy, test
 movepress backup production
-
-# 2. Ensure all changes are committed
-git status
-
-# 3. Deploy code via Git
 git push production master
-
-# 4. Test the site
-
-# 5. Sync database if needed
-movepress push local production --db
+movepress push local production --db  # if needed
 ```
 
 ---
 
 ## Team Workflows
 
-### Sharing Development Database
-
-Team member shares their local database:
-
 ```bash
-# Developer A: Push to staging
-movepress push local staging --db
+# Share database between team members via staging
+movepress push local staging --db      # Developer A
+movepress pull staging local --db      # Developer B
 
-# Developer B: Pull from staging
-movepress pull staging local --db
-```
-
----
-
-### Deploying Client Changes
-
-Client made content changes on staging, deploy to production:
-
-```bash
-# Pull database and uploads from staging
-movepress pull staging local --db --untracked-files
-
-# Review changes locally
-
-# Deploy to production
-git push production master  # Code changes (if any)
+# Deploy client changes from staging to production
+movepress pull staging local --db --untracked-files  # Review
+git push production master
 movepress push staging production --db --untracked-files
 ```
 
@@ -279,55 +196,21 @@ movepress push staging production --db --untracked-files
 
 ## Maintenance Workflows
 
-### Regular Backups
-
-Create regular backups:
-
 ```bash
-# Backup production database (uses backup_path from movefile.yml)
+# Regular backups (uses backup_path from movefile.yml)
 movepress backup production
 
-# Backup to specific directory (overrides config)
+# Backup to custom location
 movepress backup production --output=/custom/backup/path
 
-# Could be added to cron:
-# 0 2 * * * /usr/local/bin/movepress backup production
-```
-
-**Tip:** Configure `backup_path` in your `movefile.yml` for each environment:
-
-```yaml
-production:
-    backup_path: /var/backups/movepress
-```
-
----
-
-### Pre-Update Backup
-
-Before updating WordPress/plugins:
-
-```bash
-# Backup database
-movepress backup production
-
-# Could also pull a full copy locally
-movepress pull production local --db --untracked-files
-```
-
----
-
-### Restore from Backup
-
-If you need to restore:
-
-```bash
 # Restore database and uploads
 movepress push local production --db --untracked-files
 
-# Restore code to previous Git commit
+# Restore code to previous commit
 git push production <commit-hash>:refs/heads/master --force
 ```
+
+Configure `backup_path` in `movefile.yml` for automated backup locations. Can be added to cron for scheduled backups.
 
 ---
 
@@ -370,25 +253,12 @@ movepress push local production --db
 
 ## Emergency Workflows
 
-### Quick Rollback
-
-Production is broken, roll back to previous version:
-
 ```bash
-# Roll back code to previous commit
+# Quick rollback: revert to previous commit
 git push production HEAD~1:refs/heads/master --force
+movepress push staging production --db  # restore DB from staging
 
-# Or restore database from staging
-movepress push staging production --db
-```
-
----
-
-### Restore Single Upload File
-
-Restore a single upload from production:
-
-```bash
+# Restore single file
 movepress pull production local --untracked-files \
   --include="wp-content/uploads/2024/01/logo.png"
 ```
@@ -397,52 +267,16 @@ movepress pull production local --untracked-files \
 
 ## Advanced Patterns
 
-### Conditional Deployment
-
-Use dry-run to check before deploying untracked files:
-
 ```bash
-# Check what would change
+# Preview changes before deployment
 movepress push local production --untracked-files --dry-run
 
-# Review output...
-
-# Deploy if it looks good
-movepress push local production --untracked-files
-```
-
----
-
-### Verbose Debugging
-
-Debug sync issues with verbose output:
-
-```bash
+# Verbose debugging (shows rsync commands, DB operations, etc.)
 movepress push local production --db --untracked-files -v
-```
 
-This shows:
-
-- Rsync commands being executed
-- Database operations
-- Search-replace operations
-- File transfer progress
-
----
-
-### Testing SSH Connection
-
-Before a deployment, test the connection:
-
-```bash
-# Test connection
+# Test SSH connection before deployment
 movepress ssh production
-
-# Check configuration
 movepress status production
-
-# Then deploy code
-git push production master
 ```
 
 ---

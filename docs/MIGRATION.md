@@ -267,72 +267,16 @@ database:
 
 ## Common Migration Issues
 
-### Issue: "SSH key not found"
-
-**Problem:** Wordmove used default SSH key, Movepress needs explicit path.
-
-**Solution:** Add `key` to SSH config:
-
-```yaml
-production:
-    ssh:
-        host: server.example.com
-        user: deploy
-        key: ~/.ssh/id_rsa # Add this
-```
-
----
-
-### Issue: "wp-cli not found"
-
-**Problem:** You were using system wp-cli with Wordmove.
-
-**Solution:** Movepress bundles wp-cli! Just verify:
-
-```bash
-movepress status
-# Should show: wp-cli ✓ Available
-```
-
----
-
-### Issue: "mysql commands not found"
-
-**Problem:** Wordmove used SQL adapters, Movepress needs mysql tools.
-
-**Solution:** Install MySQL client:
-
-```bash
-# macOS
-brew install mysql-client
-
-# Ubuntu/Debian
-sudo apt-get install mysql-client
-```
-
----
-
-### Issue: "Source environment required"
-
-**Problem:** Wordmove inferred source as `local`.
-
-**Solution:** Always specify source and destination:
-
-```bash
-# Wordmove
-wordmove push production --db
-
-# Movepress
-movepress push local production --db
-```
+- **SSH key not found:** Add explicit `key: ~/.ssh/id_rsa` to SSH config
+- **wp-cli not found:** Movepress bundles wp-cli (verify with `movepress status`)
+- **mysql commands not found:** Install MySQL client (`brew install mysql-client` or `apt-get install mysql-client`)
+- **Source environment required:** Always specify both environments (`movepress push local production --db`)
 
 ---
 
 ## Migration Workflow
 
-### Step 1: Install Alongside
-
-Keep Wordmove installed while testing:
+### 1. Install and Validate
 
 ```bash
 # Build Movepress
@@ -342,195 +286,61 @@ composer install --no-dev
 ./vendor/bin/box compile
 sudo cp ./build/movepress.phar /usr/local/bin/movepress
 
-# Both are now available
-wordmove --version
-movepress --version
-```
-
----
-
-### Step 2: Validate Configuration
-
-Test your `movefile.yml`:
-
-```bash
-# Check configuration
+# Validate setup
 movepress validate
-
-# Check system tools
 movepress status
-
-# Test SSH connections
 movepress ssh production
 ```
 
----
-
-### Step 3: Test with Safe Operations
-
-Start with read-only operations:
+### 2. Test with Safe Operations
 
 ```bash
-# Pull database (safe, overwrites local only)
+# Start with read-only pulls
 movepress pull production local --db
-
-# Pull uploads (safe)
 movepress pull production local --untracked-files
 
-# Preview push (doesn't execute)
+# Preview pushes
 movepress push local staging --db --untracked-files --dry-run
 ```
 
----
+### 3. Update Deployment Scripts
 
-### Step 4: Update Scripts/CI
-
-Update deployment scripts:
-
-**Old (Wordmove):**
+Replace Wordmove commands with Git + Movepress:
 
 ```bash
-#!/bin/bash
-wordmove push production --db --wordpress
-```
-
-**New (Movepress):**
-
-```bash
-#!/bin/bash
-# Deploy code via Git
+# Old: wordmove push production --db --wordpress
+# New:
 git push production master
-
-# Sync database and uploads
 movepress push local production --db --untracked-files
-```
-
----
-
-### Step 5: Remove Wordmove
-
-Once confident:
-
-```bash
-gem uninstall wordmove
 ```
 
 ---
 
 ## Team Migration
 
-### Gradual Migration
-
-Teams can migrate gradually:
-
-```yaml
-# movefile.yml works with both tools
-local:
-    path: /path/to/wordpress
-    url: http://local.test
-    # ... standard config
-
-production:
-    # ... standard config
-```
-
-**Instructions for team:**
+Teams can migrate gradually since `movefile.yml` works with both tools:
 
 ```bash
-# Option A: Still using Wordmove
+# Team member A (still using Wordmove)
 wordmove pull production --db
 
-# Option B: Using Movepress
+# Team member B (using Movepress)
 movepress pull production local --db
 ```
 
----
-
-### Documentation Updates
-
-Update internal docs with command changes:
-
-````markdown
-## Deployment (Updated)
-
-### Using Movepress (Recommended)
-
-```bash
-# Deploy code
-git push production master
-
-# Sync database and uploads
-movepress push local production --db --untracked-files
-```
-````
-
-### Using Wordmove (Legacy)
-
-```bash
-wordmove push production --db --wordpress
-```
-
-````
+Update team documentation to include both options during transition period.
 
 ---
 
 ## Benefits After Migration
 
-### Simplified Setup
-
-**Before (Wordmove):**
-```bash
-# Install Ruby
-# Install Ruby gems
-# Install wp-cli separately
-gem install wordmove
-gem install specific versions for compatibility
-````
-
-**After (Movepress):**
-
-```bash
-# Build once, run anywhere
-git clone https://github.com/AlextheYounga/movepress.git
-cd movepress
-composer install --no-dev
-./vendor/bin/box compile
-# Single PHAR file ready to use
-```
-
----
-
-### Better Diagnostics
-
-**Wordmove:**
-
-```
-Error: Something went wrong
-```
-
-**Movepress:**
-
-```
-SSH connection failed
-
-Troubleshooting tips:
-- Verify SSH key permissions: chmod 600 ~/.ssh/id_rsa
-- Test manually: ssh -i ~/.ssh/id_rsa user@host
-- Run diagnostics: movepress ssh production
-```
-
----
-
-### Built-in Validation
-
-**Wordmove:** Errors appear during execution
-
-**Movepress:** Catch issues early
-
-```bash
-movepress validate
-# Lists all config errors before attempting deployment
-```
+| Feature              | Wordmove                    | Movepress                                    |
+| -------------------- | --------------------------- | -------------------------------------------- |
+| **Dependencies**     | Ruby + gems + system wp-cli | Single PHAR file                             |
+| **Error Messages**   | Generic errors              | Detailed troubleshooting tips                |
+| **Validation**       | Errors during execution     | Pre-flight validation (`movepress validate`) |
+| **Diagnostics**      | Manual testing              | Built-in system checks (`movepress status`)  |
+| **Setup Complexity** | Ruby version management     | Build once, run anywhere                     |
 
 ---
 
@@ -559,56 +369,16 @@ movepress push local production --untracked-files -v
 - [Examples](EXAMPLES.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 
----
-
-## Success Stories
-
-_Share your migration story!_ Open an issue or PR to add your experience.
-
----
-
 ## FAQ
 
-### Q: Will my movefile.yml work?
+**Q: Will my movefile.yml work?**  
+A: Most configs work with minimal changes. Run `movepress validate` to check.
 
-**A:** Most configs work with minimal changes. Run `movepress validate` to check.
+**Q: Can I use both tools during migration?**  
+A: Yes, the config format is compatible.
 
----
-
-### Q: Can I use both tools?
-
-**A:** Yes! The config format is compatible, so you can use both during migration.
-
----
-
-### Q: What about FTP deployments?
-
-**A:** Movepress requires SSH/rsync. If you're on FTP-only hosting, consider upgrading your hosting or continue using Wordmove.
-
----
-
-### Q: Is there a performance difference?
-
-**A:** Both use rsync for files, so performance is similar. Database operations may be faster with Movepress due to modern PHP and bundled wp-cli.
-
----
-
-### Q: What about Ruby version issues?
-
-**A:** Gone! Movepress is pure PHP, no Ruby dependencies.
-
----
-
-## Conclusion
-
-Movepress brings the power of Wordmove to modern PHP with:
-
-- Zero Ruby dependencies
-- Better error handling
-- Built-in diagnostics
-- Active maintenance
-
-Your existing workflow and configs should work with minimal changes. Welcome to the modern era of WordPress deployments!
+**Q: What about FTP deployments?**  
+A: Movepress requires SSH/rsync. If you're on FTP-only hosting, consider upgrading or continue using Wordmove.
 
 ---
 

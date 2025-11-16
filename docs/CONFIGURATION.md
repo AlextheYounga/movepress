@@ -2,6 +2,8 @@
 
 Complete reference for `movefile.yml` configuration file.
 
+> **💡 Using Docker?** See the [Docker Setup Guide](DOCKER.md) for Docker-specific configuration examples.
+
 ---
 
 ## File Structure
