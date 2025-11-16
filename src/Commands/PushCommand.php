@@ -15,8 +15,7 @@ class PushCommand extends AbstractSyncCommand
 {
     protected function configure(): void
     {
-        $this->setName('push')
-            ->setDescription('Push database and/or files from source to destination environment');
+        $this->setName('push')->setDescription('Push database and/or files from source to destination environment');
 
         $this->configureArguments();
         $this->configureOptions();
@@ -51,7 +50,7 @@ class PushCommand extends AbstractSyncCommand
                 $destEnv,
                 $flags,
                 $input->getOption('dry-run'),
-                $input->getOption('verbose')
+                $input->getOption('verbose'),
             );
 
             $this->displayConfiguration($source, $destination);
@@ -99,7 +98,6 @@ class PushCommand extends AbstractSyncCommand
             }
 
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;

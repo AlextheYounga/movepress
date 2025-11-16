@@ -121,47 +121,49 @@ The `movefile.yml` file defines your environments and sync settings:
 
 ```yaml
 local:
-  wordpress_path: /path/to/wordpress
-  url: http://local.test
-  database:
-    name: wp_local
-    user: root
-    password: ""
-    host: localhost
+    wordpress_path: /path/to/wordpress
+    url: http://local.test
+    database:
+        name: wp_local
+        user: root
+        password: ''
+        host: localhost
 
 production:
-  wordpress_path: /var/www/html
-  url: https://example.com
-  ssh:
-    host: server.example.com
-    user: deploy
-    port: 22
-    key: ~/.ssh/id_rsa
-  database:
-    name: wp_production
-    user: ${DB_USER}
-    password: ${DB_PASSWORD}
-    host: localhost
-  # Optional: Git deployment configuration
-  git:
-    repo_path: /var/repos/mysite.git
+    wordpress_path: /var/www/html
+    url: https://example.com
+    ssh:
+        host: server.example.com
+        user: deploy
+        port: 22
+        key: ~/.ssh/id_rsa
+    database:
+        name: wp_production
+        user: ${DB_USER}
+        password: ${DB_PASSWORD}
+        host: localhost
+    # Optional: Git deployment configuration
+    git:
+        repo_path: /var/repos/mysite.git
 
 # Global exclude patterns (for rsync)
 global:
-  exclude:
-    - ".git/"
-    - "node_modules/"
-    - ".env"
+    exclude:
+        - '.git/'
+        - 'node_modules/'
+        - '.env'
 ```
 
 ### Configuration Options
 
 **Required for each environment:**
+
 - `wordpress_path` - WordPress installation path
 - `url` - WordPress site URL
 - `database` - Database credentials (name, user, password, host)
 
 **Optional:**
+
 - `ssh` - SSH connection details (host, user, port, key) for remote environments
 - `git` - Git deployment configuration (repo_path defaults to `/var/repos/{site-name}.git`)
 - `exclude` - Environment-specific exclude patterns for rsync
@@ -178,6 +180,7 @@ Movepress uses a **hybrid approach** for managing WordPress sites:
 3. **Database sync** - Export, search-replace, and import databases between environments
 
 **Typical workflow:**
+
 ```bash
 # One-time setup
 movepress git:setup production
@@ -273,6 +276,7 @@ movepress status
 [Wordmove](https://github.com/welaika/wordmove) has been the go-to WordPress deployment tool for years, but it hasn't been actively maintained and relies on Ruby dependencies that can be challenging to manage. Movepress is built from the ground up as a modern alternative that:
 
 **Advantages over Wordmove:**
+
 - ✅ **Zero Ruby dependencies** - Pure PHP, runs anywhere PHP runs
 - ✅ **Single executable** - Distributed as a self-contained `.phar` file
 - ✅ **Git-based deployments** - Modern workflow with Git for code, rsync for uploads
@@ -283,6 +287,7 @@ movepress status
 - ✅ **Modern PHP** - Takes advantage of PHP 8.1+ features
 
 **Familiar workflow with improvements:**
+
 - 📝 Same `movefile.yml` configuration format (mostly compatible!)
 - 🔄 Same push/pull command structure
 - 🎯 Simplified sync options (--db, --untracked-files)

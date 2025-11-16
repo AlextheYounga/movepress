@@ -82,24 +82,19 @@ class BackupCommand extends Command
             $dbService = new DatabaseService($output, true);
 
             // Use --output flag, or backup_path from config, or default to current directory
-            $backupDir = $outputDir ?? $env['backup_path'] ?? null;
+            $backupDir = $outputDir ?? ($env['backup_path'] ?? null);
             $backupFile = $dbService->backup($dbConfig, $sshService, $backupDir);
 
             if ($backupFile) {
                 $fileSize = filesize($backupFile);
                 $humanSize = $this->formatBytes($fileSize);
-                
-                $io->success([
-                    'Backup created successfully!',
-                    "File: {$backupFile}",
-                    "Size: {$humanSize}",
-                ]);
+
+                $io->success(['Backup created successfully!', "File: {$backupFile}", "Size: {$humanSize}"]);
                 return Command::SUCCESS;
             } else {
                 $io->error('Failed to create backup');
                 return Command::FAILURE;
             }
-
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
@@ -110,7 +105,7 @@ class BackupCommand extends Command
     {
         $units = ['B', 'KB', 'MB', 'GB'];
         $factor = floor((strlen((string) $bytes) - 1) / 3);
-        
-        return sprintf("%.2f %s", $bytes / pow(1024, $factor), $units[$factor]);
+
+        return sprintf('%.2f %s', $bytes / pow(1024, $factor), $units[$factor]);
     }
 }

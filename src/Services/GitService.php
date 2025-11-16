@@ -12,10 +12,8 @@ class GitService
     private OutputInterface $output;
     private bool $verbose;
 
-    public function __construct(
-        OutputInterface $output,
-        bool $verbose = false
-    ) {
+    public function __construct(OutputInterface $output, bool $verbose = false)
+    {
         $this->output = $output;
         $this->verbose = $verbose;
     }
@@ -23,11 +21,8 @@ class GitService
     /**
      * Set up bare Git repository on remote server with post-receive hook
      */
-    public function setupRemoteRepo(
-        string $repoPath,
-        string $wordpressPath,
-        SshService $sshService
-    ): bool {
+    public function setupRemoteRepo(string $repoPath, string $wordpressPath, SshService $sshService): bool
+    {
         $connectionString = $sshService->buildConnectionString();
         $sshOptions = implode(' ', $sshService->getSshOptions());
 
@@ -36,10 +31,10 @@ class GitService
             'ssh %s %s "mkdir -p %s"',
             $sshOptions,
             escapeshellarg($connectionString),
-            escapeshellarg($repoPath)
+            escapeshellarg($repoPath),
         );
 
-        if (!$this->runCommand($mkdirCommand, "Creating remote repository directory")) {
+        if (!$this->runCommand($mkdirCommand, 'Creating remote repository directory')) {
             return false;
         }
 
@@ -48,10 +43,10 @@ class GitService
             'ssh %s %s "cd %s && git init --bare"',
             $sshOptions,
             escapeshellarg($connectionString),
-            escapeshellarg($repoPath)
+            escapeshellarg($repoPath),
         );
 
-        if (!$this->runCommand($initCommand, "Initializing bare Git repository")) {
+        if (!$this->runCommand($initCommand, 'Initializing bare Git repository')) {
             return false;
         }
 
@@ -64,7 +59,7 @@ class GitService
             $sshOptions,
             escapeshellarg($connectionString),
             escapeshellarg($hookPath),
-            escapeshellarg($hookPath)
+            escapeshellarg($hookPath),
         );
 
         $process = Process::fromShellCommandline($createHookCommand);
@@ -72,7 +67,7 @@ class GitService
         $process->setTimeout(30);
 
         if ($this->verbose) {
-            $this->output->writeln("<comment>Creating post-receive hook</comment>");
+            $this->output->writeln('<comment>Creating post-receive hook</comment>');
         }
 
         $process->run(function ($type, $buffer) {
@@ -82,7 +77,7 @@ class GitService
         });
 
         if (!$process->isSuccessful()) {
-            $this->output->writeln("<error>Failed to create post-receive hook:</error>");
+            $this->output->writeln('<error>Failed to create post-receive hook:</error>');
             $this->output->writeln($process->getErrorOutput());
             return false;
         }
@@ -93,16 +88,13 @@ class GitService
     /**
      * Add Git remote to local repository
      */
-    public function addRemote(
-        string $remoteName,
-        string $remoteUrl,
-        string $localPath
-    ): bool {
+    public function addRemote(string $remoteName, string $remoteUrl, string $localPath): bool
+    {
         // Check if remote already exists
         $checkCommand = sprintf(
             'cd %s && git remote get-url %s 2>/dev/null',
             escapeshellarg($localPath),
-            escapeshellarg($remoteName)
+            escapeshellarg($remoteName),
         );
 
         $process = Process::fromShellCommandline($checkCommand);
@@ -114,7 +106,7 @@ class GitService
                 'cd %s && git remote set-url %s %s',
                 escapeshellarg($localPath),
                 escapeshellarg($remoteName),
-                escapeshellarg($remoteUrl)
+                escapeshellarg($remoteUrl),
             );
 
             return $this->runCommand($updateCommand, "Updating Git remote '{$remoteName}'");
@@ -125,7 +117,7 @@ class GitService
             'cd %s && git remote add %s %s',
             escapeshellarg($localPath),
             escapeshellarg($remoteName),
-            escapeshellarg($remoteUrl)
+            escapeshellarg($remoteUrl),
         );
 
         return $this->runCommand($addCommand, "Adding Git remote '{$remoteName}'");
@@ -146,36 +138,36 @@ class GitService
     private function generatePostReceiveHook(string $wordpressPath): string
     {
         return <<<BASH
-#!/bin/bash
-# Movepress post-receive hook
-# Deploys pushed commits to WordPress directory
+        #!/bin/bash
+        # Movepress post-receive hook
+        # Deploys pushed commits to WordPress directory
 
-GIT_DIR=\$(pwd)
-TARGET_DIR="$wordpressPath"
+        GIT_DIR=\$(pwd)
+        TARGET_DIR="$wordpressPath"
 
-echo "Deploying to \$TARGET_DIR..."
+        echo "Deploying to \$TARGET_DIR..."
 
-# Create target directory if it doesn't exist
-mkdir -p "\$TARGET_DIR"
+        # Create target directory if it doesn't exist
+        mkdir -p "\$TARGET_DIR"
 
-# Use git archive to export the pushed commits
-while read oldrev newrev refname; do
-    branch=\$(echo \$refname | sed 's/refs\/heads\///')
-    
-    if [ "\$newrev" = "0000000000000000000000000000000000000000" ]; then
-        echo "Branch \$branch deleted, skipping deployment."
-        continue
-    fi
-    
-    echo "Deploying branch: \$branch"
-    
-    # Export files to target directory
-    git --work-tree="\$TARGET_DIR" --git-dir="\$GIT_DIR" checkout -f \$branch
-    
-    echo "Deployment complete!"
-done
+        # Use git archive to export the pushed commits
+        while read oldrev newrev refname; do
+            branch=\$(echo \$refname | sed 's/refs\/heads\///')
 
-BASH;
+            if [ "\$newrev" = "0000000000000000000000000000000000000000" ]; then
+                echo "Branch \$branch deleted, skipping deployment."
+                continue
+            fi
+
+            echo "Deploying branch: \$branch"
+
+            # Export files to target directory
+            git --work-tree="\$TARGET_DIR" --git-dir="\$GIT_DIR" checkout -f \$branch
+
+            echo "Deployment complete!"
+        done
+
+        BASH;
     }
 
     /**
@@ -185,7 +177,7 @@ BASH;
     {
         $process = Process::fromShellCommandline('which git');
         $process->run();
-        
+
         return $process->isSuccessful();
     }
 
@@ -194,10 +186,7 @@ BASH;
      */
     public function isGitRepo(string $path): bool
     {
-        $command = sprintf(
-            'cd %s && git rev-parse --git-dir 2>/dev/null',
-            escapeshellarg($path)
-        );
+        $command = sprintf('cd %s && git rev-parse --git-dir 2>/dev/null', escapeshellarg($path));
 
         $process = Process::fromShellCommandline($command);
         $process->run();

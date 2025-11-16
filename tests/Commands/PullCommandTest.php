@@ -123,17 +123,17 @@ class PullCommandTest extends TestCase
     public function test_validates_environment_has_wordpress_path(): void
     {
         $yaml = <<<YAML
-local:
-  url: "http://local.test"
-  database:
-    name: "test"
+        local:
+          url: "http://local.test"
+          database:
+            name: "test"
 
-staging:
-  wordpress_path: "/var/www"
-  url: "http://staging.test"
-  database:
-    name: "test"
-YAML;
+        staging:
+          wordpress_path: "/var/www"
+          url: "http://staging.test"
+          database:
+            name: "test"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
@@ -151,17 +151,17 @@ YAML;
     public function test_validates_environment_has_url(): void
     {
         $yaml = <<<YAML
-local:
-  wordpress_path: "/var/www"
-  database:
-    name: "test"
+        local:
+          wordpress_path: "/var/www"
+          database:
+            name: "test"
 
-staging:
-  wordpress_path: "/var/www"
-  url: "http://staging.test"
-  database:
-    name: "test"
-YAML;
+        staging:
+          wordpress_path: "/var/www"
+          url: "http://staging.test"
+          database:
+            name: "test"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
@@ -179,16 +179,16 @@ YAML;
     public function test_validates_environment_has_database(): void
     {
         $yaml = <<<YAML
-local:
-  wordpress_path: "/var/www"
-  url: "http://local.test"
+        local:
+          wordpress_path: "/var/www"
+          url: "http://local.test"
 
-staging:
-  wordpress_path: "/var/www"
-  url: "http://staging.test"
-  database:
-    name: "test"
-YAML;
+        staging:
+          wordpress_path: "/var/www"
+          url: "http://staging.test"
+          database:
+            name: "test"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
@@ -206,34 +206,34 @@ YAML;
     public function test_merges_global_and_environment_excludes(): void
     {
         $yaml = <<<YAML
-global:
-  exclude:
-    - ".git/"
-    - "node_modules/"
+        global:
+          exclude:
+            - ".git/"
+            - "node_modules/"
 
-local:
-  wordpress_path: "/var/www/local"
-  url: "http://local.test"
-  database:
-    name: "test_db"
-    user: "root"
-    password: "pass"
-    host: "localhost"
-  exclude:
-    - ".env.local"
-    - "debug.log"
+        local:
+          wordpress_path: "/var/www/local"
+          url: "http://local.test"
+          database:
+            name: "test_db"
+            user: "root"
+            password: "pass"
+            host: "localhost"
+          exclude:
+            - ".env.local"
+            - "debug.log"
 
-staging:
-  wordpress_path: "/var/www/staging"
-  url: "http://staging.test"
-  database:
-    name: "staging_db"
-    user: "root"
-    password: "pass"
-    host: "localhost"
-  exclude:
-    - ".env.staging"
-YAML;
+        staging:
+          wordpress_path: "/var/www/staging"
+          url: "http://staging.test"
+          database:
+            name: "staging_db"
+            user: "root"
+            password: "pass"
+            host: "localhost"
+          exclude:
+            - ".env.staging"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
@@ -251,20 +251,20 @@ YAML;
     public function test_works_with_only_global_excludes(): void
     {
         $yaml = <<<YAML
-global:
-  exclude:
-    - ".git/"
-    - "*.log"
+        global:
+          exclude:
+            - ".git/"
+            - "*.log"
 
-local:
-  wordpress_path: "/var/www/local"
-  url: "http://local.test"
-  database:
-    name: "test_db"
-    user: "root"
-    password: "pass"
-    host: "localhost"
-YAML;
+        local:
+          wordpress_path: "/var/www/local"
+          url: "http://local.test"
+          database:
+            name: "test_db"
+            user: "root"
+            password: "pass"
+            host: "localhost"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
@@ -282,15 +282,15 @@ YAML;
     public function test_works_without_any_excludes(): void
     {
         $yaml = <<<YAML
-local:
-  wordpress_path: "/var/www/local"
-  url: "http://local.test"
-  database:
-    name: "test_db"
-    user: "root"
-    password: "pass"
-    host: "localhost"
-YAML;
+        local:
+          wordpress_path: "/var/www/local"
+          url: "http://local.test"
+          database:
+            name: "test_db"
+            user: "root"
+            password: "pass"
+            host: "localhost"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
@@ -323,19 +323,19 @@ YAML;
     private function createMinimalConfig(): void
     {
         $yaml = <<<YAML
-global:
-  exclude:
-    - ".git/"
+        global:
+          exclude:
+            - ".git/"
 
-local:
-  wordpress_path: "/var/www/local"
-  url: "http://local.test"
-  database:
-    name: "test_db"
-    user: "root"
-    password: "pass"
-    host: "localhost"
-YAML;
+        local:
+          wordpress_path: "/var/www/local"
+          url: "http://local.test"
+          database:
+            name: "test_db"
+            user: "root"
+            password: "pass"
+            host: "localhost"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);

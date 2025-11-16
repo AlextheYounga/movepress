@@ -41,14 +41,14 @@ class SshCommand extends Command
 
             $sshConfig = $env['ssh'];
             $io->section('SSH Configuration');
-            
+
             $rows = [
                 ['Host', $sshConfig['host'] ?? '<fg=red>Not set</>'],
                 ['User', $sshConfig['user'] ?? '<fg=red>Not set</>'],
                 ['Port', $sshConfig['port'] ?? '22'],
                 ['Key', $sshConfig['key'] ?? '<fg=yellow>None (password auth)</>'],
             ];
-            
+
             $io->table(['Setting', 'Value'], $rows);
 
             // Test connection
@@ -56,7 +56,7 @@ class SshCommand extends Command
             $io->write('Testing connection... ');
 
             $sshService = new SshService($sshConfig);
-            
+
             if ($sshService->testConnection()) {
                 $io->writeln('<fg=green>✓ SUCCESS</>');
                 $io->success("Successfully connected to {$environmentName}");
@@ -74,7 +74,6 @@ class SshCommand extends Command
                 ]);
                 return Command::FAILURE;
             }
-
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;

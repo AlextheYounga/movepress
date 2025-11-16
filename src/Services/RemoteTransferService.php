@@ -83,7 +83,7 @@ class RemoteTransferService
         SshService $sshService,
         string $sourcePath,
         string $destPath,
-        bool $fromRemote
+        bool $fromRemote,
     ): string {
         $sshOptions = $sshService->getSshOptions();
         $connectionString = $sshService->buildConnectionString();

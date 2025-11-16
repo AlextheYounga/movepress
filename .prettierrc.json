@@ -1,0 +1,34 @@
+{
+    "tabWidth": 4,
+    "useTabs": false,
+    "singleQuote": true,
+    "trailingComma": "es5",
+    "printWidth": 120,
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "endOfLine": "lf",
+    "plugins": ["@prettier/plugin-php"],
+    "overrides": [
+        {
+            "files": "*.php",
+            "options": {
+                "parser": "php",
+                "phpVersion": "8.1",
+                "trailingCommaPHP": true,
+                "braceStyle": "psr-2"
+            }
+        },
+        {
+            "files": ["*.md", "*.markdown"],
+            "options": {
+                "proseWrap": "preserve"
+            }
+        },
+        {
+            "files": "*.json",
+            "options": {
+                "printWidth": 80
+            }
+        }
+    ]
+}

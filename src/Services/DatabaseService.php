@@ -48,7 +48,7 @@ class DatabaseService
         array $dbConfig,
         SshService $sshService,
         string $outputPath,
-        bool $compress = true
+        bool $compress = true,
     ): bool {
         $this->commandBuilder->validateDatabaseConfig($dbConfig);
 
@@ -99,19 +99,15 @@ class DatabaseService
     /**
      * Import a SQL file into a remote database via SSH
      */
-    public function importRemote(
-        array $dbConfig,
-        SshService $sshService,
-        string $inputPath
-    ): bool {
+    public function importRemote(array $dbConfig, SshService $sshService, string $inputPath): bool
+    {
         $this->commandBuilder->validateDatabaseConfig($dbConfig);
 
         if (!file_exists($inputPath)) {
             throw new RuntimeException("SQL file not found: {$inputPath}");
         }
 
-        $remoteTempFile = '/tmp/movepress_import_' . uniqid() .
-            (str_ends_with($inputPath, '.gz') ? '.sql.gz' : '.sql');
+        $remoteTempFile = '/tmp/movepress_import_' . uniqid() . (str_ends_with($inputPath, '.gz') ? '.sql.gz' : '.sql');
 
         // Transfer file to remote
         if (!$this->remoteTransfer->uploadFile($sshService, $inputPath, $remoteTempFile)) {
@@ -138,11 +134,8 @@ class DatabaseService
     /**
      * Create a backup of a database
      */
-    public function backup(
-        array $dbConfig,
-        ?SshService $sshService = null,
-        ?string $backupDir = null
-    ): string {
+    public function backup(array $dbConfig, ?SshService $sshService = null, ?string $backupDir = null): string
+    {
         $backupDir = $backupDir ?? sys_get_temp_dir();
         $timestamp = date('Y-m-d_H-i-s');
         $dbName = $dbConfig['name'] ?? 'unknown';
@@ -169,13 +162,13 @@ class DatabaseService
         string $wordpressPath,
         string $oldUrl,
         string $newUrl,
-        ?SshService $sshService = null
+        ?SshService $sshService = null,
     ): bool {
         $command = $this->commandBuilder->buildSearchReplaceCommand(
             $this->wpCliBinary,
             $wordpressPath,
             $oldUrl,
-            $newUrl
+            $newUrl,
         );
 
         if ($sshService !== null) {
@@ -243,5 +236,4 @@ class DatabaseService
         $process->run();
         return $process->isSuccessful();
     }
-
 }

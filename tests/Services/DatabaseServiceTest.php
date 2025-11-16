@@ -43,13 +43,13 @@ class DatabaseServiceTest extends TestCase
     public function testConstructorInitializesProperties(): void
     {
         $service = new DatabaseService($this->output, true);
-        
+
         $reflection = new ReflectionClass($service);
         $outputProp = $reflection->getProperty('output');
         $outputProp->setAccessible(true);
         $verboseProp = $reflection->getProperty('verbose');
         $verboseProp->setAccessible(true);
-        
+
         $this->assertSame($this->output, $outputProp->getValue($service));
         $this->assertTrue($verboseProp->getValue($service));
     }

@@ -24,8 +24,7 @@ class ConfigLoader
 
         if (!file_exists($configPath)) {
             throw new RuntimeException(
-                "Configuration file not found: {$configPath}\n" .
-                "Run 'movepress init' to create one."
+                "Configuration file not found: {$configPath}\n" . "Run 'movepress init' to create one.",
             );
         }
 
@@ -53,10 +52,7 @@ class ConfigLoader
     public function getEnvironments(): array
     {
         // Return all environments except 'global'
-        return array_filter(
-            array_keys($this->config),
-            fn($key) => $key !== 'global'
-        );
+        return array_filter(array_keys($this->config), fn($key) => $key !== 'global');
     }
 
     public function getGlobalExcludes(): array
@@ -75,7 +71,7 @@ class ConfigLoader
     private function loadEnvironmentVariables(): void
     {
         $envPath = $this->workingDir;
-        
+
         if (file_exists($envPath . '/.env')) {
             $dotenv = Dotenv::createImmutable($envPath);
             $dotenv->safeLoad();
@@ -93,20 +89,19 @@ class ConfigLoader
                 '/\$\{([A-Z_][A-Z0-9_]*)\}/',
                 function ($matches) {
                     $varName = $matches[1];
-                    
+
                     // Check $_ENV first (where Dotenv loads), then $_SERVER, then getenv()
-                    $value = $_ENV[$varName] ?? $_SERVER[$varName] ?? getenv($varName);
-                    
+                    $value = $_ENV[$varName] ?? ($_SERVER[$varName] ?? getenv($varName));
+
                     if ($value === false || $value === null) {
                         throw new RuntimeException(
-                            "Environment variable '{$varName}' is not set. " .
-                            "Check your .env file."
+                            "Environment variable '{$varName}' is not set. " . 'Check your .env file.',
                         );
                     }
-                    
+
                     return $value;
                 },
-                $data
+                $data,
             );
         }
 

@@ -25,17 +25,17 @@ class ConfigLoaderTest extends TestCase
     public function test_loads_valid_yaml_configuration(): void
     {
         $yaml = <<<YAML
-global:
-  exclude:
-    - ".git/"
+        global:
+          exclude:
+            - ".git/"
 
-local:
-  wordpress_path: "/var/www"
-  url: "http://local.test"
-  database:
-    name: "test_db"
-    user: "root"
-YAML;
+        local:
+          wordpress_path: "/var/www"
+          url: "http://local.test"
+          database:
+            name: "test_db"
+            user: "root"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -62,13 +62,13 @@ YAML;
         putenv('TEST_USER=admin');
 
         $yaml = <<<YAML
-local:
-  wordpress_path: "/var/www"
-  url: "http://local.test"
-  database:
-    name: "\${TEST_DB_NAME}"
-    user: "\${TEST_USER}"
-YAML;
+        local:
+          wordpress_path: "/var/www"
+          url: "http://local.test"
+          database:
+            name: "\${TEST_DB_NAME}"
+            user: "\${TEST_USER}"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -85,10 +85,10 @@ YAML;
     public function test_throws_exception_for_missing_environment_variable(): void
     {
         $yaml = <<<YAML
-local:
-  database:
-    name: "\${MISSING_VAR}"
-YAML;
+        local:
+          database:
+            name: "\${MISSING_VAR}"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -106,13 +106,13 @@ YAML;
         file_put_contents($this->testDir . '/.env', $envContent);
 
         $yaml = <<<YAML
-local:
-  wordpress_path: "/var/www"
-  url: "http://test.local"
-  database:
-    name: "test_db"
-    user: "root"
-YAML;
+        local:
+          wordpress_path: "/var/www"
+          url: "http://test.local"
+          database:
+            name: "test_db"
+            user: "root"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -127,11 +127,11 @@ YAML;
     public function test_get_environment_returns_specific_environment(): void
     {
         $yaml = <<<YAML
-local:
-  wordpress_path: "/local"
-production:
-  wordpress_path: "/prod"
-YAML;
+        local:
+          wordpress_path: "/local"
+        production:
+          wordpress_path: "/prod"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -148,9 +148,9 @@ YAML;
     public function test_throws_exception_for_missing_environment(): void
     {
         $yaml = <<<YAML
-local:
-  wordpress_path: "/local"
-YAML;
+        local:
+          wordpress_path: "/local"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -166,16 +166,16 @@ YAML;
     public function test_get_environments_returns_all_except_global(): void
     {
         $yaml = <<<YAML
-global:
-  exclude:
-    - ".git/"
-local:
-  wordpress_path: "/local"
-staging:
-  wordpress_path: "/staging"
-production:
-  wordpress_path: "/prod"
-YAML;
+        global:
+          exclude:
+            - ".git/"
+        local:
+          wordpress_path: "/local"
+        staging:
+          wordpress_path: "/staging"
+        production:
+          wordpress_path: "/prod"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -194,22 +194,22 @@ YAML;
     public function test_get_excludes_merges_global_and_environment_excludes(): void
     {
         $yaml = <<<YAML
-global:
-  exclude:
-    - ".git/"
-    - "node_modules/"
+        global:
+          exclude:
+            - ".git/"
+            - "node_modules/"
 
-local:
-  wordpress_path: "/local"
-  exclude:
-    - ".env.local"
+        local:
+          wordpress_path: "/local"
+          exclude:
+            - ".env.local"
 
-production:
-  wordpress_path: "/prod"
-  exclude:
-    - ".env.production"
-    - "debug.log"
-YAML;
+        production:
+          wordpress_path: "/prod"
+          exclude:
+            - ".env.production"
+            - "debug.log"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -232,13 +232,13 @@ YAML;
     public function test_get_excludes_returns_only_global_when_no_environment_excludes(): void
     {
         $yaml = <<<YAML
-global:
-  exclude:
-    - ".git/"
+        global:
+          exclude:
+            - ".git/"
 
-local:
-  wordpress_path: "/local"
-YAML;
+        local:
+          wordpress_path: "/local"
+        YAML;
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
@@ -254,26 +254,26 @@ YAML;
     {
         // Create .env file with test variables
         $envContent = <<<ENV
-WORDPRESS_PATH=/var/www/wordpress
-DB_NAME=test_database
-DB_USER=test_user
-DB_PASSWORD=test_password
-DB_HOST=localhost
-SITE_URL=https://example.com
-ENV;
+        WORDPRESS_PATH=/var/www/wordpress
+        DB_NAME=test_database
+        DB_USER=test_user
+        DB_PASSWORD=test_password
+        DB_HOST=localhost
+        SITE_URL=https://example.com
+        ENV;
         file_put_contents($this->testDir . '/.env', $envContent);
 
         // Create movefile.yml that references these variables
         $yaml = <<<YAML
-local:
-  wordpress_path: "\${WORDPRESS_PATH}"
-  url: "\${SITE_URL}"
-  database:
-    name: "\${DB_NAME}"
-    user: "\${DB_USER}"
-    password: "\${DB_PASSWORD}"
-    host: "\${DB_HOST}"
-YAML;
+        local:
+          wordpress_path: "\${WORDPRESS_PATH}"
+          url: "\${SITE_URL}"
+          database:
+            name: "\${DB_NAME}"
+            user: "\${DB_USER}"
+            password: "\${DB_PASSWORD}"
+            host: "\${DB_HOST}"
+        YAML;
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
         $loader = new ConfigLoader($this->testDir);
@@ -291,17 +291,17 @@ YAML;
     public function test_throws_exception_when_env_variable_in_config_but_not_in_env_file(): void
     {
         // Create .env file without MISSING_VAR
-        $envContent = "DB_NAME=test_database";
+        $envContent = 'DB_NAME=test_database';
         file_put_contents($this->testDir . '/.env', $envContent);
 
         // Create movefile.yml that references a missing variable
         $yaml = <<<YAML
-local:
-  wordpress_path: "/var/www"
-  url: "http://local.test"
-  database:
-    name: "\${MISSING_VAR}"
-YAML;
+        local:
+          wordpress_path: "/var/www"
+          url: "http://local.test"
+          database:
+            name: "\${MISSING_VAR}"
+        YAML;
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
         $this->expectException(\RuntimeException::class);
@@ -315,18 +315,18 @@ YAML;
     {
         // Create .env file with empty value
         $envContent = <<<ENV
-EMPTY_VAR=
-NON_EMPTY_VAR=value
-ENV;
+        EMPTY_VAR=
+        NON_EMPTY_VAR=value
+        ENV;
         file_put_contents($this->testDir . '/.env', $envContent);
 
         $yaml = <<<YAML
-local:
-  wordpress_path: "\${NON_EMPTY_VAR}"
-  url: "http://local.test"
-  database:
-    name: "\${EMPTY_VAR}"
-YAML;
+        local:
+          wordpress_path: "\${NON_EMPTY_VAR}"
+          url: "http://local.test"
+          database:
+            name: "\${EMPTY_VAR}"
+        YAML;
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
 
         $loader = new ConfigLoader($this->testDir);

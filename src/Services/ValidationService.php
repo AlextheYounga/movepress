@@ -15,12 +15,8 @@ class ValidationService
         $this->io = $io;
     }
 
-    public function validatePrerequisites(
-        array $sourceEnv,
-        array $destEnv,
-        array $flags,
-        bool $dryRun = false
-    ): bool {
+    public function validatePrerequisites(array $sourceEnv, array $destEnv, array $flags, bool $dryRun = false): bool
+    {
         $this->io->section('Validating prerequisites');
 
         // Check rsync availability for untracked file operations
@@ -84,13 +80,13 @@ class ValidationService
         }
 
         $this->io->write("Testing {$label} SSH connection... ");
-        
+
         $sshService = new SshService($env['ssh']);
         if (!$sshService->testConnection()) {
             $this->io->error("Failed to connect to {$label} via SSH. Please check your SSH configuration.");
             return false;
         }
-        
+
         $this->io->writeln('✓');
         return true;
     }

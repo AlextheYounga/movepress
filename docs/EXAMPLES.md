@@ -295,9 +295,10 @@ movepress backup production --output=/custom/backup/path
 ```
 
 **Tip:** Configure `backup_path` in your `movefile.yml` for each environment:
+
 ```yaml
 production:
-  backup_path: /var/backups/movepress
+    backup_path: /var/backups/movepress
 ```
 
 ---
@@ -421,6 +422,7 @@ movepress push local production --db --untracked-files -v
 ```
 
 This shows:
+
 - Rsync commands being executed
 - Database operations
 - Search-replace operations
@@ -502,41 +504,41 @@ Example GitHub Actions workflow:
 name: Deploy to Staging
 
 on:
-  push:
-    branches: [ main ]
+    push:
+        branches: [main]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Setup SSH
-        env:
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-      
-      - name: Deploy Code
-        run: |
-          git remote add staging ssh://deploy@staging.example.com/var/repos/mysite.git
-          git push staging main:master
-      
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.1'
-      
-      - name: Download Movepress
-        run: |
-          curl -O https://example.com/movepress.phar
-          chmod +x movepress.phar
-      
-      - name: Sync Database
-        run: |
-          ./movepress.phar push local staging --db --no-interaction
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Setup SSH
+              env:
+                  SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+              run: |
+                  mkdir -p ~/.ssh
+                  echo "$SSH_KEY" > ~/.ssh/id_rsa
+                  chmod 600 ~/.ssh/id_rsa
+
+            - name: Deploy Code
+              run: |
+                  git remote add staging ssh://deploy@staging.example.com/var/repos/mysite.git
+                  git push staging main:master
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.1'
+
+            - name: Download Movepress
+              run: |
+                  curl -O https://example.com/movepress.phar
+                  chmod +x movepress.phar
+
+            - name: Sync Database
+              run: |
+                  ./movepress.phar push local staging --db --no-interaction
 ```
 
 ---
@@ -547,26 +549,26 @@ jobs:
 
 ```yaml
 local:
-  path: /Users/alex/Sites/mysite
-  url: http://mysite.test
-  database:
-    name: wp_local
-    user: root
-    password: ""
-    host: localhost
+    path: /Users/alex/Sites/mysite
+    url: http://mysite.test
+    database:
+        name: wp_local
+        user: root
+        password: ''
+        host: localhost
 
 production:
-  path: /var/www/html
-  url: https://example.com
-  ssh:
-    host: server.example.com
-    user: deploy
-    key: ~/.ssh/id_rsa
-  database:
-    name: ${PROD_DB_NAME}
-    user: ${PROD_DB_USER}
-    password: ${PROD_DB_PASSWORD}
-    host: localhost
+    path: /var/www/html
+    url: https://example.com
+    ssh:
+        host: server.example.com
+        user: deploy
+        key: ~/.ssh/id_rsa
+    database:
+        name: ${PROD_DB_NAME}
+        user: ${PROD_DB_USER}
+        password: ${PROD_DB_PASSWORD}
+        host: localhost
 ```
 
 ---
@@ -575,46 +577,46 @@ production:
 
 ```yaml
 local:
-  # ... local config
+    # ... local config
 
 dev:
-  # Shared development server
-  path: /var/www/dev
-  url: https://dev.example.com
-  ssh:
-    host: dev.example.com
-    user: developer
-  database:
-    name: wp_dev
-    user: dev_user
-    password: ${DEV_DB_PASSWORD}
-    host: localhost
+    # Shared development server
+    path: /var/www/dev
+    url: https://dev.example.com
+    ssh:
+        host: dev.example.com
+        user: developer
+    database:
+        name: wp_dev
+        user: dev_user
+        password: ${DEV_DB_PASSWORD}
+        host: localhost
 
 staging:
-  # Pre-production testing
-  path: /var/www/staging
-  url: https://staging.example.com
-  ssh:
-    host: staging.example.com
-    user: deploy
-  database:
-    name: wp_staging
-    user: staging_user
-    password: ${STAGING_DB_PASSWORD}
-    host: localhost
+    # Pre-production testing
+    path: /var/www/staging
+    url: https://staging.example.com
+    ssh:
+        host: staging.example.com
+        user: deploy
+    database:
+        name: wp_staging
+        user: staging_user
+        password: ${STAGING_DB_PASSWORD}
+        host: localhost
 
 production:
-  # Live site
-  path: /var/www/production
-  url: https://example.com
-  ssh:
-    host: production.example.com
-    user: deploy
-  database:
-    name: wp_production
-    user: prod_user
-    password: ${PROD_DB_PASSWORD}
-    host: localhost
+    # Live site
+    path: /var/www/production
+    url: https://example.com
+    ssh:
+        host: production.example.com
+        user: deploy
+    database:
+        name: wp_production
+        user: prod_user
+        password: ${PROD_DB_PASSWORD}
+        host: localhost
 ```
 
 ---

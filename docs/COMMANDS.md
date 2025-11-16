@@ -22,14 +22,17 @@ movepress push <source> <destination> [options]
 ### Options
 
 **Sync Options:**
+
 - `--db` - Sync database only
 - `--untracked-files` - Sync files not tracked by Git (uploads, caches, etc.)
 
 **Safety Options:**
+
 - `--dry-run` - Preview changes without executing them
 - `--no-backup` - Skip database backup before import (not recommended)
 
 **Output Options:**
+
 - `-v, --verbose` - Show detailed output including rsync/database commands
 
 **Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. See `git:setup` command below.
@@ -218,6 +221,7 @@ movepress status production
 ### Output
 
 Displays:
+
 - System tools availability (rsync, mysql, mysqldump, wp-cli)
 - List of configured environments
 - Environment details (when specific environment is provided)
@@ -285,6 +289,7 @@ movepress ssh staging
 ### Output
 
 Displays:
+
 - SSH configuration details (host, user, port, key)
 - Connection test result
 - Troubleshooting tips if connection fails
@@ -341,10 +346,10 @@ movepress backup production --output=/backups/critical
 - You'll be prompted to confirm before creating the backup
 - Backup location priority: `--output` flag > `backup_path` in config > system temp directory
 - Configure default backup location in `movefile.yml`:
-  ```yaml
-  production:
-    backup_path: /var/backups/movepress
-  ```
+    ```yaml
+    production:
+        backup_path: /var/backups/movepress
+    ```
 
 ---
 
@@ -391,9 +396,9 @@ You can use environment variables in your `movefile.yml`:
 
 ```yaml
 production:
-  database:
-    user: ${DB_USER}
-    password: ${DB_PASSWORD}
+    database:
+        user: ${DB_USER}
+        password: ${DB_PASSWORD}
 ```
 
 Define them in your `.env` file:

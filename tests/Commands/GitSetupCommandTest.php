@@ -38,9 +38,12 @@ class GitSetupCommandTest extends TestCase
         mkdir($tempDir);
         chdir($tempDir);
 
-        $exitCode = $this->commandTester->execute([
-            'environment' => 'production',
-        ], ['interactive' => false]);
+        $exitCode = $this->commandTester->execute(
+            [
+                'environment' => 'production',
+            ],
+            ['interactive' => false],
+        );
 
         $this->assertEquals(1, $exitCode);
         $this->assertStringContainsString('Configuration file not found', $this->commandTester->getDisplay());
@@ -59,9 +62,12 @@ class GitSetupCommandTest extends TestCase
 
         file_put_contents('movefile.yml', "local:\n  wordpress_path: /tmp\n  url: http://test.local\n");
 
-        $exitCode = $this->commandTester->execute([
-            'environment' => 'nonexistent',
-        ], ['interactive' => false]);
+        $exitCode = $this->commandTester->execute(
+            [
+                'environment' => 'nonexistent',
+            ],
+            ['interactive' => false],
+        );
 
         $this->assertEquals(1, $exitCode);
 
@@ -77,20 +83,26 @@ class GitSetupCommandTest extends TestCase
         mkdir($tempDir);
         chdir($tempDir);
 
-        file_put_contents('movefile.yml', <<<YAML
-local:
-  wordpress_path: /tmp/wordpress
-  url: http://test.local
-  database:
-    name: test_db
-    user: root
-    password: pass
-YAML
+        file_put_contents(
+            'movefile.yml',
+            <<<YAML
+            local:
+              wordpress_path: /tmp/wordpress
+              url: http://test.local
+              database:
+                name: test_db
+                user: root
+                password: pass
+            YAML
+            ,
         );
 
-        $exitCode = $this->commandTester->execute([
-            'environment' => 'local',
-        ], ['interactive' => false]);
+        $exitCode = $this->commandTester->execute(
+            [
+                'environment' => 'local',
+            ],
+            ['interactive' => false],
+        );
 
         $this->assertEquals(1, $exitCode);
         $this->assertStringContainsString('missing \'ssh\' configuration', $this->commandTester->getDisplay());

@@ -1,0 +1,17 @@
+{
+    "name": "movepress",
+    "version": "0.1.0",
+    "description": "A modern WordPress deployment tool - push/pull databases and files via SSH",
+    "private": true,
+    "scripts": {
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "format:php": "prettier --write \"**/*.php\"",
+        "format:md": "prettier --write \"**/*.md\"",
+        "format:json": "prettier --write \"**/*.json\""
+    },
+    "devDependencies": {
+        "@prettier/plugin-php": "^0.22.2",
+        "prettier": "^3.1.0"
+    }
+}

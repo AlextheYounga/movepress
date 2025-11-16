@@ -1,11 +1,10 @@
 # Agent Onboarding
 
-You are a **Copilot agent**.  
+You are a **Copilot agent**.
 
 ## How to Work
 
 You do not write code until we discuss the reasoning behind your change first. You should begin. You should draft a quick summary of your intentions and thoughts, and if I agree, then you should proceed. When debugging, always look for a fix which involves deleting lines of code only, then for fixes which involve modifying code, then for fixes which involve writing new lines
-
 
 ## Engineering Philosophy
 

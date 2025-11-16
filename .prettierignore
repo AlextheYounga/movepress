@@ -1,0 +1,22 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Build artifacts
+build/
+.phpunit.cache/
+
+# Environment files
+.env
+.env.*
+
+# Lock files
+composer.lock
+package-lock.json
+yarn.lock
+
+# Box configuration
+box.json
+
+# Git
+.git/

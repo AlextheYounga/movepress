@@ -14,11 +14,8 @@ class RsyncService
     private bool $verbose;
     private ?array $gitignorePatterns = null;
 
-    public function __construct(
-        OutputInterface $output,
-        bool $dryRun = false,
-        bool $verbose = false
-    ) {
+    public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
+    {
         $this->output = $output;
         $this->dryRun = $dryRun;
         $this->verbose = $verbose;
@@ -26,7 +23,7 @@ class RsyncService
 
     /**
      * Sync untracked files (based on .gitignore) from source to destination
-     * 
+     *
      * @param string $sourcePath Source path (local or remote)
      * @param string $destPath Destination path (local or remote)
      * @param array $excludes Array of additional exclude patterns
@@ -38,11 +35,11 @@ class RsyncService
         string $destPath,
         array $excludes = [],
         ?SshService $sshService = null,
-        ?string $gitignorePath = null
+        ?string $gitignorePath = null,
     ): bool {
         // Load .gitignore patterns if available
         $gitignoreExcludes = $this->getGitignoreExcludes($gitignorePath);
-        
+
         // Merge .gitignore patterns with user-provided excludes
         // .gitignore patterns are inverted - we want to INCLUDE only what Git ignores
         $allExcludes = array_merge($excludes, $gitignoreExcludes);
@@ -52,7 +49,7 @@ class RsyncService
 
     /**
      * Sync files from source to destination
-     * 
+     *
      * @param string $sourcePath Source path (local or remote)
      * @param string $destPath Destination path (local or remote)
      * @param array $excludes Array of exclude patterns
@@ -64,7 +61,7 @@ class RsyncService
         string $destPath,
         array $excludes = [],
         ?SshService $sshService = null,
-        ?string $subfolder = null
+        ?string $subfolder = null,
     ): bool {
         // Append subfolder if specified
         if ($subfolder) {
@@ -73,12 +70,7 @@ class RsyncService
         }
 
         // Build rsync command
-        $command = $this->buildRsyncCommand(
-            $sourcePath,
-            $destPath,
-            $excludes,
-            $sshService
-        );
+        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService);
 
         if ($this->verbose || $this->dryRun) {
             $this->output->writeln("<comment>Executing: {$command}</comment>");
@@ -94,7 +86,7 @@ class RsyncService
         });
 
         if (!$process->isSuccessful()) {
-            $this->output->writeln("<error>Rsync failed:</error>");
+            $this->output->writeln('<error>Rsync failed:</error>');
             $this->output->writeln($process->getErrorOutput());
             return false;
         }
@@ -102,16 +94,10 @@ class RsyncService
         return true;
     }
 
-
-
-    private function buildRsyncCommand(
-        string $source,
-        string $dest,
-        array $excludes,
-        ?SshService $sshService
-    ): string {
+    private function buildRsyncCommand(string $source, string $dest, array $excludes, ?SshService $sshService): string
+    {
         $options = [
-            '-avz',  // archive, verbose, compress
+            '-avz', // archive, verbose, compress
             '--delete', // delete files that don't exist on source
         ];
 
@@ -213,7 +199,7 @@ class RsyncService
     {
         $process = Process::fromShellCommandline('which rsync');
         $process->run();
-        
+
         return $process->isSuccessful();
     }
 }

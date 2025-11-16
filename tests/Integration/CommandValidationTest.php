@@ -17,12 +17,12 @@ class CommandValidationTest extends TestCase
 
         // Test a dry-run with our typical flags
         $process = Process::fromShellCommandline(
-            'rsync --dry-run -avz --delete --info=progress2 --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1'
+            'rsync --dry-run -avz --delete --info=progress2 --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1',
         );
         $process->run();
-        
+
         $output = $process->getOutput() . $process->getErrorOutput();
-        
+
         // Should not contain "unknown option" or "invalid option"
         $this->assertStringNotContainsString('unknown option', strtolower($output));
         $this->assertStringNotContainsString('invalid option', strtolower($output));
@@ -37,7 +37,7 @@ class CommandValidationTest extends TestCase
         // Test with --help to verify our flags exist
         $process = Process::fromShellCommandline('mysqldump --help 2>&1');
         $process->run();
-        
+
         $output = $process->getOutput();
         $this->assertStringContainsString('--single-transaction', $output);
         $this->assertStringContainsString('--quick', $output);
@@ -53,7 +53,7 @@ class CommandValidationTest extends TestCase
         // Test with --help to verify our flags exist
         $process = Process::fromShellCommandline('mysql --help 2>&1');
         $process->run();
-        
+
         $output = $process->getOutput();
         $this->assertStringContainsString('--user', $output);
         $this->assertStringContainsString('--password', $output);
@@ -64,7 +64,7 @@ class CommandValidationTest extends TestCase
     {
         // Use bundled wp-cli only
         $bundledBootstrap = dirname(__DIR__, 2) . '/vendor/wp-cli/wp-cli/php/boot-fs.php';
-        
+
         if (!file_exists($bundledBootstrap)) {
             $this->markTestSkipped('Bundled wp-cli not available');
         }
@@ -72,11 +72,8 @@ class CommandValidationTest extends TestCase
         // Check that search-replace command exists
         $process = new Process([PHP_BINARY, $bundledBootstrap, 'help', 'search-replace']);
         $process->run();
-        
-        $this->assertTrue(
-            $process->isSuccessful(),
-            'wp-cli does not support search-replace command'
-        );
+
+        $this->assertTrue($process->isSuccessful(), 'wp-cli does not support search-replace command');
 
         // Verify our flags are supported
         $output = $process->getOutput();
@@ -94,7 +91,7 @@ class CommandValidationTest extends TestCase
         // ssh with invalid host should fail but still recognize flags
         $process = Process::fromShellCommandline('ssh -o StrictHostKeyChecking=no -p 22 invalidhost 2>&1');
         $process->run();
-        
+
         $output = $process->getOutput() . $process->getErrorOutput();
         // Should not complain about unknown options
         $this->assertStringNotContainsString('unknown option', strtolower($output));
@@ -108,9 +105,11 @@ class CommandValidationTest extends TestCase
         }
 
         // scp with invalid source should fail but still recognize flags
-        $process = Process::fromShellCommandline('scp -o StrictHostKeyChecking=no -P 22 /nonexistent invalidhost: 2>&1');
+        $process = Process::fromShellCommandline(
+            'scp -o StrictHostKeyChecking=no -P 22 /nonexistent invalidhost: 2>&1',
+        );
         $process->run();
-        
+
         $output = $process->getOutput() . $process->getErrorOutput();
         // Should not complain about unknown options
         $this->assertStringNotContainsString('unknown option', strtolower($output));

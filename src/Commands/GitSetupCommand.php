@@ -19,11 +19,7 @@ class GitSetupCommand extends Command
     {
         $this->setName('git:setup')
             ->setDescription('Set up Git deployment for a remote environment')
-            ->addArgument(
-                'environment',
-                InputArgument::REQUIRED,
-                'Environment name (e.g., staging, production)'
-            );
+            ->addArgument('environment', InputArgument::REQUIRED, 'Environment name (e.g., staging, production)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -52,7 +48,9 @@ class GitSetupCommand extends Command
 
             // Check if this is a local environment
             if (!isset($env['ssh'])) {
-                $io->error("Environment '{$envName}' does not have SSH configuration. Git deployment is only for remote environments.");
+                $io->error(
+                    "Environment '{$envName}' does not have SSH configuration. Git deployment is only for remote environments.",
+                );
                 return Command::FAILURE;
             }
 
@@ -91,7 +89,7 @@ class GitSetupCommand extends Command
             // Add Git remote locally
             $io->section('Configuring local Git remote');
             $remoteUrl = $gitService->buildRemoteUrl($repoPath, $sshService);
-            
+
             if (!$gitService->addRemote($envName, $remoteUrl, $localPath)) {
                 $io->error('Failed to add Git remote');
                 return Command::FAILURE;
@@ -103,7 +101,6 @@ class GitSetupCommand extends Command
             $this->displayNextSteps($io, $envName);
 
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
@@ -136,7 +133,7 @@ class GitSetupCommand extends Command
         string $envName,
         string $wordpressPath,
         string $repoPath,
-        array $sshConfig
+        array $sshConfig,
     ): void {
         $io->section('Configuration');
 
@@ -159,11 +156,11 @@ class GitSetupCommand extends Command
         $io->section('Next Steps');
         $io->writeln("Git deployment is now configured for <info>{$envName}</info>.");
         $io->newLine();
-        
+
         $io->writeln('To deploy your code, run:');
         $io->writeln("  <comment>git push {$envName} master</comment>");
         $io->newLine();
-        
+
         $io->writeln('To sync database and untracked files (uploads, etc.), use:');
         $io->writeln("  <comment>movepress push local {$envName} --db --untracked-files</comment>");
     }

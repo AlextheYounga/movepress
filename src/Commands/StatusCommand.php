@@ -43,7 +43,6 @@ class StatusCommand extends Command
             }
 
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
@@ -63,10 +62,7 @@ class StatusCommand extends Command
 
         $rows = [];
         foreach ($tools as [$tool, $available]) {
-            $rows[] = [
-                $tool,
-                $available ? '<fg=green>✓ Available</>' : '<fg=red>✗ Not found</>',
-            ];
+            $rows[] = [$tool, $available ? '<fg=green>✓ Available</>' : '<fg=red>✗ Not found</>'];
         }
 
         $io->table(['Tool', 'Status'], $rows);
@@ -95,7 +91,7 @@ class StatusCommand extends Command
     private function showEnvironment(SymfonyStyle $io, ConfigLoader $config, string $name): void
     {
         $env = $config->getEnvironment($name);
-        
+
         $io->section("Environment: {$name}");
 
         // Basic config
@@ -144,7 +140,7 @@ class StatusCommand extends Command
         $type = isset($env['ssh']) ? '<fg=blue>Remote</>' : '<fg=green>Local</>';
         $url = $env['url'] ?? '<fg=red>No URL</>';
         $db = isset($env['database']) ? '<fg=green>✓</>' : '<fg=red>✗</>';
-        
+
         $io->writeln("  <fg=cyan>$name</> [{$type}] - {$url} - DB: {$db}");
     }
 

@@ -23,7 +23,7 @@ class DatabaseCommandBuilderTest extends TestCase
             'name' => 'testdb',
             'user' => 'testuser',
             'password' => 'testpass',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $command = $this->builder->buildExportCommand($dbConfig, '/tmp/output.sql.gz', true);
@@ -45,7 +45,7 @@ class DatabaseCommandBuilderTest extends TestCase
             'name' => 'testdb',
             'user' => 'testuser',
             'password' => 'testpass',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $command = $this->builder->buildExportCommand($dbConfig, '/tmp/output.sql', false);
@@ -60,7 +60,7 @@ class DatabaseCommandBuilderTest extends TestCase
         $dbConfig = [
             'name' => 'testdb',
             'user' => 'testuser',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $command = $this->builder->buildExportCommand($dbConfig, '/tmp/output.sql', false);
@@ -74,7 +74,7 @@ class DatabaseCommandBuilderTest extends TestCase
             'name' => 'testdb',
             'user' => 'testuser',
             'password' => 'testpass',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $command = $this->builder->buildImportCommand($dbConfig, '/tmp/input.sql.gz');
@@ -92,7 +92,7 @@ class DatabaseCommandBuilderTest extends TestCase
             'name' => 'testdb',
             'user' => 'testuser',
             'password' => 'testpass',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $command = $this->builder->buildImportCommand($dbConfig, '/tmp/input.sql');
@@ -108,7 +108,7 @@ class DatabaseCommandBuilderTest extends TestCase
             '/usr/bin/wp',
             '/var/www/html',
             'http://old.test',
-            'http://new.test'
+            'http://new.test',
         );
 
         $this->assertStringContainsString('search-replace', $command);
@@ -122,7 +122,7 @@ class DatabaseCommandBuilderTest extends TestCase
     {
         $dbConfig = [
             'user' => 'testuser',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $this->expectException(RuntimeException::class);
@@ -135,7 +135,7 @@ class DatabaseCommandBuilderTest extends TestCase
     {
         $dbConfig = [
             'name' => 'testdb',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $this->expectException(RuntimeException::class);
@@ -148,7 +148,7 @@ class DatabaseCommandBuilderTest extends TestCase
     {
         $dbConfig = [
             'name' => 'testdb',
-            'user' => 'testuser'
+            'user' => 'testuser',
         ];
 
         $this->expectException(RuntimeException::class);
@@ -162,7 +162,7 @@ class DatabaseCommandBuilderTest extends TestCase
         $dbConfig = [
             'name' => 'testdb',
             'user' => 'testuser',
-            'host' => 'localhost'
+            'host' => 'localhost',
         ];
 
         $this->builder->validateDatabaseConfig($dbConfig);
@@ -175,7 +175,7 @@ class DatabaseCommandBuilderTest extends TestCase
             '/path/to/wp',
             '/var/www/wordpress',
             'http://old.test',
-            'http://new.test'
+            'http://new.test',
         );
 
         // Verify command structure

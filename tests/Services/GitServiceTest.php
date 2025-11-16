@@ -27,7 +27,7 @@ class GitServiceTest extends TestCase
     {
         $service = new GitService($this->output);
         $gitRoot = __DIR__ . '/../..';
-        
+
         $this->assertTrue($service->isGitRepo($gitRoot));
     }
 
@@ -35,14 +35,14 @@ class GitServiceTest extends TestCase
     {
         $service = new GitService($this->output);
         $nonGitDir = sys_get_temp_dir();
-        
+
         $this->assertFalse($service->isGitRepo($nonGitDir));
     }
 
     public function testBuildRemoteUrlWithSshService(): void
     {
         $service = new GitService($this->output);
-        
+
         $sshService = new SshService([
             'host' => 'example.com',
             'user' => 'deploy',
@@ -50,14 +50,14 @@ class GitServiceTest extends TestCase
         ]);
 
         $url = $service->buildRemoteUrl('/var/repos/mysite.git', $sshService);
-        
+
         $this->assertEquals('deploy@example.com:/var/repos/mysite.git', $url);
     }
 
     public function testBuildRemoteUrlWithCustomPort(): void
     {
         $service = new GitService($this->output);
-        
+
         $sshService = new SshService([
             'host' => 'example.com',
             'user' => 'deploy',
@@ -65,7 +65,7 @@ class GitServiceTest extends TestCase
         ]);
 
         $url = $service->buildRemoteUrl('/var/repos/mysite.git', $sshService);
-        
+
         // Git URLs don't include port in the connection string for SSH
         // Port is handled via SSH config
         $this->assertEquals('deploy@example.com:/var/repos/mysite.git', $url);

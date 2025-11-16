@@ -65,6 +65,7 @@ movepress pull production local --db
 Commands are nearly identical:
 
 ### Wordmove
+
 ```bash
 wordmove push production --db --wordpress
 wordmove pull staging --db
@@ -72,6 +73,7 @@ wordmove init
 ```
 
 ### Movepress
+
 ```bash
 # Code deployment via Git
 git push production master
@@ -83,6 +85,7 @@ movepress init
 ```
 
 **Main differences:**
+
 - Movepress uses **Git for code** (themes, plugins, core files)
 - Movepress uses `--untracked-files` for uploads/caches only
 - Movepress requires explicit source and destination environments
@@ -99,30 +102,30 @@ Most `movefile.yml` configurations work as-is:
 ```yaml
 # This config works in both Wordmove and Movepress
 local:
-  path: /path/to/wordpress
-  url: http://local.test
-  database:
-    name: wp_local
-    user: root
-    password: ""
-    host: localhost
+    path: /path/to/wordpress
+    url: http://local.test
+    database:
+        name: wp_local
+        user: root
+        password: ''
+        host: localhost
 
 production:
-  path: /var/www/html
-  url: https://example.com
-  ssh:
-    host: server.example.com
-    user: deploy
-    port: 22
-  database:
-    name: wp_production
-    user: prod_user
-    password: secret123
-    host: localhost
+    path: /var/www/html
+    url: https://example.com
+    ssh:
+        host: server.example.com
+        user: deploy
+        port: 22
+    database:
+        name: wp_production
+        user: prod_user
+        password: secret123
+        host: localhost
 
 exclude:
-  - ".git/"
-  - "node_modules/"
+    - '.git/'
+    - 'node_modules/'
 ```
 
 ---
@@ -132,23 +135,25 @@ exclude:
 ### SSH Configuration
 
 **Wordmove:**
+
 ```yaml
 production:
-  ssh:
-    host: server.example.com
-    user: deploy
-    port: 22
-    # Wordmove uses 'rsync_options' and 'ssh_options'
+    ssh:
+        host: server.example.com
+        user: deploy
+        port: 22
+        # Wordmove uses 'rsync_options' and 'ssh_options'
 ```
 
 **Movepress:**
+
 ```yaml
 production:
-  ssh:
-    host: server.example.com
-    user: deploy
-    port: 22
-    key: ~/.ssh/id_rsa  # Explicit key path
+    ssh:
+        host: server.example.com
+        user: deploy
+        port: 22
+        key: ~/.ssh/id_rsa # Explicit key path
 ```
 
 **Migration:** Add explicit `key` path if using non-default SSH key.
@@ -158,23 +163,25 @@ production:
 ### Database Configuration
 
 **Wordmove:**
+
 ```yaml
 database:
-  name: wp_db
-  user: user
-  password: pass
-  host: localhost
-  # Optional charset, collate
+    name: wp_db
+    user: user
+    password: pass
+    host: localhost
+    # Optional charset, collate
 ```
 
 **Movepress:**
+
 ```yaml
 database:
-  name: wp_db
-  user: user
-  password: pass
-  host: localhost
-  # Charset and collate handled automatically by wp-cli
+    name: wp_db
+    user: user
+    password: pass
+    host: localhost
+    # Charset and collate handled automatically by wp-cli
 ```
 
 **Migration:** Remove `charset` and `collate` if present (handled automatically).
@@ -195,36 +202,36 @@ database:
 
 ### Push Operations
 
-| Wordmove | Movepress | Notes |
-|----------|-----------|-------|
-| `wordmove push production --db` | `movepress push local production --db` | Explicit source needed |
-| `wordmove push production --wordpress` | `git push production master` | **Code via Git now** |
-| `wordmove push production --themes` | `git add wp-content/themes && git push production master` | Git commits |
-| `wordmove push production --plugins` | `git add wp-content/plugins && git push production master` | Git commits |
-| `wordmove push production --uploads` | `movepress push local production --untracked-files` | Renamed flag |
-| `wordmove push production --all` | `git push production master && movepress push local production --db --untracked-files` | Git + movepress |
+| Wordmove                               | Movepress                                                                              | Notes                  |
+| -------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------- |
+| `wordmove push production --db`        | `movepress push local production --db`                                                 | Explicit source needed |
+| `wordmove push production --wordpress` | `git push production master`                                                           | **Code via Git now**   |
+| `wordmove push production --themes`    | `git add wp-content/themes && git push production master`                              | Git commits            |
+| `wordmove push production --plugins`   | `git add wp-content/plugins && git push production master`                             | Git commits            |
+| `wordmove push production --uploads`   | `movepress push local production --untracked-files`                                    | Renamed flag           |
+| `wordmove push production --all`       | `git push production master && movepress push local production --db --untracked-files` | Git + movepress        |
 
 ---
 
 ### Pull Operations
 
-| Wordmove | Movepress | Notes |
-|----------|-----------|-------|
-| `wordmove pull production --db` | `movepress pull production local --db` | Explicit destination |
-| `wordmove pull production --wordpress` | `git pull production master` | **Code via Git now** |
-| `wordmove pull production --uploads` | `movepress pull production local --untracked-files` | Renamed flag |
+| Wordmove                               | Movepress                                           | Notes                |
+| -------------------------------------- | --------------------------------------------------- | -------------------- |
+| `wordmove pull production --db`        | `movepress pull production local --db`              | Explicit destination |
+| `wordmove pull production --wordpress` | `git pull production master`                        | **Code via Git now** |
+| `wordmove pull production --uploads`   | `movepress pull production local --untracked-files` | Renamed flag         |
 
 ---
 
 ### Other Commands
 
-| Wordmove | Movepress | Notes |
-|----------|-----------|-------|
-| `wordmove init` | `movepress init` | Identical |
-| N/A | `movepress status` | New: system diagnostics |
-| N/A | `movepress validate` | New: config validation |
-| N/A | `movepress ssh <env>` | New: test SSH |
-| N/A | `movepress backup <env>` | New: standalone backups |
+| Wordmove        | Movepress                | Notes                   |
+| --------------- | ------------------------ | ----------------------- |
+| `wordmove init` | `movepress init`         | Identical               |
+| N/A             | `movepress status`       | New: system diagnostics |
+| N/A             | `movepress validate`     | New: config validation  |
+| N/A             | `movepress ssh <env>`    | New: test SSH           |
+| N/A             | `movepress backup <env>` | New: standalone backups |
 
 ---
 
@@ -265,12 +272,13 @@ database:
 **Problem:** Wordmove used default SSH key, Movepress needs explicit path.
 
 **Solution:** Add `key` to SSH config:
+
 ```yaml
 production:
-  ssh:
-    host: server.example.com
-    user: deploy
-    key: ~/.ssh/id_rsa  # Add this
+    ssh:
+        host: server.example.com
+        user: deploy
+        key: ~/.ssh/id_rsa # Add this
 ```
 
 ---
@@ -280,6 +288,7 @@ production:
 **Problem:** You were using system wp-cli with Wordmove.
 
 **Solution:** Movepress bundles wp-cli! Just verify:
+
 ```bash
 movepress status
 # Should show: wp-cli ✓ Available
@@ -292,6 +301,7 @@ movepress status
 **Problem:** Wordmove used SQL adapters, Movepress needs mysql tools.
 
 **Solution:** Install MySQL client:
+
 ```bash
 # macOS
 brew install mysql-client
@@ -307,6 +317,7 @@ sudo apt-get install mysql-client
 **Problem:** Wordmove inferred source as `local`.
 
 **Solution:** Always specify source and destination:
+
 ```bash
 # Wordmove
 wordmove push production --db
@@ -377,12 +388,14 @@ movepress push local staging --db --untracked-files --dry-run
 Update deployment scripts:
 
 **Old (Wordmove):**
+
 ```bash
 #!/bin/bash
 wordmove push production --db --wordpress
 ```
 
 **New (Movepress):**
+
 ```bash
 #!/bin/bash
 # Deploy code via Git
@@ -413,15 +426,16 @@ Teams can migrate gradually:
 ```yaml
 # movefile.yml works with both tools
 local:
-  path: /path/to/wordpress
-  url: http://local.test
-  # ... standard config
+    path: /path/to/wordpress
+    url: http://local.test
+    # ... standard config
 
 production:
-  # ... standard config
+    # ... standard config
 ```
 
 **Instructions for team:**
+
 ```bash
 # Option A: Still using Wordmove
 wordmove pull production --db
@@ -436,10 +450,11 @@ movepress pull production local --db
 
 Update internal docs with command changes:
 
-```markdown
+````markdown
 ## Deployment (Updated)
 
 ### Using Movepress (Recommended)
+
 ```bash
 # Deploy code
 git push production master
@@ -447,12 +462,15 @@ git push production master
 # Sync database and uploads
 movepress push local production --db --untracked-files
 ```
+````
 
 ### Using Wordmove (Legacy)
+
 ```bash
 wordmove push production --db --wordpress
 ```
-```
+
+````
 
 ---
 
@@ -467,9 +485,10 @@ wordmove push production --db --wordpress
 # Install wp-cli separately
 gem install wordmove
 gem install specific versions for compatibility
-```
+````
 
 **After (Movepress):**
+
 ```bash
 # Build once, run anywhere
 git clone https://github.com/AlextheYounga/movepress.git
@@ -484,11 +503,13 @@ composer install --no-dev
 ### Better Diagnostics
 
 **Wordmove:**
+
 ```
 Error: Something went wrong
 ```
 
 **Movepress:**
+
 ```
 SSH connection failed
 
@@ -505,6 +526,7 @@ Troubleshooting tips:
 **Wordmove:** Errors appear during execution
 
 **Movepress:** Catch issues early
+
 ```bash
 movepress validate
 # Lists all config errors before attempting deployment
@@ -541,7 +563,7 @@ movepress push local production --untracked-files -v
 
 ## Success Stories
 
-*Share your migration story!* Open an issue or PR to add your experience.
+_Share your migration story!_ Open an issue or PR to add your experience.
 
 ---
 
@@ -580,6 +602,7 @@ movepress push local production --untracked-files -v
 ## Conclusion
 
 Movepress brings the power of Wordmove to modern PHP with:
+
 - Zero Ruby dependencies
 - Better error handling
 - Built-in diagnostics

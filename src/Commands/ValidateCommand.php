@@ -14,8 +14,7 @@ class ValidateCommand extends Command
 {
     protected function configure(): void
     {
-        $this->setName('validate')
-            ->setDescription('Validate movefile.yml configuration');
+        $this->setName('validate')->setDescription('Validate movefile.yml configuration');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -32,7 +31,7 @@ class ValidateCommand extends Command
 
             // Check environments
             $environments = $config->getEnvironments();
-            
+
             if (empty($environments)) {
                 $errors[] = 'No environments defined in configuration';
                 $io->error($errors);
@@ -66,7 +65,6 @@ class ValidateCommand extends Command
 
             $io->success('Configuration is valid!');
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             $io->error('Failed to load configuration: ' . $e->getMessage());
             return Command::FAILURE;
@@ -90,15 +88,15 @@ class ValidateCommand extends Command
             $errors[] = "[{$name}] Missing database configuration";
         } else {
             $db = $env['database'];
-            
+
             if (empty($db['name'])) {
                 $errors[] = "[{$name}] Missing database name";
             }
-            
+
             if (empty($db['user'])) {
                 $errors[] = "[{$name}] Missing database user";
             }
-            
+
             if (empty($db['host'])) {
                 $errors[] = "[{$name}] Missing database host";
             }
@@ -107,11 +105,11 @@ class ValidateCommand extends Command
         // Validate SSH config if present
         if (isset($env['ssh'])) {
             $ssh = $env['ssh'];
-            
+
             if (empty($ssh['user'])) {
                 $errors[] = "[{$name}] SSH configured but missing user";
             }
-            
+
             if (empty($ssh['host'])) {
                 $errors[] = "[{$name}] SSH configured but missing host";
             }
@@ -124,7 +122,7 @@ class ValidateCommand extends Command
                     $home = getenv('HOME') ?: getenv('USERPROFILE');
                     $keyPath = str_replace('~', $home, $keyPath);
                 }
-                
+
                 if (!file_exists($keyPath)) {
                     $errors[] = "[{$name}] SSH key file not found: {$ssh['key']}";
                 }

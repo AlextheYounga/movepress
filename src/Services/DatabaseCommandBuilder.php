@@ -66,14 +66,14 @@ class DatabaseCommandBuilder
         string $wpCliBinary,
         string $wordpressPath,
         string $oldUrl,
-        string $newUrl
+        string $newUrl,
     ): string {
         return sprintf(
             '%s search-replace %s %s --path=%s --skip-columns=guid --quiet',
             escapeshellarg($wpCliBinary),
             escapeshellarg($oldUrl),
             escapeshellarg($newUrl),
-            escapeshellarg($wordpressPath)
+            escapeshellarg($wordpressPath),
         );
     }
 

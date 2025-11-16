@@ -1,12 +1,11 @@
 #!/usr/bin/env php
 <?php
-
 declare(strict_types=1);
 
 // Determine autoload location
 $autoloadPaths = [
     __DIR__ . '/../vendor/autoload.php', // Development
-    __DIR__ . '/../../../autoload.php',  // Installed via Composer
+    __DIR__ . '/../../../autoload.php', // Installed via Composer
 ];
 
 $autoloadFound = false;
@@ -26,3 +25,4 @@ if (!$autoloadFound) {
 // Run the application
 $application = new Movepress\Application();
 $application->run();
+

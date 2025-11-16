@@ -27,44 +27,34 @@ abstract class AbstractSyncCommand extends Command
 
     protected function configureArguments(): void
     {
-        $this->addArgument(
-            'source',
-            InputArgument::REQUIRED,
-            'Source environment name'
-        )
-        ->addArgument(
+        $this->addArgument('source', InputArgument::REQUIRED, 'Source environment name')->addArgument(
             'destination',
             InputArgument::REQUIRED,
-            'Destination environment name'
+            'Destination environment name',
         );
     }
 
     protected function configureOptions(): void
     {
-        $this->addOption(
-            'db',
-            null,
-            InputOption::VALUE_NONE,
-            'Sync database only'
-        )
-        ->addOption(
-            'untracked-files',
-            null,
-            InputOption::VALUE_NONE,
-            'Sync files not tracked by Git (uploads, caches, etc.)'
-        )
-        ->addOption(
-            'dry-run',
-            null,
-            InputOption::VALUE_NONE,
-            'Show what would be transferred without actually doing it'
-        )
-        ->addOption(
-            'no-backup',
-            null,
-            InputOption::VALUE_NONE,
-            'Skip backing up destination database before import'
-        );
+        $this->addOption('db', null, InputOption::VALUE_NONE, 'Sync database only')
+            ->addOption(
+                'untracked-files',
+                null,
+                InputOption::VALUE_NONE,
+                'Sync files not tracked by Git (uploads, caches, etc.)',
+            )
+            ->addOption(
+                'dry-run',
+                null,
+                InputOption::VALUE_NONE,
+                'Show what would be transferred without actually doing it',
+            )
+            ->addOption(
+                'no-backup',
+                null,
+                InputOption::VALUE_NONE,
+                'Skip backing up destination database before import',
+            );
     }
 
     protected function initializeContext(
@@ -74,7 +64,7 @@ abstract class AbstractSyncCommand extends Command
         array $destEnv,
         array $flags,
         bool $dryRun,
-        bool $verbose
+        bool $verbose,
     ): void {
         $this->output = $output;
         $this->io = $io;
@@ -124,9 +114,9 @@ abstract class AbstractSyncCommand extends Command
         $items = [
             "Source: {$source}",
             "Destination: {$destination}",
-            "Database: " . ($this->flags['db'] ? '✓' : '✗'),
-            "Untracked Files: " . ($this->flags['untracked_files'] ? '✓' : '✗'),
-            "Dry Run: " . ($this->dryRun ? 'Yes' : 'No'),
+            'Database: ' . ($this->flags['db'] ? '✓' : '✗'),
+            'Untracked Files: ' . ($this->flags['untracked_files'] ? '✓' : '✗'),
+            'Dry Run: ' . ($this->dryRun ? 'Yes' : 'No'),
         ];
 
         $this->io->listing($items);
@@ -147,9 +137,9 @@ abstract class AbstractSyncCommand extends Command
 
         $sourcePath = $this->buildPath($this->sourceEnv);
         $destPath = $this->buildPath($this->destEnv);
-		$gitignorePath = $this->getGitignorePath();
+        $gitignorePath = $this->getGitignorePath();
 
-        $this->io->text("Syncing untracked files (uploads, caches, etc.)...");
+        $this->io->text('Syncing untracked files (uploads, caches, etc.)...');
         return $rsync->syncUntrackedFiles($sourcePath, $destPath, $excludes, $remoteSsh, $gitignorePath);
     }
 
@@ -189,7 +179,7 @@ abstract class AbstractSyncCommand extends Command
 
         try {
             // Export source database
-            $this->io->text("Exporting source database...");
+            $this->io->text('Exporting source database...');
             if ($sourceSsh === null) {
                 if (!$dbService->exportLocal($sourceDb, $exportFile, true)) {
                     throw new \RuntimeException('Failed to export source database');
@@ -202,14 +192,14 @@ abstract class AbstractSyncCommand extends Command
 
             // Backup destination database
             if (!$noBackup) {
-                $this->io->text("Creating backup of destination database...");
+                $this->io->text('Creating backup of destination database...');
                 $backupDir = $this->destEnv['backup_path'] ?? null;
                 $backupPath = $dbService->backup($destDb, $destSsh, $backupDir);
                 $this->io->text("Backup created: {$backupPath}");
             }
 
             // Import to destination database
-            $this->io->text("Importing to destination database...");
+            $this->io->text('Importing to destination database...');
             if ($destSsh === null) {
                 if (!$dbService->importLocal($destDb, $exportFile)) {
                     throw new \RuntimeException('Failed to import to destination database');
@@ -223,14 +213,13 @@ abstract class AbstractSyncCommand extends Command
             // Perform search-replace on live database using wp-cli
             $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
             $destWordpressPath = $this->destEnv['wordpress_path'];
-			$replacedSuccess = $dbService->searchReplace($destWordpressPath, $sourceUrl, $destUrl, $destSsh);
+            $replacedSuccess = $dbService->searchReplace($destWordpressPath, $sourceUrl, $destUrl, $destSsh);
             if (!$replacedSuccess) {
                 throw new \RuntimeException('Failed to perform search-replace');
             }
 
             @unlink($exportFile);
             return true;
-
         } catch (\Exception $e) {
             $this->cleanupTempFiles($exportFile);
             $this->io->error($e->getMessage());
@@ -279,8 +268,9 @@ abstract class AbstractSyncCommand extends Command
         return $validator->confirmDestructiveOperation($destination, $this->flags);
     }
 
-	private function getGitignorePath(): ?string{
-		// Determine .gitignore path (use local path if source is local)
+    private function getGitignorePath(): ?string
+    {
+        // Determine .gitignore path (use local path if source is local)
         $gitignorePath = null;
         if (!isset($this->sourceEnv['ssh'])) {
             $possiblePath = $this->sourceEnv['wordpress_path'] . '/.gitignore';
@@ -288,6 +278,6 @@ abstract class AbstractSyncCommand extends Command
                 $gitignorePath = $possiblePath;
             }
         }
-		return $gitignorePath;
-	}
+        return $gitignorePath;
+    }
 }

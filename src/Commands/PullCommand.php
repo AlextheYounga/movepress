@@ -14,8 +14,7 @@ class PullCommand extends AbstractSyncCommand
 {
     protected function configure(): void
     {
-        $this->setName('pull')
-            ->setDescription('Pull database and/or files from source to destination environment');
+        $this->setName('pull')->setDescription('Pull database and/or files from source to destination environment');
 
         $this->configureArguments();
         $this->configureOptions();
@@ -50,7 +49,7 @@ class PullCommand extends AbstractSyncCommand
                 $destEnv,
                 $flags,
                 $input->getOption('dry-run'),
-                $input->getOption('verbose')
+                $input->getOption('verbose'),
             );
 
             $this->displayConfiguration($source, $destination);
@@ -98,7 +97,6 @@ class PullCommand extends AbstractSyncCommand
             }
 
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
