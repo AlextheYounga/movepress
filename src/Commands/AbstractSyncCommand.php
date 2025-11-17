@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Movepress\Commands;
 
+use Movepress\Services\FileSearchReplaceService;
+use Movepress\Services\RemoteTransferService;
 use Movepress\Services\SshService;
 use Movepress\Services\Sync\DatabaseSyncController;
 use Movepress\Services\Sync\FileSyncController;
@@ -160,6 +162,49 @@ abstract class AbstractSyncCommand extends Command
             $this->getGitignorePath(),
             $this->flags['delete'],
         );
+    }
+
+    protected function processSyncedFiles(): bool
+    {
+        if ($this->dryRun || !$this->flags['untracked_files']) {
+            return true;
+        }
+
+        $this->io->text('Updating hardcoded URLs in synced files...');
+
+        $sourceUrl = $this->sourceEnv['url'];
+        $destUrl = $this->destEnv['url'];
+        $destPath = $this->destEnv['wordpress_path'];
+
+        if (isset($this->destEnv['ssh'])) {
+            $sshService = new SshService($this->destEnv['ssh']);
+            $remoteTransfer = new RemoteTransferService($this->output, $this->verbose);
+
+            $remotePharPath = '/usr/local/bin/movepress';
+            $command = sprintf(
+                'cd %s && %s post-files %s %s',
+                escapeshellarg($destPath),
+                $remotePharPath,
+                escapeshellarg($sourceUrl),
+                escapeshellarg($destUrl),
+            );
+
+            if (!$remoteTransfer->executeRemoteCommand($sshService, $command)) {
+                $this->io->error('Failed to update remote files after sync.');
+                return false;
+            }
+
+            $this->io->writeln('✓ Remote files updated');
+            return true;
+        }
+
+        $service = new FileSearchReplaceService($this->verbose);
+        $result = $service->replaceInPath($destPath, $sourceUrl, $destUrl);
+        $this->io->writeln(
+            sprintf('✓ Updated %d files (checked %d)', $result['filesModified'], $result['filesChecked']),
+        );
+
+        return true;
     }
 
     protected function syncDatabase(bool $noBackup): bool

@@ -78,6 +78,10 @@ class PushCommand extends AbstractSyncCommand
                     return Command::FAILURE;
                 }
 
+                if (!$this->processSyncedFiles()) {
+                    return Command::FAILURE;
+                }
+
                 $io->success('Untracked files synchronized successfully');
             }
 

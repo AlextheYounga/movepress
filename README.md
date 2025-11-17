@@ -13,6 +13,7 @@ A modern WordPress deployment tool for pushing and pulling databases and files b
 - 🎯 Flexible exclude patterns (global and per-environment)
 - 📦 Bundled with wp-cli - no separate installation needed
 - ⚡ Single executable `.phar` file
+- 🔁 Automatic URL updates in synced files and databases
 
 ## Installation
 

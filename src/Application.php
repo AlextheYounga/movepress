@@ -7,6 +7,7 @@ namespace Movepress;
 use Movepress\Commands\BackupCommand;
 use Movepress\Commands\GitSetupCommand;
 use Movepress\Commands\InitCommand;
+use Movepress\Commands\PostFilesCommand;
 use Movepress\Commands\PostImportCommand;
 use Movepress\Commands\PullCommand;
 use Movepress\Commands\PushCommand;
@@ -40,6 +41,7 @@ class Application extends ConsoleApplication
         $this->add(new BackupCommand());
         $this->add(new GitSetupCommand());
         $this->add(new PostImportCommand());
+        $this->add(new PostFilesCommand());
     }
 
     public static function loadWpCliClasses(): void
