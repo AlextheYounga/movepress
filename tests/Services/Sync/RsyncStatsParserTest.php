@@ -34,9 +34,9 @@ class RsyncStatsParserTest extends TestCase
     {
         $parser = new RsyncStatsParser();
         $output = <<<OUT
-        MPSTAT:>f+++++++++:1234:wp-content/uploads/file.jpg
-        MPSTAT:cd+++++++++:0:wp-content/uploads/newdir/
-        MPSTAT:>f.st......:4321:wp-content/uploads/file2.jpg
+        INFO:>f+++++++++:1234:wp-content/uploads/file.jpg
+        INFO:cd+++++++++:0:wp-content/uploads/newdir/
+        INFO:>f.st......:4321:wp-content/uploads/file2.jpg
         OUT;
 
         $summary = $parser->parseDryRunSummary($output);

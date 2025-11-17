@@ -21,7 +21,7 @@ final class RsyncStatsParser
     public function parseDryRunSummary(string $output): ?RsyncDryRunSummary
     {
         $matches = [];
-        preg_match_all('/^MPSTAT:([^:]+):(\d+):(.+)$/m', $output, $matches, PREG_SET_ORDER);
+        preg_match_all('/^INFO:([^:]+):(\d+):(.+)$/m', $output, $matches, PREG_SET_ORDER);
 
         if (empty($matches)) {
             return null;

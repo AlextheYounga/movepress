@@ -138,7 +138,7 @@ class RsyncService
         if ($this->dryRun) {
             $options[] = '--dry-run';
             $options[] = '--itemize-changes';
-            $options[] = '--out-format=' . escapeshellarg('MPSTAT:%i:%l:%n%L');
+            $options[] = '--out-format=' . escapeshellarg('INFO:%i:%l:%n%L');
         }
 
         // Add excludes
