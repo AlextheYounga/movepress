@@ -45,19 +45,19 @@ Agents should reference this before making any design or implementation decision
 
 **NEVER use global `wp` command or call wp-cli as an external command.** Movepress bundles wp-cli and uses it as a PHP library.
 
-- ✅ **Correct:** Load WordPress, require bundled wp-cli class files directly, call methods (e.g., `new Search_Replace_Command()`)
+- ✅ **Correct:** Call `Application::loadWpCliClasses()`, bootstrap WordPress, initialize WP_CLI config, then use wp-cli classes (e.g., `new Search_Replace_Command()`)
 - ❌ **Wrong:** Execute `wp` command, call `php boot-fs.php`, or run wp-cli as external process
-- **Why:** wp-cli is a PHP library. We have the entire codebase bundled. Just require and call the classes.
-- ✅ **Bootstrap once:** `Movepress\Application` requires the bundled wp-cli classes during startup, so other code should just `use` the classes (no scattered `require_once`).
-- **How to require classes:** Use direct `require_once` statements for the specific class files needed from vendor, NOT autoload.php
-    - Example: `require_once __DIR__ . '/../../vendor/wp-cli/search-replace-command/src/Search_Replace_Command.php';`
-    - Include any dependency classes the command needs as well
-    - Do NOT run autoload.php or use complex bootstrap processes
-- **Local execution:** Load WP, require wp-cli class files directly, instantiate command classes, call their methods
+- **Why:** wp-cli is a PHP library. We have the entire codebase bundled.
+- ✅ **Loading wp-cli:** Call `Movepress\Application::loadWpCliClasses()` which loads all necessary wp-cli files from vendor
+- **Bootstrap order:**
+    1. Call `Application::loadWpCliClasses()`
+    2. Define `WP_USE_THEMES` and `WP_CLI` constants
+    3. Bootstrap WordPress via `require_once $wordpressPath . '/wp-load.php'`
+    4. Initialize WP_CLI config via reflection: `$runner = \WP_CLI::get_runner(); /* set $runner->config via reflection */`
+    5. Use wp-cli command classes: `$cmd = new Search_Replace_Command(); $cmd->__invoke(...);`
+- **Remote execution:** Transfer movepress.phar to remote and execute `movepress post-import` command via SSH
 - **Never:** Try to execute PHP files from within PHAR using `php phar://...` - this doesn't work
 - **Never:** Extract wp-cli files to temporary locations - defeats the purpose of bundling
-- **Never:** Try to find/use autoload.php - just require the class files you need directly
-- **Remember:** WordPress must be bootstrapped (wp-load.php) before using wp-cli classes, since wp-cli commands expect WP to be loaded
 - **Exception:** Test environment setup scripts (entrypoint.sh) may download wp-cli for initial WordPress installation ONLY
 
 ---

@@ -202,6 +202,13 @@ class DatabaseService
                 define('WP_CLI', true);
             }
 
+            // Initialize WP_CLI Runner with minimal config using reflection
+            $runner = \WP_CLI::get_runner();
+            $reflection = new \ReflectionClass($runner);
+            $configProperty = $reflection->getProperty('config');
+            $configProperty->setAccessible(true);
+            $configProperty->setValue($runner, ['quiet' => !$this->verbose]);
+
             if ($this->verbose) {
                 $this->output->writeln('Executing search-replace locally...');
             }
@@ -212,6 +219,7 @@ class DatabaseService
                 [
                     'skip-columns' => 'guid',
                     'quiet' => !$this->verbose,
+                    'all-tables' => true,
                 ],
             );
 
