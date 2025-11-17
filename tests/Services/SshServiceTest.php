@@ -119,22 +119,43 @@ class SshServiceTest extends TestCase
 
     public function test_expands_tilde_in_key_path(): void
     {
-        $homeDir = getenv('HOME') ?: getenv('USERPROFILE');
-        $keyFile = tempnam($homeDir, 'ssh_key_test');
+        $tempHome = sys_get_temp_dir() . '/movepress-home-' . uniqid();
+        mkdir($tempHome);
+        $keyFile = $tempHome . '/ssh_key_test';
+        file_put_contents($keyFile, 'dummy');
 
-        $config = [
-            'user' => 'deployuser',
-            'host' => 'example.com',
-            'key' => '~/' . basename($keyFile),
-        ];
+        $originalHome = getenv('HOME');
+        $originalUserProfile = getenv('USERPROFILE');
+        putenv('HOME=' . $tempHome);
+        putenv('USERPROFILE=' . $tempHome);
 
-        $service = new SshService($config);
-        $options = $service->getSshOptions();
+        try {
+            $config = [
+                'user' => 'deployuser',
+                'host' => 'example.com',
+                'key' => '~/ssh_key_test',
+            ];
 
-        $this->assertContains('-i', $options);
-        $this->assertContains($keyFile, $options);
+            $service = new SshService($config);
+            $options = $service->getSshOptions();
 
-        unlink($keyFile);
+            $this->assertContains('-i', $options);
+            $this->assertContains($keyFile, $options);
+        } finally {
+            $this->restoreEnv('HOME', $originalHome);
+            $this->restoreEnv('USERPROFILE', $originalUserProfile);
+            unlink($keyFile);
+            rmdir($tempHome);
+        }
+    }
+
+    private function restoreEnv(string $key, string|false $original): void
+    {
+        if ($original === false) {
+            putenv($key);
+        } else {
+            putenv("{$key}={$original}");
+        }
     }
 
     public function test_includes_strict_host_key_checking_disabled(): void

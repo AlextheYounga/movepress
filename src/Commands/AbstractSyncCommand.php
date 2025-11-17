@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Movepress\Commands;
 
-use Movepress\Services\DatabaseService;
-use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
+use Movepress\Services\Sync\DatabaseSyncController;
+use Movepress\Services\Sync\FileSyncController;
 use Movepress\Services\ValidationService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -150,130 +150,29 @@ abstract class AbstractSyncCommand extends Command
 
     protected function syncFiles(array $excludes, ?SshService $remoteSsh): bool
     {
-        $rsync = new RsyncService($this->output, $this->dryRun, $this->verbose);
+        $executor = new FileSyncController($this->output, $this->io, $this->dryRun, $this->verbose);
 
-        $sourcePath = $this->buildPath($this->sourceEnv);
-        $destPath = $this->buildPath($this->destEnv);
-        $gitignorePath = $this->getGitignorePath();
-
-        $this->io->text('Syncing untracked files (uploads, caches, etc.)...');
-        if ($this->flags['delete']) {
-            $this->io->warning([
-                'You have enabled --delete. Files missing from the source will be removed from the destination.',
-                'Ensure you have backups before continuing.',
-            ]);
-        }
-
-        $success = $rsync->syncUntrackedFiles(
-            $sourcePath,
-            $destPath,
+        return $executor->sync(
+            $this->buildPath($this->sourceEnv),
+            $this->buildPath($this->destEnv),
             $excludes,
             $remoteSsh,
-            $gitignorePath,
+            $this->getGitignorePath(),
             $this->flags['delete'],
         );
-
-        if ($success) {
-            $this->displayRsyncStats($rsync->getLastStats(), $rsync->getLastDryRunSummary());
-        }
-
-        return $success;
     }
 
     protected function syncDatabase(bool $noBackup): bool
     {
-        if ($this->dryRun) {
-            $this->io->text('Would export source database');
-            if (!$noBackup) {
-                $this->io->text('Would create backup of destination database');
-            }
-            $this->io->text('Would import to destination database');
-            $this->io->text('Would perform search-replace: ' . $this->sourceEnv['url'] . ' → ' . $this->destEnv['url']);
-            return true;
-        }
+        $executor = new DatabaseSyncController($this->output, $this->io, $this->dryRun, $this->verbose);
 
-        if (!DatabaseService::isMysqldumpAvailable()) {
-            $this->io->error('mysqldump is not installed or not available in PATH');
-            return false;
-        }
-        if (!DatabaseService::isMysqlAvailable()) {
-            $this->io->error('mysql is not installed or not available in PATH');
-            return false;
-        }
-
-        if ($noBackup) {
-            $this->io->warning('Destination database will be overwritten without creating a backup.');
-        }
-
-        $dbService = new DatabaseService($this->output, $this->verbose);
-
-        $sourceDb = $this->sourceEnv['database'];
-        $destDb = $this->destEnv['database'];
-        $sourceUrl = $this->sourceEnv['url'];
-        $destUrl = $this->destEnv['url'];
-
-        $sourceSsh = $this->getSshService($this->sourceEnv);
-        $destSsh = $this->getSshService($this->destEnv);
-
-        $tempDir = sys_get_temp_dir();
-        $exportFile = $tempDir . '/movepress_export_' . uniqid() . '.sql.gz';
-
-        try {
-            // Export source database
-            $this->io->text('Exporting source database...');
-            if ($sourceSsh === null) {
-                if (!$dbService->exportLocal($sourceDb, $exportFile, true)) {
-                    throw new \RuntimeException('Failed to export source database');
-                }
-            } else {
-                if (!$dbService->exportRemote($sourceDb, $sourceSsh, $exportFile, true)) {
-                    throw new \RuntimeException('Failed to export source database');
-                }
-            }
-
-            // Backup destination database
-            if (!$noBackup) {
-                $this->io->text('Creating backup of destination database...');
-                $backupDir = $this->destEnv['backup_path'] ?? null;
-                $backupPath = $dbService->backup($destDb, $destSsh, $backupDir);
-                $this->io->note("Destination backup stored at: {$backupPath}");
-            }
-
-            // Import to destination database
-            $this->io->text('Importing to destination database...');
-            if ($destSsh === null) {
-                if (!$dbService->importLocal($destDb, $exportFile)) {
-                    throw new \RuntimeException('Failed to import to destination database');
-                }
-            } else {
-                if (!$dbService->importRemote($destDb, $destSsh, $exportFile)) {
-                    throw new \RuntimeException('Failed to import to destination database');
-                }
-            }
-
-            // Perform search-replace on destination database using bundled wp-cli
-            // For remote destinations, movepress PHAR is temporarily transferred
-            $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
-            $destWordpressPath = $this->destEnv['wordpress_path'];
-            $replacedSuccess = $dbService->searchReplace($destWordpressPath, $sourceUrl, $destUrl, $destSsh);
-            if (!$replacedSuccess) {
-                throw new \RuntimeException('Failed to perform search-replace');
-            }
-
-            @unlink($exportFile);
-            return true;
-        } catch (\Exception $e) {
-            $this->cleanupTempFiles($exportFile);
-            $this->io->error($e->getMessage());
-            return false;
-        }
-    }
-
-    protected function cleanupTempFiles(string $exportFile): void
-    {
-        @unlink($exportFile);
-        @unlink(str_replace('.gz', '', $exportFile));
-        @unlink(str_replace('.gz', '', $exportFile) . '.bak');
+        return $executor->sync(
+            $this->sourceEnv,
+            $this->destEnv,
+            $noBackup,
+            $this->getSshService($this->sourceEnv),
+            $this->getSshService($this->destEnv),
+        );
     }
 
     protected function buildPath(array $env): string
@@ -321,64 +220,5 @@ abstract class AbstractSyncCommand extends Command
             }
         }
         return $gitignorePath;
-    }
-
-    private function displayRsyncStats(?array $stats, ?array $dryRunSummary): void
-    {
-        if ($stats === null) {
-            return;
-        }
-
-        $filesTransferred = $stats['files_transferred'] ?? 0;
-        $bytesTransferred = $stats['bytes_transferred'] ?? null;
-
-        if ($this->dryRun && $dryRunSummary !== null) {
-            $filesTransferred = $dryRunSummary['files'] ?? 0;
-            $bytesTransferred = $dryRunSummary['bytes'] ?? null;
-        }
-
-        $filesTotal = $stats['files_total'] ?? null;
-        $bytesTotal = $stats['bytes_total'] ?? null;
-
-        $lines = [];
-        $verb = $this->dryRun ? 'Would transfer' : 'Transferred';
-        $lines[] = sprintf(
-            '%s %s %s (%s).',
-            $verb,
-            number_format($filesTransferred),
-            $filesTransferred === 1 ? 'file' : 'files',
-            $this->formatBytes($bytesTransferred),
-        );
-
-        if ($filesTotal !== null) {
-            $totalLine = sprintf('Examined %s %s', number_format($filesTotal), $filesTotal === 1 ? 'file' : 'files');
-            if ($bytesTotal !== null) {
-                $totalLine .= sprintf(' (%s total)', $this->formatBytes($bytesTotal));
-            }
-            $totalLine .= '.';
-            $lines[] = $totalLine;
-        } elseif ($bytesTotal !== null) {
-            $lines[] = sprintf('Total dataset size: %s.', $this->formatBytes($bytesTotal));
-        }
-
-        $this->io->note($lines);
-    }
-
-    private function formatBytes(?int $bytes): string
-    {
-        if ($bytes === null) {
-            return 'unknown size';
-        }
-
-        if ($bytes === 0) {
-            return '0 B';
-        }
-
-        $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-        $power = (int) floor(log($bytes, 1024));
-        $power = min($power, count($units) - 1);
-        $value = $bytes / 1024 ** $power;
-
-        return sprintf('%0.1f %s', $value, $units[$power]);
     }
 }

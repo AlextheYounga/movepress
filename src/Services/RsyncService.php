@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
+use Movepress\Services\Sync\RsyncDryRunSummary;
+use Movepress\Services\Sync\RsyncStats;
+use Movepress\Services\Sync\RsyncStatsParser;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -13,14 +16,16 @@ class RsyncService
     private bool $dryRun;
     private bool $verbose;
     private ?array $gitignorePatterns = null;
-    private ?array $lastStats = null;
-    private ?array $lastDryRunSummary = null;
+    private ?RsyncStats $lastStats = null;
+    private ?RsyncDryRunSummary $lastDryRunSummary = null;
+    private RsyncStatsParser $parser;
 
     public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
     {
         $this->output = $output;
         $this->dryRun = $dryRun;
         $this->verbose = $verbose;
+        $this->parser = new RsyncStatsParser();
     }
 
     /**
@@ -102,13 +107,13 @@ class RsyncService
         }
 
         $fullOutput = $capturedOutput !== '' ? $capturedOutput : $process->getOutput() . $process->getErrorOutput();
-        $this->lastStats = $this->parseStats($fullOutput);
-        $this->lastDryRunSummary = $this->dryRun ? $this->parseDryRunSummary($fullOutput) : null;
+        $this->lastStats = $this->parser->parse($fullOutput);
+        $this->lastDryRunSummary = $this->dryRun ? $this->parser->parseDryRunSummary($fullOutput) : null;
 
         return true;
     }
 
-    private function buildRsyncCommand(
+    protected function buildRsyncCommand(
         string $source,
         string $dest,
         array $excludes,
@@ -156,12 +161,12 @@ class RsyncService
         return "rsync {$optionsString} {$sourceEscaped} {$destEscaped}";
     }
 
-    public function getLastStats(): ?array
+    public function getLastStats(): ?RsyncStats
     {
         return $this->lastStats;
     }
 
-    public function getLastDryRunSummary(): ?array
+    public function getLastDryRunSummary(): ?RsyncDryRunSummary
     {
         return $this->lastDryRunSummary;
     }
@@ -236,75 +241,5 @@ class RsyncService
         $process->run();
 
         return $process->isSuccessful();
-    }
-
-    private function parseStats(string $output): ?array
-    {
-        if ($output === '') {
-            return null;
-        }
-
-        $filesTotal = $this->matchInt('/Number of files:\s*([\d,]+)/', $output);
-        $filesTransferred = $this->matchInt('/Number of regular files transferred:\s*([\d,]+)/', $output);
-        $bytesTotal = $this->matchInt('/Total file size:\s*([\d,]+)\s+bytes/', $output);
-        $bytesTransferred = $this->matchInt('/Total transferred file size:\s*([\d,]+)\s+bytes/', $output);
-
-        if ($filesTotal === null && $filesTransferred === null && $bytesTotal === null && $bytesTransferred === null) {
-            return null;
-        }
-
-        return [
-            'files_total' => $filesTotal,
-            'files_transferred' => $filesTransferred,
-            'bytes_total' => $bytesTotal,
-            'bytes_transferred' => $bytesTransferred,
-        ];
-    }
-
-    private function matchInt(string $pattern, string $subject): ?int
-    {
-        if (!preg_match($pattern, $subject, $matches)) {
-            return null;
-        }
-
-        $value = preg_replace('/[,\s]/', '', $matches[1]);
-        if ($value === '') {
-            return null;
-        }
-
-        return (int) $value;
-    }
-
-    private function parseDryRunSummary(string $output): ?array
-    {
-        $matches = [];
-        preg_match_all('/^MPSTAT:([^:]+):(\d+):(.+)$/m', $output, $matches, PREG_SET_ORDER);
-
-        if (empty($matches)) {
-            return null;
-        }
-
-        $files = 0;
-        $bytes = 0;
-
-        foreach ($matches as $match) {
-            $flags = $match[1];
-            $size = (int) $match[2];
-
-            if (strlen($flags) < 2) {
-                continue;
-            }
-
-            // Only count files (flag second char 'f')
-            if ($flags[1] === 'f') {
-                $files++;
-                $bytes += $size;
-            }
-        }
-
-        return [
-            'files' => $files,
-            'bytes' => $bytes,
-        ];
     }
 }
