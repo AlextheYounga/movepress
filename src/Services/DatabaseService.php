@@ -188,7 +188,7 @@ class DatabaseService
     {
         try {
             Application::loadWpCliClasses();
-            // Bootstrap WordPress
+
             define('WP_USE_THEMES', false);
             $_SERVER['HTTP_HOST'] = 'localhost';
 
@@ -198,7 +198,6 @@ class DatabaseService
 
             require_once $wordpressPath . '/wp-load.php';
 
-            // Define WP-CLI constants
             if (!defined('WP_CLI')) {
                 define('WP_CLI', true);
             }
@@ -207,7 +206,6 @@ class DatabaseService
                 $this->output->writeln('Executing search-replace locally...');
             }
 
-            // Execute search-replace
             $searchReplace = new Search_Replace_Command();
             $searchReplace->__invoke(
                 [$oldUrl, $newUrl],
@@ -225,7 +223,7 @@ class DatabaseService
     }
 
     /**
-     * Execute search-replace on remote server using wp-cli as a library
+     * Execute search-replace on remote server by calling movepress post-import command
      */
     private function executeRemoteSearchReplace(
         SshService $sshService,
@@ -233,122 +231,20 @@ class DatabaseService
         string $oldUrl,
         string $newUrl,
     ): bool {
-        // Generate PHP script that uses wp-cli as a library
-        // WordPress is already running on the remote server
-        $script = $this->generateSearchReplaceScript($wordpressPath, $oldUrl, $newUrl);
-        $remoteTempScript = rtrim($wordpressPath, '/') . '/movepress-search-replace-' . uniqid() . '.php';
-
         if ($this->verbose) {
-            $this->output->writeln('Transferring search-replace script to remote...');
+            $this->output->writeln('Executing search-replace on remote via movepress post-import...');
         }
 
-        // Create temporary script file locally
-        $localTempScript = sys_get_temp_dir() . '/movepress-search-replace-' . uniqid() . '.php';
-        file_put_contents($localTempScript, $script);
+        $remotePharPath = '/usr/local/bin/movepress';
+        $command = sprintf(
+            'cd %s && %s post-import %s %s',
+            escapeshellarg($wordpressPath),
+            $remotePharPath,
+            escapeshellarg($oldUrl),
+            escapeshellarg($newUrl),
+        );
 
-        // Transfer script to remote
-        if (!$this->remoteTransfer->uploadFile($sshService, $localTempScript, $remoteTempScript)) {
-            unlink($localTempScript);
-            throw new RuntimeException('Failed to transfer search-replace script to remote server');
-        }
-
-        unlink($localTempScript);
-
-        // Execute the script
-        if ($this->verbose) {
-            $this->output->writeln('Executing wp-cli search-replace on remote...');
-        }
-
-        $command = sprintf('cd %s && php %s', escapeshellarg($wordpressPath), escapeshellarg($remoteTempScript));
-        $success = $this->remoteTransfer->executeRemoteCommand($sshService, $command);
-
-        // Clean up remote script
-        if ($this->verbose) {
-            $this->output->writeln('Cleaning up temporary script on remote...');
-        }
-        $this->remoteTransfer->executeRemoteCommand($sshService, "rm -f {$remoteTempScript}");
-
-        return $success;
-    }
-
-    /**
-     * Generate PHP script that bootstraps WordPress and executes wp-cli search-replace
-     *
-     * This script will be transferred to and executed on the remote server.
-     * It must be self-contained and include all necessary wp-cli class files.
-     */
-    private function generateSearchReplaceScript(string $wordpressPath, string $oldUrl, string $newUrl): string
-    {
-        $oldUrlEscaped = addslashes($oldUrl);
-        $newUrlEscaped = addslashes($newUrl);
-        $wordpressPathEscaped = addslashes($wordpressPath);
-
-        // Get the wp-cli class files content from our bundled vendor
-        $vendorBase = dirname(__DIR__, 2) . '/vendor';
-
-        $script = "<?php\n";
-        $script .= "/**\n";
-        $script .= " * Movepress search-replace script\n";
-        $script .= " * Self-contained script with embedded wp-cli classes\n";
-        $script .= " */\n\n";
-
-        $script .= "// Bootstrap WordPress\n";
-        $script .= "define('WP_USE_THEMES', false);\n";
-        $script .= "\$_SERVER['HTTP_HOST'] = 'localhost';\n";
-        $script .= "if (!file_exists('{$wordpressPathEscaped}/wp-load.php')) {\n";
-        $script .= "    fwrite(STDERR, \"Error: WordPress not found at {$wordpressPathEscaped}\\n\");\n";
-        $script .= "    exit(1);\n";
-        $script .= "}\n";
-        $script .= "require_once '{$wordpressPathEscaped}/wp-load.php';\n\n";
-
-        $script .= "// Define WP-CLI constants\n";
-        $script .= "if (!defined('WP_CLI')) {\n";
-        $script .= "    define('WP_CLI', true);\n";
-        $script .= "}\n\n";
-
-        $script .= "// Load wp-cli base command class\n";
-        $script .=
-            $this->stripPhpOpenTag(file_get_contents($vendorBase . '/wp-cli/wp-cli/php/class-wp-cli-command.php')) .
-            "\n\n";
-
-        $script .= "// Load SearchReplacer dependency\n";
-        $script .= "namespace WP_CLI;\n";
-        $script .=
-            $this->stripPhpOpenTag(
-                file_get_contents($vendorBase . '/wp-cli/search-replace-command/src/WP_CLI/SearchReplacer.php'),
-            ) . "\n\n";
-
-        $script .= "// Load Search_Replace_Command\n";
-        $script .=
-            $this->stripPhpOpenTag(
-                file_get_contents($vendorBase . '/wp-cli/search-replace-command/src/Search_Replace_Command.php'),
-            ) . "\n\n";
-
-        $script .= "// Execute search-replace\n";
-        $script .= "try {\n";
-        $script .= "    \$searchReplace = new Search_Replace_Command();\n";
-        $script .= "    \$searchReplace->__invoke(\n";
-        $script .= "        ['{$oldUrlEscaped}', '{$newUrlEscaped}'],\n";
-        $script .= "        [\n";
-        $script .= "            'skip-columns' => 'guid',\n";
-        $script .= "            'quiet' => true,\n";
-        $script .= "        ]\n";
-        $script .= "    );\n";
-        $script .= "    exit(0);\n";
-        $script .= "} catch (Exception \$e) {\n";
-        $script .= "    fwrite(STDERR, 'Search-replace error: ' . \$e->getMessage() . \"\\n\");\n";
-        $script .= "    exit(1);\n";
-        $script .= "}\n";
-
-        return $script;
-    }
-
-    /**
-     * Strip PHP opening tag from file content for concatenation
-     */
-    private function stripPhpOpenTag(string $content): string
-    {
-        return preg_replace('/^<\?php\s*\n?/', '', $content);
+        return $this->remoteTransfer->executeRemoteCommand($sshService, $command);
     }
 
     /**
