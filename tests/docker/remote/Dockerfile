@@ -7,9 +7,16 @@ RUN apt-get update && apt-get install -y \
  git \
  default-mysql-client \
  sudo \
+ curl \
  && rm -rf /var/lib/apt/lists/*
 
-# Configure SSH
+# Download wp-cli for setup
+RUN curl -sS -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
+ && chmod +x /usr/local/bin/wp
+
+# Pre-install WordPress core files
+RUN php -d memory_limit=512M /usr/local/bin/wp core download --path=/var/www/html --allow-root --force
+
 RUN mkdir -p /var/run/sshd \
  && mkdir -p /root/.ssh \
  && chmod 700 /root/.ssh
@@ -24,6 +31,9 @@ RUN echo 'root:movepress' | chpasswd
 
 # Create directory for Git repositories
 RUN mkdir -p /var/repos && chmod 755 /var/repos
+
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html
 
 # Expose SSH port
 EXPOSE 22

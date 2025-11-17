@@ -30,17 +30,18 @@ echo ""
 echo -e "${YELLOW}Setting up SSH keys...${NC}"
 bash "${SCRIPT_DIR}/setup-ssh.sh"
 
-# Stop and remove any existing containers
+# Prepare containers (recreate if they already exist)
 echo ""
-echo -e "${YELLOW}Cleaning up existing containers...${NC}"
+echo -e "${YELLOW}Preparing containers (recreate if present)...${NC}"
 cd "$SCRIPT_DIR"
-docker compose down -v 2> /dev/null || true
-
-# Build and start containers
-echo ""
-echo -e "${YELLOW}Building and starting containers...${NC}"
-docker compose build
-docker compose up -d
+if [ -n "$(docker compose ps -q 2> /dev/null)" ]; then
+    echo -e "${YELLOW}Recreating existing containers...${NC}"
+    docker compose up -d --force-recreate
+else
+    echo -e "${YELLOW}Building and starting containers...${NC}"
+    docker compose build
+    docker compose up -d
+fi
 
 # Wait for containers to be healthy
 echo ""

@@ -25,36 +25,22 @@ if [ -f /root/.ssh/id_rsa.pub ]; then
     chmod 600 /root/.ssh/authorized_keys
 fi
 
-# Download wp-cli for initial setup only
-echo "Downloading wp-cli.phar for setup..."
-if [ ! -f /tmp/wp-cli.phar ]; then
-    curl -sS -o /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-    chmod +x /tmp/wp-cli.phar
-fi
-
-# Give WordPress container a moment to set up initial files
-sleep 5
-
-# Download WordPress core files (with increased memory for extraction)
-echo "Downloading WordPress core..."
-php -d memory_limit=512M /tmp/wp-cli.phar core download --path=/var/www/html --allow-root --force || true
-
-# Create wp-config.php
-echo "Creating wp-config.php..."
-php /tmp/wp-cli.phar config create \
+# Update wp-config.php with actual database connection details
+echo "Updating wp-config.php..."
+wp config create \
     --path=/var/www/html \
     --dbname="${WORDPRESS_DB_NAME}" \
     --dbuser="${WORDPRESS_DB_USER}" \
     --dbpass="${WORDPRESS_DB_PASSWORD}" \
     --dbhost="${WORDPRESS_DB_HOST}" \
     --allow-root \
-    --force || true
+    --force
 
 # Check if WordPress is already installed
 echo "Checking WordPress installation..."
-if ! php /tmp/wp-cli.phar core is-installed --path=/var/www/html --allow-root 2> /dev/null; then
-    echo "Installing WordPress with wp-cli..."
-    php /tmp/wp-cli.phar core install \
+if ! wp core is-installed --path=/var/www/html --allow-root 2> /dev/null; then
+    echo "Installing WordPress..."
+    wp core install \
         --path=/var/www/html \
         --url="http://localhost:8081" \
         --title="Movepress Remote Test" \
@@ -68,9 +54,9 @@ else
     echo "WordPress already installed, skipping..."
 fi
 
-# Create test content with wp-cli (different from local)
+# Create test content (different from local)
 echo "Creating test content..."
-php /tmp/wp-cli.phar post create \
+wp post create \
     --path=/var/www/html \
     --post_title="Test Post Remote" \
     --post_content="This is test content from the remote environment. URL: http://localhost:8081" \

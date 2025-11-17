@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
     # Local WordPress environment (source)
     wordpress-local:
