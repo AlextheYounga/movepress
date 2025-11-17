@@ -209,7 +209,7 @@ rm -rf ssh/
 docker exec movepress-remote service ssh status
 
 # Check SSH key permissions
-ls -la tests/docker/ssh/
+ls -la tests/Docker/ssh/
 
 # Test SSH from local container to remote
 docker exec movepress-local ssh -vvv -o StrictHostKeyChecking=no -i /root/.ssh/id_rsa root@wordpress-remote

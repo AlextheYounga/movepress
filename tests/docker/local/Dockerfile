@@ -20,5 +20,3 @@ RUN php -d memory_limit=512M /usr/local/bin/wp core download --path=/var/www/htm
 
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html
-
-# Apache is already exposed by parent image on port 80

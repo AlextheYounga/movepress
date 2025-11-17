@@ -300,7 +300,7 @@ A complete Docker-based integration testing environment spins up two WordPress e
 cd tests/docker && bash run-tests.sh
 ```
 
-See [tests/docker/README.md](tests/docker/README.md) for details.
+See [tests/Docker/README.md](tests/Docker/README.md) for details.
 
 ## Why Movepress?
 
