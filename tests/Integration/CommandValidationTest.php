@@ -17,7 +17,7 @@ class CommandValidationTest extends TestCase
 
         // Test a dry-run with our typical flags
         $process = Process::fromShellCommandline(
-            'rsync --dry-run -avz --info=progress2 --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1',
+            'rsync --dry-run -avz --stats --info=progress2 --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1',
         );
         $process->run();
 

@@ -31,6 +31,7 @@ class RsyncServiceTest extends TestCase
 
         $this->assertStringContainsString('rsync', $command);
         $this->assertStringContainsString('-avz', $command);
+        $this->assertStringContainsString('--stats', $command);
         $this->assertStringNotContainsString('--delete', $command);
         $this->assertStringContainsString('--dry-run', $command);
         $this->assertStringContainsString('/source/path/', $command);
@@ -99,6 +100,29 @@ class RsyncServiceTest extends TestCase
         $command = $method->invoke($service, '/source/path', '/dest/path', [], null, true);
 
         $this->assertStringContainsString('--delete', $command);
+    }
+
+    public function test_parses_stats_output(): void
+    {
+        $service = new RsyncService($this->output, false, false);
+
+        $reflection = new \ReflectionClass($service);
+        $method = $reflection->getMethod('parseStats');
+        $method->setAccessible(true);
+
+        $statsOutput = <<<OUT
+        Number of files: 120 (reg: 100, dir: 20)
+        Number of regular files transferred: 5
+        Total file size: 204800 bytes
+        Total transferred file size: 10240 bytes
+        OUT;
+
+        $stats = $method->invoke($service, $statsOutput);
+
+        $this->assertSame(120, $stats['files_total']);
+        $this->assertSame(5, $stats['files_transferred']);
+        $this->assertSame(204800, $stats['bytes_total']);
+        $this->assertSame(10240, $stats['bytes_transferred']);
     }
 
     public function test_does_not_add_dry_run_flag_when_not_in_dry_run_mode(): void

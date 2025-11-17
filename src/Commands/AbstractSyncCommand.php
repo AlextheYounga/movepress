@@ -164,7 +164,7 @@ abstract class AbstractSyncCommand extends Command
             ]);
         }
 
-        return $rsync->syncUntrackedFiles(
+        $success = $rsync->syncUntrackedFiles(
             $sourcePath,
             $destPath,
             $excludes,
@@ -172,6 +172,12 @@ abstract class AbstractSyncCommand extends Command
             $gitignorePath,
             $this->flags['delete'],
         );
+
+        if ($success) {
+            $this->displayRsyncStats($rsync->getLastStats());
+        }
+
+        return $success;
     }
 
     protected function syncDatabase(bool $noBackup): bool
@@ -315,5 +321,58 @@ abstract class AbstractSyncCommand extends Command
             }
         }
         return $gitignorePath;
+    }
+
+    private function displayRsyncStats(?array $stats): void
+    {
+        if ($stats === null) {
+            return;
+        }
+
+        $filesTransferred = $stats['files_transferred'] ?? 0;
+        $filesTotal = $stats['files_total'] ?? null;
+        $bytesTransferred = $stats['bytes_transferred'] ?? null;
+        $bytesTotal = $stats['bytes_total'] ?? null;
+
+        $lines = [];
+        $verb = $this->dryRun ? 'Would transfer' : 'Transferred';
+        $lines[] = sprintf(
+            '%s %s %s (%s).',
+            $verb,
+            number_format($filesTransferred),
+            $filesTransferred === 1 ? 'file' : 'files',
+            $this->formatBytes($bytesTransferred),
+        );
+
+        if ($filesTotal !== null) {
+            $totalLine = sprintf('Examined %s %s', number_format($filesTotal), $filesTotal === 1 ? 'file' : 'files');
+            if ($bytesTotal !== null) {
+                $totalLine .= sprintf(' (%s total)', $this->formatBytes($bytesTotal));
+            }
+            $totalLine .= '.';
+            $lines[] = $totalLine;
+        } elseif ($bytesTotal !== null) {
+            $lines[] = sprintf('Total dataset size: %s.', $this->formatBytes($bytesTotal));
+        }
+
+        $this->io->note($lines);
+    }
+
+    private function formatBytes(?int $bytes): string
+    {
+        if ($bytes === null) {
+            return 'unknown size';
+        }
+
+        if ($bytes === 0) {
+            return '0 B';
+        }
+
+        $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+        $power = (int) floor(log($bytes, 1024));
+        $power = min($power, count($units) - 1);
+        $value = $bytes / 1024 ** $power;
+
+        return sprintf('%0.1f %s', $value, $units[$power]);
     }
 }

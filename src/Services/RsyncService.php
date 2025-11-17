@@ -13,6 +13,7 @@ class RsyncService
     private bool $dryRun;
     private bool $verbose;
     private ?array $gitignorePatterns = null;
+    private ?array $lastStats = null;
 
     public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
     {
@@ -72,6 +73,8 @@ class RsyncService
             $destPath = rtrim($destPath, '/') . '/' . trim($subfolder, '/');
         }
 
+        $this->lastStats = null;
+
         // Build rsync command
         $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService, $delete);
 
@@ -82,7 +85,9 @@ class RsyncService
         $process = Process::fromShellCommandline($command);
         $process->setTimeout(3600); // 1 hour timeout for large syncs
 
-        $process->run(function ($type, $buffer) {
+        $capturedOutput = '';
+        $process->run(function ($type, $buffer) use (&$capturedOutput) {
+            $capturedOutput .= $buffer;
             if ($this->verbose) {
                 $this->output->write($buffer);
             }
@@ -93,6 +98,9 @@ class RsyncService
             $this->output->writeln($process->getErrorOutput());
             return false;
         }
+
+        $fullOutput = $capturedOutput !== '' ? $capturedOutput : $process->getOutput() . $process->getErrorOutput();
+        $this->lastStats = $this->parseStats($fullOutput);
 
         return true;
     }
@@ -106,6 +114,7 @@ class RsyncService
     ): string {
         $options = [
             '-avz', // archive, verbose, compress
+            '--stats',
         ];
 
         if ($delete) {
@@ -140,6 +149,11 @@ class RsyncService
         $destEscaped = escapeshellarg($dest);
 
         return "rsync {$optionsString} {$sourceEscaped} {$destEscaped}";
+    }
+
+    public function getLastStats(): ?array
+    {
+        return $this->lastStats;
     }
 
     /**
@@ -212,5 +226,42 @@ class RsyncService
         $process->run();
 
         return $process->isSuccessful();
+    }
+
+    private function parseStats(string $output): ?array
+    {
+        if ($output === '') {
+            return null;
+        }
+
+        $filesTotal = $this->matchInt('/Number of files:\s*([\d,]+)/', $output);
+        $filesTransferred = $this->matchInt('/Number of regular files transferred:\s*([\d,]+)/', $output);
+        $bytesTotal = $this->matchInt('/Total file size:\s*([\d,]+)\s+bytes/', $output);
+        $bytesTransferred = $this->matchInt('/Total transferred file size:\s*([\d,]+)\s+bytes/', $output);
+
+        if ($filesTotal === null && $filesTransferred === null && $bytesTotal === null && $bytesTransferred === null) {
+            return null;
+        }
+
+        return [
+            'files_total' => $filesTotal,
+            'files_transferred' => $filesTransferred,
+            'bytes_total' => $bytesTotal,
+            'bytes_transferred' => $bytesTransferred,
+        ];
+    }
+
+    private function matchInt(string $pattern, string $subject): ?int
+    {
+        if (!preg_match($pattern, $subject, $matches)) {
+            return null;
+        }
+
+        $value = str_replace(',', '', $matches[1]);
+        if ($value === '') {
+            return null;
+        }
+
+        return (int) $value;
     }
 }
