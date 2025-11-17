@@ -34,6 +34,8 @@ class RsyncServiceTest extends TestCase
         $this->assertStringContainsString('--stats', $command);
         $this->assertStringNotContainsString('--delete', $command);
         $this->assertStringContainsString('--dry-run', $command);
+        $this->assertStringContainsString('--itemize-changes', $command);
+        $this->assertStringContainsString('--out-format=', $command);
         $this->assertStringContainsString('/source/path/', $command);
         $this->assertStringContainsString('/dest/path', $command);
     }
@@ -174,6 +176,26 @@ class RsyncServiceTest extends TestCase
         $this->assertStringContainsString("--exclude='*.php'", $command);
         $this->assertStringContainsString("--exclude='*.js'", $command);
         $this->assertStringContainsString("--exclude='wp-content/themes/'", $command);
+    }
+
+    public function test_parses_dry_run_summary(): void
+    {
+        $service = new RsyncService($this->output, true, false);
+
+        $reflection = new \ReflectionClass($service);
+        $method = $reflection->getMethod('parseDryRunSummary');
+        $method->setAccessible(true);
+
+        $output = <<<OUT
+        MPSTAT:>f+++++++++:1234:wp-content/uploads/file.jpg
+        MPSTAT:cd+++++++++:0:wp-content/uploads/newdir/
+        MPSTAT:>f.st......:4321:wp-content/uploads/file2.jpg
+        OUT;
+
+        $summary = $method->invoke($service, $output);
+
+        $this->assertSame(2, $summary['files']);
+        $this->assertSame(5555, $summary['bytes']);
     }
 
     public function test_is_available_returns_true_when_rsync_exists(): void

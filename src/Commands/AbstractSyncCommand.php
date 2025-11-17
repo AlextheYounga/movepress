@@ -174,7 +174,7 @@ abstract class AbstractSyncCommand extends Command
         );
 
         if ($success) {
-            $this->displayRsyncStats($rsync->getLastStats());
+            $this->displayRsyncStats($rsync->getLastStats(), $rsync->getLastDryRunSummary());
         }
 
         return $success;
@@ -323,15 +323,21 @@ abstract class AbstractSyncCommand extends Command
         return $gitignorePath;
     }
 
-    private function displayRsyncStats(?array $stats): void
+    private function displayRsyncStats(?array $stats, ?array $dryRunSummary): void
     {
         if ($stats === null) {
             return;
         }
 
         $filesTransferred = $stats['files_transferred'] ?? 0;
-        $filesTotal = $stats['files_total'] ?? null;
         $bytesTransferred = $stats['bytes_transferred'] ?? null;
+
+        if ($this->dryRun && $dryRunSummary !== null) {
+            $filesTransferred = $dryRunSummary['files'] ?? 0;
+            $bytesTransferred = $dryRunSummary['bytes'] ?? null;
+        }
+
+        $filesTotal = $stats['files_total'] ?? null;
         $bytesTotal = $stats['bytes_total'] ?? null;
 
         $lines = [];

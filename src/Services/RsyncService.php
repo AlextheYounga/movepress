@@ -14,6 +14,7 @@ class RsyncService
     private bool $verbose;
     private ?array $gitignorePatterns = null;
     private ?array $lastStats = null;
+    private ?array $lastDryRunSummary = null;
 
     public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
     {
@@ -74,6 +75,7 @@ class RsyncService
         }
 
         $this->lastStats = null;
+        $this->lastDryRunSummary = null;
 
         // Build rsync command
         $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService, $delete);
@@ -101,6 +103,7 @@ class RsyncService
 
         $fullOutput = $capturedOutput !== '' ? $capturedOutput : $process->getOutput() . $process->getErrorOutput();
         $this->lastStats = $this->parseStats($fullOutput);
+        $this->lastDryRunSummary = $this->dryRun ? $this->parseDryRunSummary($fullOutput) : null;
 
         return true;
     }
@@ -123,6 +126,8 @@ class RsyncService
 
         if ($this->dryRun) {
             $options[] = '--dry-run';
+            $options[] = '--itemize-changes';
+            $options[] = '--out-format=' . escapeshellarg('MPSTAT:%i:%l:%n%L');
         }
 
         if ($this->verbose) {
@@ -154,6 +159,11 @@ class RsyncService
     public function getLastStats(): ?array
     {
         return $this->lastStats;
+    }
+
+    public function getLastDryRunSummary(): ?array
+    {
+        return $this->lastDryRunSummary;
     }
 
     /**
@@ -257,11 +267,44 @@ class RsyncService
             return null;
         }
 
-        $value = str_replace(',', '', $matches[1]);
+        $value = preg_replace('/[,\s]/', '', $matches[1]);
         if ($value === '') {
             return null;
         }
 
         return (int) $value;
+    }
+
+    private function parseDryRunSummary(string $output): ?array
+    {
+        $matches = [];
+        preg_match_all('/^MPSTAT:([^:]+):(\d+):(.+)$/m', $output, $matches, PREG_SET_ORDER);
+
+        if (empty($matches)) {
+            return null;
+        }
+
+        $files = 0;
+        $bytes = 0;
+
+        foreach ($matches as $match) {
+            $flags = $match[1];
+            $size = (int) $match[2];
+
+            if (strlen($flags) < 2) {
+                continue;
+            }
+
+            // Only count files (flag second char 'f')
+            if ($flags[1] === 'f') {
+                $files++;
+                $bytes += $size;
+            }
+        }
+
+        return [
+            'files' => $files,
+            'bytes' => $bytes,
+        ];
     }
 }
