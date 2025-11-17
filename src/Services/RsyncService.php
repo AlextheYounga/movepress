@@ -97,7 +97,7 @@ class RsyncService
         $process->run(function ($type, $buffer) use (&$capturedOutput) {
             $capturedOutput .= $buffer;
             if ($this->verbose || $type === Process::OUT) {
-                $this->output->write($buffer);
+                $this->output->write($buffer, false, OutputInterface::OUTPUT_RAW);
             }
         });
 
