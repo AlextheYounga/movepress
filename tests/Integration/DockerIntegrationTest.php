@@ -46,12 +46,20 @@ class DockerIntegrationTest extends TestCase
         // Generate SSH keys
         self::executeCommand('bash setup-ssh.sh', self::$dockerDir);
 
-        // Stop and remove any existing containers
-        self::executeCommand('docker compose down -v 2>/dev/null || true', self::$dockerDir);
+        // Try to reuse existing containers to avoid heavy rebuilds
+        // If services exist, restart them; otherwise build and start fresh
+        $ps = Process::fromShellCommandline('docker compose ps -q');
+        $ps->setWorkingDirectory(self::$dockerDir);
+        $ps->run();
 
-        // Build and start containers
-        self::executeCommand('docker compose build --quiet', self::$dockerDir);
-        self::executeCommand('docker compose up -d', self::$dockerDir);
+        if (trim($ps->getOutput()) !== '') {
+            // Containers exist: recreate to ensure clean, idempotent state without rebuilding images
+            self::executeCommand('docker compose up -d --force-recreate', self::$dockerDir);
+        } else {
+            // First run or containers missing: build and start
+            self::executeCommand('docker compose build --quiet', self::$dockerDir);
+            self::executeCommand('docker compose up -d', self::$dockerDir);
+        }
 
         // Wait for containers to be ready
         echo "⏳ Waiting for WordPress installations to complete...\n";
@@ -64,9 +72,10 @@ class DockerIntegrationTest extends TestCase
     public static function tearDownAfterClass(): void
     {
         if (self::$environmentReady) {
-            echo "\n🧹 Cleaning up Docker environment...\n";
-            self::executeCommand('docker compose down -v', self::$dockerDir);
-            echo "✅ Cleanup complete\n";
+            // Leave containers running between test runs to reduce CPU churn.
+            // If you need to stop them manually:
+            //   cd tests/docker && docker compose stop
+            echo "\nℹ️ Leaving Docker environment running to speed up subsequent runs.\n";
         }
     }
 
@@ -103,6 +112,56 @@ class DockerIntegrationTest extends TestCase
 
         $this->assertTrue($process->isSuccessful(), 'SSH connection should work');
         $this->assertStringContainsString('SSH OK', $process->getOutput());
+    }
+
+    public function testGitSetup(): void
+    {
+        // Initialize git repo in local container and configure identity
+        $initCommand = "docker exec movepress-local bash -lc 'git config --global --add safe.directory /var/www/html && git -C /var/www/html init && git -C /var/www/html config user.name \"Test User\" && git -C /var/www/html config user.email \"test@example.com\"'";
+        $process = Process::fromShellCommandline($initCommand);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), 'Git repo initialization should succeed');
+
+        // Create initial commit
+        $commitCommand = "docker exec movepress-local bash -lc 'git -C /var/www/html add -A && git -C /var/www/html commit -m \"Initial commit\"'";
+        $process = Process::fromShellCommandline($commitCommand);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), 'Initial commit should succeed');
+
+        // Run git setup command
+        $process = $this->runMovepress('git:setup remote --no-interaction');
+
+        $this->assertTrue(
+            $process->isSuccessful(),
+            sprintf(
+                "Git setup should succeed.\nOutput: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
+
+        // Verify git remote was added
+        $remoteCheckCommand = "docker exec movepress-local bash -lc 'git -C /var/www/html remote get-url remote'";
+        $process = Process::fromShellCommandline($remoteCheckCommand);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), 'Git remote should be configured');
+        $this->assertStringContainsString('wordpress-remote', $process->getOutput());
+
+        // Create a test file and push it
+        // Ensure a change exists every run (append a unique timestamp)
+        $createFileCommand = "docker exec movepress-local bash -lc 'echo \"Test git deployment $(date +%s%N)\" >> /var/www/html/git-test.txt'";
+        $process = Process::fromShellCommandline($createFileCommand);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), 'Test file creation should succeed');
+        // Push using GIT_SSH_COMMAND to bypass host key prompts and use our key
+        $pushCommand = "docker exec movepress-local bash -lc 'git -C /var/www/html add git-test.txt && (git -C /var/www/html commit -m \"Add test file\" || true) && GIT_SSH_COMMAND=\"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa\" git -C /var/www/html push remote master'";
+        $process = Process::fromShellCommandline($pushCommand);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), 'Git push should succeed');
+
+        // Verify file was deployed to remote
+        $fileExists = $this->remoteFileExists('/var/www/html/git-test.txt');
+        $this->assertTrue($fileExists, 'Test file should exist on remote after git push');
     }
 
     public function testDatabasePush(): void
@@ -211,7 +270,8 @@ class DockerIntegrationTest extends TestCase
     {
         // Execute movepress inside the local container
         // Use -i flag for interactive mode to allow stdin input
-        $fullCommand = sprintf('docker exec -i movepress-local movepress %s', $command);
+        // Run with working directory set to WordPress root so git-related commands see the repo
+        $fullCommand = sprintf('docker exec -w /var/www/html -i movepress-local movepress %s', $command);
 
         $process = Process::fromShellCommandline($fullCommand);
         $process->setTimeout(300);

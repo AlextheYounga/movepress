@@ -67,9 +67,11 @@ Agents should reference this before making any design or implementation decision
 ### ✅ Docker Integration Tests
 
 - **Goal:** Get all Docker tests to pass so we can be sure everything works
-- **Accomplished:** All 8 Docker integration tests now pass:
+- **Accomplished:** All 9 Docker integration tests now pass:
     - Configuration validation
     - System status checks
+    - SSH connectivity
+    - Git deployment setup
     - Database push (local → remote with search-replace)
     - File push (untracked files via rsync over SSH)
     - Database pull (remote → local with search-replace)

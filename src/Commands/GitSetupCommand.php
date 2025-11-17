@@ -10,6 +10,7 @@ use Movepress\Services\SshService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -19,7 +20,8 @@ class GitSetupCommand extends Command
     {
         $this->setName('git:setup')
             ->setDescription('Set up Git deployment for a remote environment')
-            ->addArgument('environment', InputArgument::REQUIRED, 'Environment name (e.g., staging, production)');
+            ->addArgument('environment', InputArgument::REQUIRED, 'Environment name (e.g., staging, production)')
+            ->addOption('no-interaction', null, InputOption::VALUE_NONE, 'Do not ask for confirmation');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -61,7 +63,7 @@ class GitSetupCommand extends Command
             // Display configuration
             $this->displayConfiguration($io, $envName, $wordpressPath, $repoPath, $env['ssh']);
 
-            if (!$io->confirm('Proceed with Git setup?', true)) {
+            if (!$input->getOption('no-interaction') && !$io->confirm('Proceed with Git setup?', true)) {
                 $io->writeln('Operation cancelled.');
                 return Command::SUCCESS;
             }
