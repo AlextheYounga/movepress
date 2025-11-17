@@ -42,6 +42,10 @@ class ValidationService
             }
             $this->io->writeln('✓ mysql is available');
             $this->io->writeln('✓ wp-cli is available (bundled)');
+
+            if (!$this->validateWordpressPath($destEnv)) {
+                return false;
+            }
         }
 
         // Test SSH connections (skip in dry-run mode)
@@ -83,6 +87,36 @@ class ValidationService
         }
 
         return $this->io->confirm('Do you want to continue?', false);
+    }
+
+    private function validateWordpressPath(array $env): bool
+    {
+        $wordpressPath = $env['wordpress_path'] ?? null;
+        if ($wordpressPath === null) {
+            return true;
+        }
+
+        $wpLoadPath = rtrim($wordpressPath, '/') . '/wp-load.php';
+
+        if (!isset($env['ssh'])) {
+            if (!file_exists($wpLoadPath)) {
+                $this->io->error("WordPress not found at: {$wpLoadPath}");
+                return false;
+            }
+
+            $this->io->writeln('✓ Destination WordPress path is accessible');
+            return true;
+        }
+
+        $this->io->write('Checking destination WordPress path via SSH... ');
+        $sshService = new SshService($env['ssh']);
+        if (!$sshService->fileExists($wpLoadPath)) {
+            $this->io->error("WordPress not found at remote path: {$wpLoadPath}");
+            return false;
+        }
+
+        $this->io->writeln('✓');
+        return true;
     }
 
     private function testSshConnection(array $env, string $label): bool

@@ -91,6 +91,27 @@ class SshService
         return $process->isSuccessful();
     }
 
+    /**
+     * Check if a remote file exists
+     */
+    public function fileExists(string $remotePath): bool
+    {
+        $connectionString = $this->buildConnectionString();
+        $sshOptions = array_map('escapeshellarg', $this->getSshOptions());
+
+        $parts = array_merge(['ssh'], $sshOptions, [
+            $connectionString,
+            escapeshellarg('test -f ' . escapeshellarg($remotePath)),
+        ]);
+        $command = implode(' ', $parts);
+
+        $process = Process::fromShellCommandline($command);
+        $process->setTimeout(10);
+        $process->run();
+
+        return $process->isSuccessful();
+    }
+
     private function expandPath(string $path): string
     {
         // Expand ~ to home directory

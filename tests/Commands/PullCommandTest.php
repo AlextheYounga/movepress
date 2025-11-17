@@ -13,6 +13,7 @@ class PullCommandTest extends TestCase
 {
     private CommandTester $commandTester;
     private string $testDir;
+    private string $wordpressPath;
     private string $originalDir;
 
     protected function setUp(): void
@@ -20,6 +21,9 @@ class PullCommandTest extends TestCase
         $this->originalDir = getcwd();
         $this->testDir = sys_get_temp_dir() . '/movepress-test-' . uniqid();
         mkdir($this->testDir);
+        $this->wordpressPath = $this->testDir . '/wordpress';
+        mkdir($this->wordpressPath);
+        file_put_contents($this->wordpressPath . '/wp-load.php', "<?php\n");
 
         $application = new Application();
         $application->add(new PullCommand());
@@ -130,7 +134,7 @@ class PullCommandTest extends TestCase
             name: "test"
 
         staging:
-          wordpress_path: "/var/www"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://staging.test"
           database:
             name: "test"
@@ -153,12 +157,12 @@ class PullCommandTest extends TestCase
     {
         $yaml = <<<YAML
         local:
-          wordpress_path: "/var/www"
+          wordpress_path: "{$this->wordpressPath}"
           database:
             name: "test"
 
         staging:
-          wordpress_path: "/var/www"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://staging.test"
           database:
             name: "test"
@@ -181,11 +185,11 @@ class PullCommandTest extends TestCase
     {
         $yaml = <<<YAML
         local:
-          wordpress_path: "/var/www"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://local.test"
 
         staging:
-          wordpress_path: "/var/www"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://staging.test"
           database:
             name: "test"
@@ -213,7 +217,7 @@ class PullCommandTest extends TestCase
             - "node_modules/"
 
         local:
-          wordpress_path: "/var/www/local"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://local.test"
           database:
             name: "test_db"
@@ -225,7 +229,7 @@ class PullCommandTest extends TestCase
             - "debug.log"
 
         staging:
-          wordpress_path: "/var/www/staging"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://staging.test"
           database:
             name: "staging_db"
@@ -258,7 +262,7 @@ class PullCommandTest extends TestCase
             - "*.log"
 
         local:
-          wordpress_path: "/var/www/local"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://local.test"
           database:
             name: "test_db"
@@ -284,7 +288,7 @@ class PullCommandTest extends TestCase
     {
         $yaml = <<<YAML
         local:
-          wordpress_path: "/var/www/local"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://local.test"
           database:
             name: "test_db"
@@ -329,7 +333,7 @@ class PullCommandTest extends TestCase
             - ".git/"
 
         local:
-          wordpress_path: "/var/www/local"
+          wordpress_path: "{$this->wordpressPath}"
           url: "http://local.test"
           database:
             name: "test_db"
