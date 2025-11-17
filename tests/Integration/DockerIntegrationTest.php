@@ -117,19 +117,21 @@ class DockerIntegrationTest extends TestCase
     public function testGitSetup(): void
     {
         // Initialize git repo in local container and configure identity
-        $initCommand = "docker exec movepress-local bash -lc 'git config --global --add safe.directory /var/www/html && git -C /var/www/html init && git -C /var/www/html config user.name \"Test User\" && git -C /var/www/html config user.email \"test@example.com\"'";
+        $initCommand =
+            "docker exec movepress-local bash -lc 'git config --global --add safe.directory /var/www/html && git -C /var/www/html init && git -C /var/www/html config user.name \"Test User\" && git -C /var/www/html config user.email \"test@example.com\"'";
         $process = Process::fromShellCommandline($initCommand);
         $process->run();
         $this->assertTrue($process->isSuccessful(), 'Git repo initialization should succeed');
 
         // Create initial commit
-        $commitCommand = "docker exec movepress-local bash -lc 'git -C /var/www/html add -A && git -C /var/www/html commit -m \"Initial commit\"'";
+        $commitCommand =
+            "docker exec movepress-local bash -lc 'git -C /var/www/html add -A && git -C /var/www/html commit -m \"Initial commit\"'";
         $process = Process::fromShellCommandline($commitCommand);
         $process->run();
         $this->assertTrue($process->isSuccessful(), 'Initial commit should succeed');
 
         // Run git setup command
-        $process = $this->runMovepress('git:setup remote --no-interaction');
+        $process = $this->runMovepress('git-setup remote --no-interaction');
 
         $this->assertTrue(
             $process->isSuccessful(),
@@ -149,12 +151,14 @@ class DockerIntegrationTest extends TestCase
 
         // Create a test file and push it
         // Ensure a change exists every run (append a unique timestamp)
-        $createFileCommand = "docker exec movepress-local bash -lc 'echo \"Test git deployment $(date +%s%N)\" >> /var/www/html/git-test.txt'";
+        $createFileCommand =
+            "docker exec movepress-local bash -lc 'echo \"Test git deployment $(date +%s%N)\" >> /var/www/html/git-test.txt'";
         $process = Process::fromShellCommandline($createFileCommand);
         $process->run();
         $this->assertTrue($process->isSuccessful(), 'Test file creation should succeed');
         // Push using GIT_SSH_COMMAND to bypass host key prompts and use our key
-        $pushCommand = "docker exec movepress-local bash -lc 'git -C /var/www/html add git-test.txt && (git -C /var/www/html commit -m \"Add test file\" || true) && GIT_SSH_COMMAND=\"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa\" git -C /var/www/html push remote master'";
+        $pushCommand =
+            "docker exec movepress-local bash -lc 'git -C /var/www/html add git-test.txt && (git -C /var/www/html commit -m \"Add test file\" || true) && GIT_SSH_COMMAND=\"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa\" git -C /var/www/html push remote master'";
         $process = Process::fromShellCommandline($pushCommand);
         $process->run();
         $this->assertTrue($process->isSuccessful(), 'Git push should succeed');

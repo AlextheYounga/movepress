@@ -18,10 +18,9 @@ class GitSetupCommand extends Command
 {
     protected function configure(): void
     {
-        $this->setName('git:setup')
+        $this->setName('git-setup')
             ->setDescription('Set up Git deployment for a remote environment')
-            ->addArgument('environment', InputArgument::REQUIRED, 'Environment name (e.g., staging, production)')
-            ->addOption('no-interaction', null, InputOption::VALUE_NONE, 'Do not ask for confirmation');
+            ->addArgument('environment', InputArgument::REQUIRED, 'Environment name (e.g., staging, production)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

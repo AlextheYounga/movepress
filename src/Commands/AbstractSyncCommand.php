@@ -55,8 +55,7 @@ abstract class AbstractSyncCommand extends Command
                 null,
                 InputOption::VALUE_NONE,
                 'Skip backing up destination database before import',
-            )
-            ->addOption('no-interaction', null, InputOption::VALUE_NONE, 'Do not ask for confirmation');
+            );
     }
 
     protected function initializeContext(

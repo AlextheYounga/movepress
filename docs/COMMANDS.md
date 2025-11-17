@@ -35,7 +35,7 @@ movepress push <source> <destination> [options]
 
 - `-v, --verbose` - Show detailed output including rsync/database commands
 
-**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. See `git:setup` command below.
+**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. See `git-setup` command below.
 
 ### Examples
 
@@ -62,7 +62,7 @@ movepress push local production --untracked-files -v
 - Database operations automatically perform search-replace for URLs
 - A backup is created before database import unless `--no-backup` is used
 - You'll be prompted to confirm before destructive database operations
-- For tracked files (themes, plugins), use `git push <environment> <branch>` after running `git:setup`
+- For tracked files (themes, plugins), use `git push <environment> <branch>` after running `git-setup`
 
 ---
 
@@ -109,14 +109,14 @@ movepress pull production local --db --untracked-files --dry-run
 
 ---
 
-## movepress git:setup
+## movepress git-setup
 
 Set up Git-based deployment for a remote environment. This is a one-time setup command that configures a bare Git repository on the remote server with automatic deployment hooks.
 
 ### Syntax
 
 ```bash
-movepress git:setup <environment>
+movepress git-setup <environment>
 ```
 
 ### Arguments
@@ -133,10 +133,10 @@ movepress git:setup <environment>
 
 ```bash
 # Set up Git deployment for production
-movepress git:setup production
+movepress git-setup production
 
 # Set up Git deployment for staging
-movepress git:setup staging
+movepress git-setup staging
 ```
 
 ### After setup

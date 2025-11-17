@@ -19,7 +19,7 @@ class GitSetupCommandTest extends TestCase
         $this->application = new Application();
         $this->application->add(new GitSetupCommand());
 
-        $command = $this->application->find('git:setup');
+        $command = $this->application->find('git-setup');
         $this->commandTester = new CommandTester($command);
     }
 

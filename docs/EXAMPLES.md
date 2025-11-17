@@ -20,10 +20,10 @@ nano movefile.yml
 nano .env
 
 # Set up Git deployment for production (one-time)
-movepress git:setup production
+movepress git-setup production
 
 # Set up Git deployment for staging (one-time)
-movepress git:setup staging
+movepress git-setup staging
 ```
 
 ---

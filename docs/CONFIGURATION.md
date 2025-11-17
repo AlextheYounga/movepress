@@ -106,7 +106,7 @@ production:
 
 ### git
 
-Git deployment configuration (optional). Used by `git:setup` command.
+Git deployment configuration (optional). Used by `git-setup` command.
 
 ```yaml
 production:
@@ -122,7 +122,7 @@ When configured, use Git to deploy code changes:
 
 ```bash
 # One-time setup
-movepress git:setup production
+movepress git-setup production
 
 # Deploy code
 git push production master

@@ -59,7 +59,7 @@ staging:
     # key: "~/.ssh/id_rsa"
   
   # Git deployment settings (optional)
-  # Used by 'movepress git:setup' command
+  # Used by 'movepress git-setup' command
   git:
     # Path to bare Git repository on remote server
     # If not specified, defaults to /var/repos/{site-name}.git

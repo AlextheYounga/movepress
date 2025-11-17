@@ -89,7 +89,7 @@ movepress init
 - Movepress uses **Git for code** (themes, plugins, core files)
 - Movepress uses `--untracked-files` for uploads/caches only
 - Movepress requires explicit source and destination environments
-- One-time Git setup required: `movepress git:setup production`
+- One-time Git setup required: `movepress git-setup production`
 
 ---
 

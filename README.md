@@ -48,7 +48,7 @@ movepress init
 
 ```bash
 # Configure Git deployment for production
-movepress git:setup production
+movepress git-setup production
 ```
 
 4. Deploy:
@@ -73,7 +73,7 @@ movepress pull production local --untracked-files
 
 - `movepress push <source> <destination>` - Push database/untracked files from source to destination
 - `movepress pull <source> <destination>` - Pull database/untracked files from source to destination
-- `movepress git:setup <environment>` - Set up Git deployment for remote environment
+- `movepress git-setup <environment>` - Set up Git deployment for remote environment
 - `movepress init` - Initialize a new movefile.yml configuration
 - `movepress status` - Show system tools availability and configured environments
 - `movepress validate` - Validate your movefile.yml configuration
@@ -88,13 +88,13 @@ movepress pull production local --untracked-files
 - `--no-backup` - Skip backup before database import
 - `-v, --verbose` - Show detailed output
 
-**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. Use `git push <environment> <branch>` after running `movepress git:setup`.
+**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. Use `git push <environment> <branch>` after running `movepress git-setup`.
 
 ### Examples
 
 ```bash
 # One-time Git setup for production
-movepress git:setup production
+movepress git-setup production
 
 # Deploy code changes via Git
 git push production master
@@ -183,7 +183,7 @@ Movepress uses a **hybrid approach** for managing WordPress sites:
 
 ```bash
 # One-time setup
-movepress git:setup production
+movepress git-setup production
 
 # Regular deployments
 git commit -am "Update theme"
@@ -322,7 +322,7 @@ See [tests/docker/README.md](tests/docker/README.md) for details.
 - 🔄 Same push/pull command structure
 - 🎯 Simplified sync options (--db, --untracked-files)
 - ⚙️ Same exclude pattern system
-- 🔧 New git:setup command for modern deployments
+- 🔧 New git-setup command for modern deployments
 
 **Migration from Wordmove:**
 Your existing `movefile.yml` should work with minimal changes! The configuration format is designed to be compatible, so you can switch from `wordmove` to `movepress` commands with the same config file.
