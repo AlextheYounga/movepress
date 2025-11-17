@@ -107,6 +107,10 @@ class DockerIntegrationTest extends TestCase
 
     public function testDatabasePush(): void
     {
+        // First verify local database has posts
+        $localPostCount = $this->getLocalPostCount();
+        $this->assertGreaterThan(0, $localPostCount, 'Local database should have test posts before pushing');
+
         $process = $this->runMovepress('push local remote --db --verbose --no-interaction');
 
         $this->assertTrue(
@@ -124,7 +128,8 @@ class DockerIntegrationTest extends TestCase
             0,
             $postCount,
             sprintf(
-                "Remote database should contain posts after push.\nCommand output: %s\nError: %s",
+                "Remote database should contain posts after push (local had %d).\nCommand output: %s\nError: %s",
+                $localPostCount,
                 $process->getOutput(),
                 $process->getErrorOutput(),
             ),
@@ -145,7 +150,7 @@ class DockerIntegrationTest extends TestCase
         );
 
         // Verify files were transferred
-        $fileExists = $this->remoteFileExists('/var/www/html/wp-content/uploads/2024/11/test-local.txt');
+        $fileExists = $this->remoteFileExists('/var/www/html/wp-content/uploads/2024/11/test-local.jpg');
         $this->assertTrue(
             $fileExists,
             sprintf(
@@ -224,7 +229,7 @@ class DockerIntegrationTest extends TestCase
     private function getRemotePostCount(): int
     {
         $command =
-            'docker exec movepress-mysql-remote mysql -uwordpress -pwordpress wordpress_remote -se "SELECT COUNT(*) FROM wp_posts WHERE post_type=\'post\' AND post_status=\'publish\'"';
+            'docker exec movepress-mysql-remote mariadb -uwordpress -pwordpress wordpress_remote -se "SELECT COUNT(*) FROM wp_posts WHERE post_type=\'post\' AND post_status=\'publish\'"';
 
         $process = Process::fromShellCommandline($command);
         $process->run();
@@ -235,7 +240,7 @@ class DockerIntegrationTest extends TestCase
     private function getLocalPostCount(): int
     {
         $command =
-            'docker exec movepress-mysql-local mysql -uwordpress -pwordpress wordpress_local -se "SELECT COUNT(*) FROM wp_posts WHERE post_type=\'post\' AND post_status=\'publish\'"';
+            'docker exec movepress-mysql-local mariadb -uwordpress -pwordpress wordpress_local -se "SELECT COUNT(*) FROM wp_posts WHERE post_type=\'post\' AND post_status=\'publish\'"';
 
         $process = Process::fromShellCommandline($command);
         $process->run();

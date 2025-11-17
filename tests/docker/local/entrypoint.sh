@@ -70,7 +70,7 @@ php /tmp/wp-cli.phar post create \
 # Create test uploads directory with sample file
 echo "Creating test uploads..."
 mkdir -p /var/www/html/wp-content/uploads/2024/11
-echo "Test upload file from local environment" > /var/www/html/wp-content/uploads/2024/11/test-local.txt
+echo "Test upload file from local environment" > /var/www/html/wp-content/uploads/2024/11/test-local.jpg
 chown -R www-data:www-data /var/www/html/wp-content/uploads
 
 # Fix permissions (skip read-only mounted files)
