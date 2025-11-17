@@ -1,0 +1,50 @@
+# Movepress Test Configuration
+# This configuration is used for Docker-based integration testing
+# This file is mounted into the LOCAL container at /var/www/html/movefile.yml
+
+global:
+    exclude:
+        - '.git/'
+        - '.gitignore'
+        - 'node_modules/'
+        - '.DS_Store'
+        - '*.log'
+        - '*.sql'
+        - '*.sql.gz'
+        - '.env*'
+
+local:
+    wordpress_path: '/var/www/html'
+
+    database:
+        name: 'wordpress_local'
+        user: 'wordpress'
+        password: 'wordpress'
+        host: 'mysql-local:3306'
+
+    url: 'http://localhost:8080'
+
+    backup_path: '/var/www/html/backups'
+
+remote:
+    wordpress_path: '/var/www/html'
+
+    database:
+        name: 'wordpress_remote'
+        user: 'wordpress'
+        password: 'wordpress'
+        host: 'mysql-remote:3306'
+
+    url: 'http://localhost:8081'
+
+    ssh:
+        host: 'wordpress-remote'
+        user: 'root'
+        port: 22
+        key: '/root/.ssh/id_rsa'
+        options: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+
+    git:
+        repo_path: '/var/repos/movepress-test.git'
+
+    backup_path: '/tmp/movepress/backups'
