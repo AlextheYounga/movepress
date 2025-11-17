@@ -95,7 +95,7 @@ class RsyncService
         $capturedOutput = '';
         $process->run(function ($type, $buffer) use (&$capturedOutput) {
             $capturedOutput .= $buffer;
-            if ($this->verbose) {
+            if ($this->verbose || $type === Process::OUT) {
                 $this->output->write($buffer);
             }
         });
@@ -123,6 +123,7 @@ class RsyncService
         $options = [
             '-avz', // archive, verbose, compress
             '--stats',
+            '--info=progress2',
         ];
 
         if ($delete) {
@@ -133,10 +134,6 @@ class RsyncService
             $options[] = '--dry-run';
             $options[] = '--itemize-changes';
             $options[] = '--out-format=' . escapeshellarg('MPSTAT:%i:%l:%n%L');
-        }
-
-        if ($this->verbose) {
-            $options[] = '--info=progress2';
         }
 
         // Add excludes

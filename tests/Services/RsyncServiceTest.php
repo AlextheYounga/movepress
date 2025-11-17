@@ -78,12 +78,10 @@ class RsyncServiceTest extends TestCase
         $this->assertStringContainsString('ssh', $command);
     }
 
-    public function test_adds_progress_flag_in_verbose_mode(): void
+    public function test_always_includes_progress_flag(): void
     {
-        $service = new TestableRsyncService($this->output, false, true);
-
+        $service = new TestableRsyncService($this->output, false, false);
         $command = $service->exposedBuildCommand('/source/path', '/dest/path');
-
         $this->assertStringContainsString('--info=progress2', $command);
     }
 

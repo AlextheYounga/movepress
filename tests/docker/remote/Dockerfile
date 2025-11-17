@@ -37,3 +37,4 @@ RUN chown -R www-data:www-data /var/www/html
 
 # Expose SSH port
 EXPOSE 22
+h/sshd_config
