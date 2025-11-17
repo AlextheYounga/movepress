@@ -18,9 +18,11 @@ class Application extends ConsoleApplication
 {
     private const VERSION = '0.1.0';
     private const NAME = 'Movepress';
+    private static bool $wpCliLoaded = false;
 
     public function __construct()
     {
+        self::loadWpCliClasses();
         parent::__construct(self::NAME, self::VERSION);
 
         $this->registerCommands();
@@ -36,5 +38,29 @@ class Application extends ConsoleApplication
         $this->add(new SshCommand());
         $this->add(new BackupCommand());
         $this->add(new GitSetupCommand());
+    }
+
+    public static function loadWpCliClasses(): void
+    {
+        if (self::$wpCliLoaded) {
+            return;
+        }
+
+        $vendorBase = dirname(__DIR__) . '/vendor';
+        $requiredFiles = [
+            $vendorBase . '/wp-cli/wp-cli/php/class-wp-cli-command.php',
+            $vendorBase . '/wp-cli/search-replace-command/src/WP_CLI/SearchReplacer.php',
+            $vendorBase . '/wp-cli/search-replace-command/src/Search_Replace_Command.php',
+        ];
+
+        foreach ($requiredFiles as $file) {
+            if (!file_exists($file)) {
+                throw new \RuntimeException("Bundled wp-cli file missing: {$file}");
+            }
+
+            require_once $file;
+        }
+
+        self::$wpCliLoaded = true;
     }
 }

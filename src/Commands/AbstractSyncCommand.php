@@ -21,6 +21,7 @@ abstract class AbstractSyncCommand extends Command
     protected SymfonyStyle $io;
     protected bool $dryRun;
     protected bool $verbose;
+    protected bool $noInteraction;
     protected array $sourceEnv;
     protected array $destEnv;
     protected array $flags;
@@ -65,6 +66,7 @@ abstract class AbstractSyncCommand extends Command
         array $flags,
         bool $dryRun,
         bool $verbose,
+        bool $noInteraction,
     ): void {
         $this->output = $output;
         $this->io = $io;
@@ -73,6 +75,7 @@ abstract class AbstractSyncCommand extends Command
         $this->flags = $flags;
         $this->dryRun = $dryRun;
         $this->verbose = $verbose;
+        $this->noInteraction = $noInteraction;
     }
 
     protected function parseSyncFlags(InputInterface $input): array
@@ -266,7 +269,7 @@ abstract class AbstractSyncCommand extends Command
     protected function confirmDestructiveOperation(string $destination): bool
     {
         $validator = new ValidationService($this->io);
-        return $validator->confirmDestructiveOperation($destination, $this->flags);
+        return $validator->confirmDestructiveOperation($destination, $this->flags, $this->noInteraction);
     }
 
     private function getGitignorePath(): ?string

@@ -59,13 +59,17 @@ class ValidationService
         return true;
     }
 
-    public function confirmDestructiveOperation(string $destination, array $flags): bool
+    public function confirmDestructiveOperation(string $destination, array $flags, bool $noInteraction = false): bool
     {
         if ($flags['db']) {
             $this->io->warning([
                 'This operation will REPLACE the database in: ' . $destination,
                 'All existing data in the destination database will be lost.',
             ]);
+
+            if ($noInteraction) {
+                return true;
+            }
 
             return $this->io->confirm('Do you want to continue?', false);
         }

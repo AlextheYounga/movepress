@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
+use Movepress\Application;
+use RuntimeException;
+use Search_Replace_Command;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
-use RuntimeException;
 
 class DatabaseService
 {
@@ -180,22 +182,38 @@ class DatabaseService
     }
 
     /**
-     * Execute search-replace locally using wp-cli as a library
+     * Execute search-replace locally using bundled wp-cli classes directly
      */
     private function executeLocalSearchReplace(string $wordpressPath, string $oldUrl, string $newUrl): bool
     {
         try {
-            // Load wp-cli classes from bundled vendor
-            $vendorPath = dirname(__DIR__, 2) . '/vendor';
-            require_once $vendorPath . '/autoload.php';
+            Application::loadWpCliClasses();
+            // Bootstrap WordPress
+            define('WP_USE_THEMES', false);
+            $_SERVER['HTTP_HOST'] = 'localhost';
 
-            // WordPress is already running, just instantiate and call the command
-            $searchReplace = new \Search_Replace_Command();
+            if (!file_exists($wordpressPath . '/wp-load.php')) {
+                throw new \RuntimeException("WordPress not found at: {$wordpressPath}");
+            }
+
+            require_once $wordpressPath . '/wp-load.php';
+
+            // Define WP-CLI constants
+            if (!defined('WP_CLI')) {
+                define('WP_CLI', true);
+            }
+
+            if ($this->verbose) {
+                $this->output->writeln('Executing search-replace locally...');
+            }
+
+            // Execute search-replace
+            $searchReplace = new Search_Replace_Command();
             $searchReplace->__invoke(
                 [$oldUrl, $newUrl],
                 [
                     'skip-columns' => 'guid',
-                    'quiet' => true,
+                    'quiet' => !$this->verbose,
                 ],
             );
 
@@ -254,7 +272,10 @@ class DatabaseService
     }
 
     /**
-     * Generate PHP script for remote search-replace execution
+     * Generate PHP script that bootstraps WordPress and executes wp-cli search-replace
+     *
+     * This script will be transferred to and executed on the remote server.
+     * It must be self-contained and include all necessary wp-cli class files.
      */
     private function generateSearchReplaceScript(string $wordpressPath, string $oldUrl, string $newUrl): string
     {
@@ -262,31 +283,49 @@ class DatabaseService
         $newUrlEscaped = addslashes($newUrl);
         $wordpressPathEscaped = addslashes($wordpressPath);
 
+        // Get the wp-cli class files content from our bundled vendor
+        $vendorBase = dirname(__DIR__, 2) . '/vendor';
+
         $script = "<?php\n";
         $script .= "/**\n";
         $script .= " * Movepress search-replace script\n";
-        $script .= " * WordPress is already running, we just use wp-cli as a library\n";
+        $script .= " * Self-contained script with embedded wp-cli classes\n";
         $script .= " */\n\n";
-        $script .= "// Find vendor autoloader\n";
-        $script .= "\$vendorPaths = [\n";
-        $script .= "    '{$wordpressPathEscaped}/vendor/autoload.php',\n";
-        $script .= "    '{$wordpressPathEscaped}/../vendor/autoload.php',\n";
-        $script .= "    '{$wordpressPathEscaped}/wp-content/vendor/autoload.php',\n";
-        $script .= "];\n\n";
-        $script .= "\$autoloaderFound = false;\n";
-        $script .= "foreach (\$vendorPaths as \$vendorPath) {\n";
-        $script .= "    if (file_exists(\$vendorPath)) {\n";
-        $script .= "        require_once \$vendorPath;\n";
-        $script .= "        \$autoloaderFound = true;\n";
-        $script .= "        break;\n";
-        $script .= "    }\n";
-        $script .= "}\n\n";
-        $script .= "if (!\$autoloaderFound) {\n";
-        $script .= "    fwrite(STDERR, \"Error: Could not find vendor autoloader\\n\");\n";
+
+        $script .= "// Bootstrap WordPress\n";
+        $script .= "define('WP_USE_THEMES', false);\n";
+        $script .= "\$_SERVER['HTTP_HOST'] = 'localhost';\n";
+        $script .= "if (!file_exists('{$wordpressPathEscaped}/wp-load.php')) {\n";
+        $script .= "    fwrite(STDERR, \"Error: WordPress not found at {$wordpressPathEscaped}\\n\");\n";
         $script .= "    exit(1);\n";
+        $script .= "}\n";
+        $script .= "require_once '{$wordpressPathEscaped}/wp-load.php';\n\n";
+
+        $script .= "// Define WP-CLI constants\n";
+        $script .= "if (!defined('WP_CLI')) {\n";
+        $script .= "    define('WP_CLI', true);\n";
         $script .= "}\n\n";
+
+        $script .= "// Load wp-cli base command class\n";
+        $script .=
+            $this->stripPhpOpenTag(file_get_contents($vendorBase . '/wp-cli/wp-cli/php/class-wp-cli-command.php')) .
+            "\n\n";
+
+        $script .= "// Load SearchReplacer dependency\n";
+        $script .= "namespace WP_CLI;\n";
+        $script .=
+            $this->stripPhpOpenTag(
+                file_get_contents($vendorBase . '/wp-cli/search-replace-command/src/WP_CLI/SearchReplacer.php'),
+            ) . "\n\n";
+
+        $script .= "// Load Search_Replace_Command\n";
+        $script .=
+            $this->stripPhpOpenTag(
+                file_get_contents($vendorBase . '/wp-cli/search-replace-command/src/Search_Replace_Command.php'),
+            ) . "\n\n";
+
+        $script .= "// Execute search-replace\n";
         $script .= "try {\n";
-        $script .= "    // WordPress is already running, just use wp-cli classes\n";
         $script .= "    \$searchReplace = new Search_Replace_Command();\n";
         $script .= "    \$searchReplace->__invoke(\n";
         $script .= "        ['{$oldUrlEscaped}', '{$newUrlEscaped}'],\n";
@@ -297,11 +336,19 @@ class DatabaseService
         $script .= "    );\n";
         $script .= "    exit(0);\n";
         $script .= "} catch (Exception \$e) {\n";
-        $script .= "    fwrite(STDERR, 'Error: ' . \$e->getMessage() . \"\\n\");\n";
+        $script .= "    fwrite(STDERR, 'Search-replace error: ' . \$e->getMessage() . \"\\n\");\n";
         $script .= "    exit(1);\n";
         $script .= "}\n";
 
         return $script;
+    }
+
+    /**
+     * Strip PHP opening tag from file content for concatenation
+     */
+    private function stripPhpOpenTag(string $content): string
+    {
+        return preg_replace('/^<\?php\s*\n?/', '', $content);
     }
 
     /**

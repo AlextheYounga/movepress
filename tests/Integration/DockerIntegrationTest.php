@@ -109,22 +109,51 @@ class DockerIntegrationTest extends TestCase
     {
         $process = $this->runMovepress('push local remote --db --verbose --no-interaction');
 
-        $this->assertTrue($process->isSuccessful(), 'Database push should succeed');
+        $this->assertTrue(
+            $process->isSuccessful(),
+            sprintf(
+                "Database push should succeed.\nOutput: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
 
         // Verify database was transferred by checking post count
         $postCount = $this->getRemotePostCount();
-        $this->assertGreaterThan(0, $postCount, 'Remote database should contain posts after push');
+        $this->assertGreaterThan(
+            0,
+            $postCount,
+            sprintf(
+                "Remote database should contain posts after push.\nCommand output: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
     }
 
     public function testFilePush(): void
     {
-        $process = $this->runMovepress('push local remote --files --verbose --no-interaction');
+        $process = $this->runMovepress('push local remote --untracked-files --verbose --no-interaction');
 
-        $this->assertTrue($process->isSuccessful(), 'File push should succeed');
+        $this->assertTrue(
+            $process->isSuccessful(),
+            sprintf(
+                "File push should succeed.\nOutput: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
 
         // Verify files were transferred
         $fileExists = $this->remoteFileExists('/var/www/html/wp-content/uploads/2024/11/test-local.txt');
-        $this->assertTrue($fileExists, 'Test file should exist on remote after push');
+        $this->assertTrue(
+            $fileExists,
+            sprintf(
+                "Test file should exist on remote after push.\nCommand output: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
     }
 
     public function testDatabasePull(): void
@@ -135,11 +164,26 @@ class DockerIntegrationTest extends TestCase
         // Now pull it back
         $process = $this->runMovepress('pull local remote --db --verbose --no-interaction');
 
-        $this->assertTrue($process->isSuccessful(), 'Database pull should succeed');
+        $this->assertTrue(
+            $process->isSuccessful(),
+            sprintf(
+                "Database pull should succeed.\nOutput: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
 
         // Verify local database has data
         $postCount = $this->getLocalPostCount();
-        $this->assertGreaterThan(0, $postCount, 'Local database should contain posts after pull');
+        $this->assertGreaterThan(
+            0,
+            $postCount,
+            sprintf(
+                "Local database should contain posts after pull.\nCommand output: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
     }
 
     public function testBackup(): void

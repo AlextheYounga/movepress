@@ -51,6 +51,7 @@ class PushCommand extends AbstractSyncCommand
                 $flags,
                 $input->getOption('dry-run'),
                 $input->getOption('verbose'),
+                $input->getOption('no-interaction'),
             );
 
             $this->displayConfiguration($source, $destination);

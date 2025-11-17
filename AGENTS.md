@@ -45,14 +45,19 @@ Agents should reference this before making any design or implementation decision
 
 **NEVER use global `wp` command or call wp-cli as an external command.** Movepress bundles wp-cli and uses it as a PHP library.
 
-- ✅ **Correct:** Load WordPress, require bundled wp-cli classes, call methods directly (e.g., `new Search_Replace_Command()`)
+- ✅ **Correct:** Load WordPress, require bundled wp-cli class files directly, call methods (e.g., `new Search_Replace_Command()`)
 - ❌ **Wrong:** Execute `wp` command, call `php boot-fs.php`, or run wp-cli as external process
 - **Why:** wp-cli is a PHP library. We have the entire codebase bundled. Just require and call the classes.
-- **Local execution:** Load WP, require vendor classes, instantiate wp-cli command classes, call their methods
-- **Remote execution:** Same approach - movepress code runs on remote, loads WP + bundled wp-cli, calls methods
+- ✅ **Bootstrap once:** `Movepress\Application` requires the bundled wp-cli classes during startup, so other code should just `use` the classes (no scattered `require_once`).
+- **How to require classes:** Use direct `require_once` statements for the specific class files needed from vendor, NOT autoload.php
+    - Example: `require_once __DIR__ . '/../../vendor/wp-cli/search-replace-command/src/Search_Replace_Command.php';`
+    - Include any dependency classes the command needs as well
+    - Do NOT run autoload.php or use complex bootstrap processes
+- **Local execution:** Load WP, require wp-cli class files directly, instantiate command classes, call their methods
 - **Never:** Try to execute PHP files from within PHAR using `php phar://...` - this doesn't work
 - **Never:** Extract wp-cli files to temporary locations - defeats the purpose of bundling
-- **Remember:** WordPress is always loaded when we need wp-cli. Just require the classes and call them.
+- **Never:** Try to find/use autoload.php - just require the class files you need directly
+- **Remember:** WordPress must be bootstrapped (wp-load.php) before using wp-cli classes, since wp-cli commands expect WP to be loaded
 - **Exception:** Test environment setup scripts (entrypoint.sh) may download wp-cli for initial WordPress installation ONLY
 
 ---

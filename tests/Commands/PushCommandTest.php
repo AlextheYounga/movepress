@@ -99,7 +99,8 @@ class PushCommandTest extends TestCase
         $this->assertStringContainsString('Source: local', $output);
         $this->assertStringContainsString('Destination: local', $output);
         $this->assertStringContainsString('Untracked Files: ✓', $output);
-        $this->assertStringContainsString('deployed via Git', $output);
+        $this->assertStringContainsString('Tracked files (themes, plugins, core) should be deployed', $output);
+        $this->assertStringContainsString('Use: git push', $output);
     }
 
     public function test_displays_configuration_summary_with_db_flag(): void
