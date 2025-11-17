@@ -29,6 +29,7 @@ class RsyncService
      * @param array $excludes Array of additional exclude patterns
      * @param SshService|null $sshService SSH service for remote connections
      * @param string|null $gitignorePath Path to .gitignore file (optional)
+     * @param bool $delete Whether to delete destination files not present on source
      */
     public function syncUntrackedFiles(
         string $sourcePath,
@@ -36,6 +37,7 @@ class RsyncService
         array $excludes = [],
         ?SshService $sshService = null,
         ?string $gitignorePath = null,
+        bool $delete = false,
     ): bool {
         // Load .gitignore patterns if available
         $gitignoreExcludes = $this->getGitignoreExcludes($gitignorePath);
@@ -44,7 +46,7 @@ class RsyncService
         // .gitignore patterns are inverted - we want to INCLUDE only what Git ignores
         $allExcludes = array_merge($excludes, $gitignoreExcludes);
 
-        return $this->sync($sourcePath, $destPath, $allExcludes, $sshService);
+        return $this->sync($sourcePath, $destPath, $allExcludes, $sshService, null, $delete);
     }
 
     /**
@@ -62,6 +64,7 @@ class RsyncService
         array $excludes = [],
         ?SshService $sshService = null,
         ?string $subfolder = null,
+        bool $delete = false,
     ): bool {
         // Append subfolder if specified
         if ($subfolder) {
@@ -70,7 +73,7 @@ class RsyncService
         }
 
         // Build rsync command
-        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService);
+        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService, $delete);
 
         if ($this->verbose || $this->dryRun) {
             $this->output->writeln("<comment>Executing: {$command}</comment>");
@@ -94,12 +97,20 @@ class RsyncService
         return true;
     }
 
-    private function buildRsyncCommand(string $source, string $dest, array $excludes, ?SshService $sshService): string
-    {
+    private function buildRsyncCommand(
+        string $source,
+        string $dest,
+        array $excludes,
+        ?SshService $sshService,
+        bool $delete = false,
+    ): string {
         $options = [
             '-avz', // archive, verbose, compress
-            '--delete', // delete files that don't exist on source
         ];
+
+        if ($delete) {
+            $options[] = '--delete'; // delete files that don't exist on source
+        }
 
         if ($this->dryRun) {
             $options[] = '--dry-run';

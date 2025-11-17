@@ -45,6 +45,12 @@ abstract class AbstractSyncCommand extends Command
                 'Sync files not tracked by Git (uploads, caches, etc.)',
             )
             ->addOption(
+                'delete',
+                null,
+                InputOption::VALUE_NONE,
+                'Delete destination files missing from source when syncing untracked files',
+            )
+            ->addOption(
                 'dry-run',
                 null,
                 InputOption::VALUE_NONE,
@@ -82,16 +88,22 @@ abstract class AbstractSyncCommand extends Command
     {
         $syncDb = $input->getOption('db');
         $syncUntrackedFiles = $input->getOption('untracked-files');
+        $deleteMissingFiles = $syncUntrackedFiles ? (bool) $input->getOption('delete') : false;
+        $skipBackup = $syncDb ? (bool) $input->getOption('no-backup') : false;
 
         // If no flags are set, sync everything
         if (!$syncDb && !$syncUntrackedFiles) {
             $syncDb = true;
             $syncUntrackedFiles = true;
+            $skipBackup = (bool) $input->getOption('no-backup');
+            $deleteMissingFiles = (bool) $input->getOption('delete');
         }
 
         return [
             'db' => $syncDb,
             'untracked_files' => $syncUntrackedFiles,
+            'delete' => $deleteMissingFiles,
+            'no_backup' => $skipBackup,
         ];
     }
 
@@ -120,6 +132,8 @@ abstract class AbstractSyncCommand extends Command
             'Database: ' . ($this->flags['db'] ? '✓' : '✗'),
             'Untracked Files: ' . ($this->flags['untracked_files'] ? '✓' : '✗'),
             'Dry Run: ' . ($this->dryRun ? 'Yes' : 'No'),
+            'Delete Missing Files: ' . ($this->flags['delete'] ? 'Yes' : 'No'),
+            'Create DB Backup: ' . ($this->flags['db'] ? ($this->flags['no_backup'] ? 'No' : 'Yes') : 'N/A'),
         ];
 
         $this->io->listing($items);
@@ -143,7 +157,21 @@ abstract class AbstractSyncCommand extends Command
         $gitignorePath = $this->getGitignorePath();
 
         $this->io->text('Syncing untracked files (uploads, caches, etc.)...');
-        return $rsync->syncUntrackedFiles($sourcePath, $destPath, $excludes, $remoteSsh, $gitignorePath);
+        if ($this->flags['delete']) {
+            $this->io->warning([
+                'You have enabled --delete. Files missing from the source will be removed from the destination.',
+                'Ensure you have backups before continuing.',
+            ]);
+        }
+
+        return $rsync->syncUntrackedFiles(
+            $sourcePath,
+            $destPath,
+            $excludes,
+            $remoteSsh,
+            $gitignorePath,
+            $this->flags['delete'],
+        );
     }
 
     protected function syncDatabase(bool $noBackup): bool
@@ -165,6 +193,10 @@ abstract class AbstractSyncCommand extends Command
         if (!DatabaseService::isMysqlAvailable()) {
             $this->io->error('mysql is not installed or not available in PATH');
             return false;
+        }
+
+        if ($noBackup) {
+            $this->io->warning('Destination database will be overwritten without creating a backup.');
         }
 
         $dbService = new DatabaseService($this->output, $this->verbose);
@@ -198,7 +230,7 @@ abstract class AbstractSyncCommand extends Command
                 $this->io->text('Creating backup of destination database...');
                 $backupDir = $this->destEnv['backup_path'] ?? null;
                 $backupPath = $dbService->backup($destDb, $destSsh, $backupDir);
-                $this->io->text("Backup created: {$backupPath}");
+                $this->io->note("Destination backup stored at: {$backupPath}");
             }
 
             // Import to destination database

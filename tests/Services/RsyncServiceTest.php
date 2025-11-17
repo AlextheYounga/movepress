@@ -31,7 +31,7 @@ class RsyncServiceTest extends TestCase
 
         $this->assertStringContainsString('rsync', $command);
         $this->assertStringContainsString('-avz', $command);
-        $this->assertStringContainsString('--delete', $command);
+        $this->assertStringNotContainsString('--delete', $command);
         $this->assertStringContainsString('--dry-run', $command);
         $this->assertStringContainsString('/source/path/', $command);
         $this->assertStringContainsString('/dest/path', $command);
@@ -86,6 +86,19 @@ class RsyncServiceTest extends TestCase
         $command = $method->invoke($service, '/source/path', '/dest/path', [], null);
 
         $this->assertStringContainsString('--info=progress2', $command);
+    }
+
+    public function test_includes_delete_flag_when_requested(): void
+    {
+        $service = new RsyncService($this->output, false, false);
+
+        $reflection = new \ReflectionClass($service);
+        $method = $reflection->getMethod('buildRsyncCommand');
+        $method->setAccessible(true);
+
+        $command = $method->invoke($service, '/source/path', '/dest/path', [], null, true);
+
+        $this->assertStringContainsString('--delete', $command);
     }
 
     public function test_does_not_add_dry_run_flag_when_not_in_dry_run_mode(): void

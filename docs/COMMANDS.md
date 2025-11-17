@@ -30,6 +30,7 @@ movepress push <source> <destination> [options]
 
 - `--dry-run` - Preview changes without executing them
 - `--no-backup` - Skip database backup before import (not recommended)
+- `--delete` - Delete destination files that don't exist on the source when syncing untracked files (destructive)
 
 **Output Options:**
 
@@ -60,8 +61,9 @@ movepress push local production --untracked-files -v
 
 - If no flags are specified, both `--db` and `--untracked-files` are synced by default
 - Database operations automatically perform search-replace for URLs
-- A backup is created before database import unless `--no-backup` is used
-- You'll be prompted to confirm before destructive database operations
+- A backup is created before database import unless `--no-backup` is used, and the backup path is shown after creation
+- File syncs are non-destructive by default. Use `--delete` to remove destination files that don't exist on the source.
+- You'll be prompted to confirm only when a destructive option is in use (`--delete` or `--no-backup`)
 - For tracked files (themes, plugins), use `git push <environment> <branch>` after running `git-setup`
 
 ---
@@ -104,7 +106,7 @@ movepress pull production local --db --untracked-files --dry-run
 ### Notes
 
 - Works exactly like `push` but in reverse direction
-- Same safety features and backup behavior as `push`
+- Same safety features, backup logging, and destructive-operation prompts as `push`
 - Remember to use `git pull` or `git fetch` for tracked code files
 
 ---

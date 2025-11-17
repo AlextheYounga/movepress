@@ -17,13 +17,28 @@ class CommandValidationTest extends TestCase
 
         // Test a dry-run with our typical flags
         $process = Process::fromShellCommandline(
-            'rsync --dry-run -avz --delete --info=progress2 --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1',
+            'rsync --dry-run -avz --info=progress2 --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1',
         );
         $process->run();
 
         $output = $process->getOutput() . $process->getErrorOutput();
 
         // Should not contain "unknown option" or "invalid option"
+        $this->assertStringNotContainsString('unknown option', strtolower($output));
+        $this->assertStringNotContainsString('invalid option', strtolower($output));
+    }
+
+    public function testRsyncAcceptsDeleteFlag(): void
+    {
+        if (!$this->isCommandAvailable('rsync')) {
+            $this->markTestSkipped('rsync not available');
+        }
+
+        $process = Process::fromShellCommandline('rsync --dry-run -avz --delete /tmp/ /tmp/test_rsync_target/ 2>&1');
+        $process->run();
+
+        $output = $process->getOutput() . $process->getErrorOutput();
+
         $this->assertStringNotContainsString('unknown option', strtolower($output));
         $this->assertStringNotContainsString('invalid option', strtolower($output));
     }

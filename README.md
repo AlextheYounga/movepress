@@ -86,9 +86,12 @@ movepress pull production local --untracked-files
 - `--untracked-files` - Sync files not tracked by Git (uploads, caches, etc.)
 - `--dry-run` - Preview changes without making them
 - `--no-backup` - Skip backup before database import
+- `--delete` - Delete destination files missing from source during untracked file syncs (destructive)
 - `-v, --verbose` - Show detailed output
 
 **Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. Use `git push <environment> <branch>` after running `movepress git-setup`.
+
+File syncs are non-destructive by default—Movepress only removes destination files when you explicitly pass `--delete`, and it will warn you before doing so. Database syncs create a backup automatically unless `--no-backup` is provided, and the backup path is printed for easy reference.
 
 ### Examples
 

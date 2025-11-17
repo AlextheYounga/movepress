@@ -61,20 +61,28 @@ class ValidationService
 
     public function confirmDestructiveOperation(string $destination, array $flags, bool $noInteraction = false): bool
     {
-        if ($flags['db']) {
-            $this->io->warning([
-                'This operation will REPLACE the database in: ' . $destination,
-                'All existing data in the destination database will be lost.',
-            ]);
+        $warnings = [];
 
-            if ($noInteraction) {
-                return true;
-            }
-
-            return $this->io->confirm('Do you want to continue?', false);
+        if (!empty($flags['db']) && !empty($flags['no_backup'])) {
+            $warnings[] = 'This operation will REPLACE the database in: ' . $destination;
+            $warnings[] = 'All existing data in the destination database will be lost with no backup.';
         }
 
-        return true;
+        if (!empty($flags['delete'])) {
+            $warnings[] = 'This operation will DELETE files on the destination that are missing from the source.';
+        }
+
+        if (empty($warnings)) {
+            return true;
+        }
+
+        $this->io->warning($warnings);
+
+        if ($noInteraction) {
+            return true;
+        }
+
+        return $this->io->confirm('Do you want to continue?', false);
     }
 
     private function testSshConnection(array $env, string $label): bool
