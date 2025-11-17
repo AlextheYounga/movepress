@@ -15,10 +15,12 @@ class CommandValidationTest extends TestCase
             $this->markTestSkipped('rsync not available');
         }
 
-        // Test a dry-run with our typical flags
-        $process = Process::fromShellCommandline(
-            'rsync --dry-run -avz --stats --info=progress2 --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1',
+        $progressFlag = $this->rsyncSupportsProgress2() ? '--info=progress2' : '--progress';
+        $command = sprintf(
+            'rsync --dry-run -avz --stats --progress %s --exclude=.git /tmp/ /tmp/test_rsync_target/ 2>&1',
+            $progressFlag,
         );
+        $process = Process::fromShellCommandline($command);
         $process->run();
 
         $output = $process->getOutput() . $process->getErrorOutput();
@@ -136,5 +138,32 @@ class CommandValidationTest extends TestCase
         $process = Process::fromShellCommandline("which {$command}");
         $process->run();
         return $process->isSuccessful();
+    }
+
+    private ?bool $progress2Supported = null;
+
+    private function rsyncSupportsProgress2(): bool
+    {
+        if ($this->progress2Supported !== null) {
+            return $this->progress2Supported;
+        }
+
+        $process = Process::fromShellCommandline('rsync --version');
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            return $this->progress2Supported = false;
+        }
+
+        $output = $process->getOutput();
+        if (preg_match('/rsync\s+version\s+(\d+)\.(\d+)/i', $output, $matches)) {
+            $major = (int) $matches[1];
+            $minor = (int) $matches[2];
+            if ($major > 3 || ($major === 3 && $minor >= 1)) {
+                return $this->progress2Supported = true;
+            }
+        }
+
+        return $this->progress2Supported = false;
     }
 }

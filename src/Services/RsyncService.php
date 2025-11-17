@@ -19,6 +19,7 @@ class RsyncService
     private ?RsyncStats $lastStats = null;
     private ?RsyncDryRunSummary $lastDryRunSummary = null;
     private RsyncStatsParser $parser;
+    private static ?bool $progress2Supported = null;
 
     public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
     {
@@ -123,8 +124,12 @@ class RsyncService
         $options = [
             '-avz', // archive, verbose, compress
             '--stats',
-            '--info=progress2',
+            '--progress',
         ];
+
+        if ($this->supportsProgress2()) {
+            $options[] = '--info=progress2';
+        }
 
         if ($delete) {
             $options[] = '--delete'; // delete files that don't exist on source
@@ -238,5 +243,30 @@ class RsyncService
         $process->run();
 
         return $process->isSuccessful();
+    }
+
+    protected function supportsProgress2(): bool
+    {
+        if (self::$progress2Supported !== null) {
+            return self::$progress2Supported;
+        }
+
+        $process = Process::fromShellCommandline('rsync --version');
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            return self::$progress2Supported = false;
+        }
+
+        $output = $process->getOutput();
+        if (preg_match('/rsync\s+version\s+(\d+)\.(\d+)/i', $output, $matches)) {
+            $major = (int) $matches[1];
+            $minor = (int) $matches[2];
+            if ($major > 3 || ($major === 3 && $minor >= 1)) {
+                return self::$progress2Supported = true;
+            }
+        }
+
+        return self::$progress2Supported = false;
     }
 }

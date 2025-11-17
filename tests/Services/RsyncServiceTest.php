@@ -11,6 +11,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 
 class TestableRsyncService extends RsyncService
 {
+    private bool $progress2Support = true;
+
     public function exposedBuildCommand(
         string $source,
         string $dest,
@@ -19,6 +21,16 @@ class TestableRsyncService extends RsyncService
         bool $delete = false,
     ): string {
         return $this->buildRsyncCommand($source, $dest, $excludes, $sshService, $delete);
+    }
+
+    public function setProgress2Support(bool $supported): void
+    {
+        $this->progress2Support = $supported;
+    }
+
+    protected function supportsProgress2(): bool
+    {
+        return $this->progress2Support;
     }
 }
 
@@ -81,6 +93,16 @@ class RsyncServiceTest extends TestCase
     public function test_always_includes_progress_flag(): void
     {
         $service = new TestableRsyncService($this->output, false, false);
+        $service->setProgress2Support(false);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path');
+        $this->assertStringContainsString('--progress', $command);
+        $this->assertStringNotContainsString('--info=progress2', $command);
+    }
+
+    public function test_includes_progress2_when_supported(): void
+    {
+        $service = new TestableRsyncService($this->output, false, false);
+        $service->setProgress2Support(true);
         $command = $service->exposedBuildCommand('/source/path', '/dest/path');
         $this->assertStringContainsString('--info=progress2', $command);
     }
