@@ -57,6 +57,7 @@ wp post create \
 echo "Creating test uploads..."
 mkdir -p /var/www/html/wp-content/uploads/2024/11
 echo "Test upload file from local environment" > /var/www/html/wp-content/uploads/2024/11/test-local.jpg
+echo "Local hardcoded URL: http://localhost:8080" > /var/www/html/wp-content/uploads/hardcoded.txt
 chown -R www-data:www-data /var/www/html/wp-content/uploads
 
 # Fix permissions (skip read-only mounted files)

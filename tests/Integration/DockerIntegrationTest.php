@@ -201,6 +201,9 @@ class DockerIntegrationTest extends TestCase
 
     public function testFilePush(): void
     {
+        $hardcodedPath = '/var/www/html/wp-content/uploads/hardcoded.txt';
+        $this->setLocalFileContents($hardcodedPath, "Local hardcoded URL: http://localhost:8080\n");
+
         $process = $this->runMovepress('push local remote --untracked-files --verbose --no-interaction');
 
         $this->assertTrue(
@@ -221,6 +224,47 @@ class DockerIntegrationTest extends TestCase
                 $process->getOutput(),
                 $process->getErrorOutput(),
             ),
+        );
+
+        $remoteContents = $this->getRemoteFileContents($hardcodedPath);
+        $this->assertStringContainsString(
+            'http://localhost:8081',
+            $remoteContents,
+            'Remote file should contain destination URL',
+        );
+        $this->assertStringNotContainsString(
+            'http://localhost:8080',
+            $remoteContents,
+            'Remote file should not contain source URL',
+        );
+    }
+
+    public function testFilePull(): void
+    {
+        $hardcodedPath = '/var/www/html/wp-content/uploads/hardcoded.txt';
+        $this->setRemoteFileContents($hardcodedPath, "Remote hardcoded URL: http://localhost:8081\n");
+
+        $process = $this->runMovepress('pull remote local --untracked-files --verbose --no-interaction');
+
+        $this->assertTrue(
+            $process->isSuccessful(),
+            sprintf(
+                "File pull should succeed.\nOutput: %s\nError: %s",
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ),
+        );
+
+        $localContents = $this->getLocalFileContents($hardcodedPath);
+        $this->assertStringContainsString(
+            'http://localhost:8080',
+            $localContents,
+            'Local file should contain destination URL',
+        );
+        $this->assertStringNotContainsString(
+            'http://localhost:8081',
+            $localContents,
+            'Local file should not contain source URL',
         );
     }
 
@@ -324,6 +368,59 @@ class DockerIntegrationTest extends TestCase
         $process->run();
 
         return $process->isSuccessful();
+    }
+
+    private function getLocalFileContents(string $path): string
+    {
+        return $this->getContainerFileContents('movepress-local', $path);
+    }
+
+    private function getRemoteFileContents(string $path): string
+    {
+        return $this->getContainerFileContents('movepress-remote', $path);
+    }
+
+    private function setLocalFileContents(string $path, string $contents): void
+    {
+        $this->setContainerFileContents('movepress-local', $path, $contents);
+    }
+
+    private function setRemoteFileContents(string $path, string $contents): void
+    {
+        $this->setContainerFileContents('movepress-remote', $path, $contents);
+    }
+
+    private function getContainerFileContents(string $container, string $path): string
+    {
+        $command = sprintf('docker exec %s cat %s', escapeshellarg($container), escapeshellarg($path));
+        $process = Process::fromShellCommandline($command);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            return '';
+        }
+
+        return $process->getOutput();
+    }
+
+    private function setContainerFileContents(string $container, string $path, string $contents): void
+    {
+        $encoded = base64_encode($contents);
+        $command = sprintf(
+            "docker exec %s bash -lc 'echo %s | base64 -d > %s'",
+            escapeshellarg($container),
+            escapeshellarg($encoded),
+            escapeshellarg($path),
+        );
+
+        $process = Process::fromShellCommandline($command);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException(
+                sprintf('Failed to write file on %s: %s', $container, $process->getErrorOutput()),
+            );
+        }
     }
 
     private static function waitForEnvironmentReady(): void

@@ -68,6 +68,7 @@ wp post create \
 echo "Creating test uploads..."
 mkdir -p /var/www/html/wp-content/uploads/2024/11
 echo "Test upload file from remote environment" > /var/www/html/wp-content/uploads/2024/11/test-remote.txt
+echo "Remote hardcoded URL: http://localhost:8081" > /var/www/html/wp-content/uploads/hardcoded.txt
 chown -R www-data:www-data /var/www/html/wp-content/uploads
 
 # Set up Git bare repository for deployment testing

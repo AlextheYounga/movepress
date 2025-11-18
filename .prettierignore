@@ -20,3 +20,6 @@ box.json
 
 # Git
 .git/
+
+# Docker => will produce stray characters
+Dockerfile

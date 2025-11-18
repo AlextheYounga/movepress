@@ -174,19 +174,22 @@ abstract class AbstractSyncCommand extends Command
 
         $sourceUrl = $this->sourceEnv['url'];
         $destUrl = $this->destEnv['url'];
-        $destPath = $this->destEnv['wordpress_path'];
+        $basePath = rtrim($this->destEnv['wordpress_path'], '/');
+        $targetPath = $this->getFileReplacementPath($basePath, !isset($this->destEnv['ssh']));
 
         if (isset($this->destEnv['ssh'])) {
             $sshService = new SshService($this->destEnv['ssh']);
             $remoteTransfer = new RemoteTransferService($this->output, $this->verbose);
 
             $remotePharPath = '/usr/local/bin/movepress';
+            $pathOption = $this->getRelativePath($basePath, $targetPath);
             $command = sprintf(
-                'cd %s && %s post-files %s %s',
-                escapeshellarg($destPath),
+                'cd %s && %s post-files %s %s%s',
+                escapeshellarg($basePath),
                 $remotePharPath,
                 escapeshellarg($sourceUrl),
                 escapeshellarg($destUrl),
+                $pathOption !== null ? ' --path=' . escapeshellarg($pathOption) : '',
             );
 
             if (!$remoteTransfer->executeRemoteCommand($sshService, $command)) {
@@ -199,12 +202,37 @@ abstract class AbstractSyncCommand extends Command
         }
 
         $service = new FileSearchReplaceService($this->verbose);
-        $result = $service->replaceInPath($destPath, $sourceUrl, $destUrl);
+        $result = $service->replaceInPath($targetPath, $sourceUrl, $destUrl);
         $this->io->writeln(
             sprintf('✓ Updated %d files (checked %d)', $result['filesModified'], $result['filesChecked']),
         );
 
         return true;
+    }
+
+    private function getFileReplacementPath(string $basePath, bool $checkLocal = true): string
+    {
+        $wpContentPath = $basePath . '/wp-content';
+
+        if ($checkLocal) {
+            return is_dir($wpContentPath) ? $wpContentPath : $basePath;
+        }
+
+        return $wpContentPath;
+    }
+
+    private function getRelativePath(string $basePath, string $targetPath): ?string
+    {
+        if ($targetPath === $basePath) {
+            return null;
+        }
+
+        $prefix = $basePath . '/';
+        if (str_starts_with($targetPath, $prefix)) {
+            return substr($targetPath, strlen($prefix));
+        }
+
+        return $targetPath;
     }
 
     protected function syncDatabase(bool $noBackup): bool
