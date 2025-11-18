@@ -125,6 +125,7 @@ class RsyncService
             '-avz', // archive, verbose, compress
             '--stats',
             '--progress',
+            '--omit-dir-times',
         ];
 
         if ($this->supportsProgress2()) {
