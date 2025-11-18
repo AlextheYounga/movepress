@@ -327,7 +327,7 @@ movepress backup < environment > [--output= < directory > ]
 ### Examples
 
 ```bash
-# Backup local database (uses backup_path from movefile.yml or /tmp)
+# Backup local database (uses backup_path from movefile.yml or <wordpress_path>/backups)
 movepress backup local
 
 # Backup production database (via SSH)
@@ -340,7 +340,7 @@ movepress backup production --output=/backups/critical
 ### Output
 
 - Shows backup file location
-- Displays file size after creation
+- Displays file size after creation (local environments only)
 - Confirms successful backup
 
 ### Notes
@@ -348,7 +348,7 @@ movepress backup production --output=/backups/critical
 - Works for both local and remote (SSH) environments
 - Backups are created in the format: `backup_{database_name}_YYYY-MM-DD_HH-mm-ss.sql.gz`
 - You'll be prompted to confirm before creating the backup
-- Backup location priority: `--output` flag > `backup_path` in config > system temp directory
+- Backup location priority: `--output` flag > `backup_path` in config > `<wordpress_path>/backups` > system temp directory
 - Configure default backup location in `movefile.yml`:
     ```yaml
     production:

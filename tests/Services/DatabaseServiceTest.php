@@ -168,4 +168,37 @@ class DatabaseServiceTest extends TestCase
             $_ENV = $originalEnv;
         }
     }
+
+    public function testResolveBackupDirectoryPrefersExplicitPath(): void
+    {
+        $service = new DatabaseService($this->output, false);
+        $reflection = new ReflectionClass($service);
+        $method = $reflection->getMethod('resolveBackupDirectory');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($service, '/custom/backups', '/var/www/html');
+        $this->assertSame('/custom/backups', $result);
+    }
+
+    public function testResolveBackupDirectoryFallsBackToWordpressPath(): void
+    {
+        $service = new DatabaseService($this->output, false);
+        $reflection = new ReflectionClass($service);
+        $method = $reflection->getMethod('resolveBackupDirectory');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($service, null, '/var/www/html');
+        $this->assertSame('/var/www/html/backups', $result);
+    }
+
+    public function testResolveBackupDirectoryFallsBackToSystemTempWhenNoPaths(): void
+    {
+        $service = new DatabaseService($this->output, false);
+        $reflection = new ReflectionClass($service);
+        $method = $reflection->getMethod('resolveBackupDirectory');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($service, null, null);
+        $this->assertSame(rtrim(sys_get_temp_dir(), '/'), $result);
+    }
 }

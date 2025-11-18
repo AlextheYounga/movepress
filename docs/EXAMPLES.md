@@ -197,7 +197,7 @@ movepress push staging production --db --untracked-files
 ## Maintenance Workflows
 
 ```bash
-# Regular backups (uses backup_path from movefile.yml)
+# Regular backups (uses backup_path from movefile.yml or <wordpress_path>/backups)
 movepress backup production
 
 # Backup to custom location
@@ -210,7 +210,7 @@ movepress push local production --db --untracked-files
 git push production --force < commit-hash > :refs/heads/master
 ```
 
-Configure `backup_path` in `movefile.yml` for automated backup locations. Can be added to cron for scheduled backups.
+Configure `backup_path` in `movefile.yml` (or rely on the default `<wordpress_path>/backups`) for automated backup locations. Can be added to cron for scheduled backups.
 
 ---
 

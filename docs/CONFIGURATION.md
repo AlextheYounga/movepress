@@ -140,7 +140,7 @@ production:
     backup_path: /var/backups/movepress
 ```
 
-**Default:** System temp directory (`/tmp` on Unix-like systems)
+**Default:** `backups` directory inside the environment's `wordpress_path` (created automatically). If no `wordpress_path` is configured, falls back to the system temp directory.
 
 When database sync operations create automatic backups, or when using the `backup` command without the `--output` flag, backups will be saved to this directory.
 

@@ -108,7 +108,8 @@ final class DatabaseSyncController
     ): void {
         $this->io->text('Creating backup of destination database...');
         $backupDir = $destEnv['backup_path'] ?? null;
-        $backupPath = $dbService->backup($destDb, $destSsh, $backupDir);
+        $wordpressPath = $destEnv['wordpress_path'] ?? null;
+        $backupPath = $dbService->backup($destDb, $destSsh, $backupDir, $wordpressPath);
         $this->io->note("Destination backup stored at: {$backupPath}");
     }
 

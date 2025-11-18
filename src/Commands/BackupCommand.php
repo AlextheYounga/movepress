@@ -45,6 +45,11 @@ class BackupCommand extends Command
 
             $dbConfig = $env['database'];
             $sshService = isset($env['ssh']) ? new SshService($env['ssh']) : null;
+            $wordpressPath = $env['wordpress_path'] ?? null;
+            $configuredDir = $outputDir ?? ($env['backup_path'] ?? null);
+            $effectiveDir =
+                $configuredDir ??
+                ($wordpressPath !== null ? rtrim($wordpressPath, '/') . '/backups' : rtrim(sys_get_temp_dir(), '/'));
 
             // Check prerequisites
             if (!DatabaseService::isMysqldumpAvailable()) {
@@ -68,7 +73,7 @@ class BackupCommand extends Command
                 ['Environment', $environmentName],
                 ['Database', $dbConfig['name']],
                 ['Type', $sshService ? 'Remote (via SSH)' : 'Local'],
-                ['Output Directory', $outputDir ?? 'Current directory'],
+                ['Output Directory', $effectiveDir],
             ];
             $io->table(['Setting', 'Value'], $rows);
 
@@ -82,19 +87,23 @@ class BackupCommand extends Command
             $dbService = new DatabaseService($output, true);
 
             // Use --output flag, or backup_path from config, or default to current directory
-            $backupDir = $outputDir ?? ($env['backup_path'] ?? null);
-            $backupFile = $dbService->backup($dbConfig, $sshService, $backupDir);
+            $backupFile = $dbService->backup($dbConfig, $sshService, $configuredDir, $wordpressPath);
 
             if ($backupFile) {
-                $fileSize = filesize($backupFile);
-                $humanSize = $this->formatBytes($fileSize);
+                $messages = ['Backup created successfully!', "File: {$backupFile}"];
 
-                $io->success(['Backup created successfully!', "File: {$backupFile}", "Size: {$humanSize}"]);
+                if ($sshService === null && file_exists($backupFile)) {
+                    $fileSize = filesize($backupFile);
+                    $humanSize = $this->formatBytes($fileSize);
+                    $messages[] = "Size: {$humanSize}";
+                }
+
+                $io->success($messages);
                 return Command::SUCCESS;
-            } else {
-                $io->error('Failed to create backup');
-                return Command::FAILURE;
             }
+
+            $io->error('Failed to create backup');
+            return Command::FAILURE;
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;

@@ -134,26 +134,27 @@ class DatabaseService
     /**
      * Create a backup of a database
      */
-    public function backup(array $dbConfig, ?SshService $sshService = null, ?string $backupDir = null): string
-    {
-        $backupDir = $backupDir ?? sys_get_temp_dir();
+    public function backup(
+        array $dbConfig,
+        ?SshService $sshService = null,
+        ?string $backupDir = null,
+        ?string $wordpressPath = null,
+    ): string {
+        $backupDir = $this->resolveBackupDirectory($backupDir, $wordpressPath);
         $timestamp = date('Y-m-d_H-i-s');
         $dbName = $dbConfig['name'] ?? 'unknown';
         $filename = "backup_{$dbName}_{$timestamp}.sql.gz";
-        $backupPath = $backupDir . '/' . $filename;
+        $backupPath = rtrim($backupDir, '/') . '/' . $filename;
 
-        // Always ensure local backup directory exists (backups are downloaded locally)
-        if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true)) {
-            throw new RuntimeException("Failed to create backup directory: {$backupDir}");
-        }
+        $this->ensureBackupDirectoryExists($backupDir, $sshService);
 
         if ($sshService === null) {
             if (!$this->exportLocal($dbConfig, $backupPath, true)) {
                 throw new RuntimeException('Failed to create local backup');
             }
         } else {
-            // exportRemote downloads the backup to local $backupPath
-            if (!$this->exportRemote($dbConfig, $sshService, $backupPath, true)) {
+            $command = $this->commandBuilder->buildExportCommand($dbConfig, $backupPath, true);
+            if (!$this->remoteTransfer->executeRemoteCommand($sshService, $command)) {
                 throw new RuntimeException('Failed to create remote backup');
             }
         }
@@ -331,6 +332,34 @@ class DatabaseService
         }
 
         return implode(' ', $parts);
+    }
+
+    private function resolveBackupDirectory(?string $backupDir, ?string $wordpressPath): string
+    {
+        if ($backupDir !== null && $backupDir !== '') {
+            return rtrim($backupDir, '/');
+        }
+
+        if ($wordpressPath !== null && $wordpressPath !== '') {
+            return rtrim($wordpressPath, '/') . '/backups';
+        }
+
+        return rtrim(sys_get_temp_dir(), '/');
+    }
+
+    private function ensureBackupDirectoryExists(string $path, ?SshService $sshService): void
+    {
+        if ($sshService === null) {
+            if (!is_dir($path) && !mkdir($path, 0755, true)) {
+                throw new RuntimeException("Failed to create backup directory: {$path}");
+            }
+            return;
+        }
+
+        $command = sprintf('mkdir -p %s', escapeshellarg($path));
+        if (!$this->remoteTransfer->executeRemoteCommand($sshService, $command)) {
+            throw new RuntimeException("Failed to create remote backup directory: {$path}");
+        }
     }
 
     /**
