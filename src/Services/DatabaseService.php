@@ -16,6 +16,7 @@ class DatabaseService
     private bool $verbose;
     private DatabaseCommandBuilder $commandBuilder;
     private RemoteTransferService $remoteTransfer;
+    private RemoteMovepressManager $remoteMovepressManager;
 
     public function __construct(OutputInterface $output, bool $verbose = false)
     {
@@ -23,6 +24,7 @@ class DatabaseService
         $this->verbose = $verbose;
         $this->commandBuilder = new DatabaseCommandBuilder();
         $this->remoteTransfer = new RemoteTransferService($output, $verbose);
+        $this->remoteMovepressManager = new RemoteMovepressManager($this->remoteTransfer, $output, $verbose);
     }
 
     /**
@@ -250,18 +252,22 @@ class DatabaseService
             $this->output->writeln('Executing search-replace on remote via movepress post-import...');
         }
 
-        $remotePharPath = '/usr/local/bin/movepress';
+        $remotePharPath = $this->remoteMovepressManager->stage($sshService, $wordpressPath);
         $envExports = $this->buildDatabaseEnvExportString($dbConfig);
         $command = sprintf(
-            'cd %s && %s%s post-import %s %s',
+            'cd %s && %s php %s post-import %s %s',
             escapeshellarg($wordpressPath),
-            $envExports !== '' ? $envExports . ' ' : '',
-            $remotePharPath,
+            $envExports !== '' ? $envExports : '',
+            escapeshellarg($remotePharPath),
             escapeshellarg($oldUrl),
             escapeshellarg($newUrl),
         );
 
-        return $this->remoteTransfer->executeRemoteCommand($sshService, $command);
+        try {
+            return $this->remoteTransfer->executeRemoteCommand($sshService, trim($command));
+        } finally {
+            $this->remoteMovepressManager->cleanup($sshService, $remotePharPath);
+        }
     }
 
     /**

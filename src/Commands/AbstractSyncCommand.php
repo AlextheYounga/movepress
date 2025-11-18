@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Movepress\Commands;
 
 use Movepress\Services\FileSearchReplaceService;
+use Movepress\Services\RemoteMovepressManager;
 use Movepress\Services\RemoteTransferService;
 use Movepress\Services\SshService;
 use Movepress\Services\Sync\DatabaseSyncController;
@@ -180,21 +181,26 @@ abstract class AbstractSyncCommand extends Command
         if (isset($this->destEnv['ssh'])) {
             $sshService = new SshService($this->destEnv['ssh']);
             $remoteTransfer = new RemoteTransferService($this->output, $this->verbose);
+            $remoteManager = new RemoteMovepressManager($remoteTransfer, $this->output, $this->verbose);
 
-            $remotePharPath = '/usr/local/bin/movepress';
             $pathOption = $this->getRelativePath($basePath, $targetPath);
+            $remotePhar = $remoteManager->stage($sshService, $basePath);
             $command = sprintf(
-                'cd %s && %s post-files %s %s%s',
+                'cd %s && php %s post-files %s %s%s',
                 escapeshellarg($basePath),
-                $remotePharPath,
+                escapeshellarg($remotePhar),
                 escapeshellarg($sourceUrl),
                 escapeshellarg($destUrl),
                 $pathOption !== null ? ' --path=' . escapeshellarg($pathOption) : '',
             );
 
-            if (!$remoteTransfer->executeRemoteCommand($sshService, $command)) {
-                $this->io->error('Failed to update remote files after sync.');
-                return false;
+            try {
+                if (!$remoteTransfer->executeRemoteCommand($sshService, $command)) {
+                    $this->io->error('Failed to update remote files after sync.');
+                    return false;
+                }
+            } finally {
+                $remoteManager->cleanup($sshService, $remotePhar);
             }
 
             $this->io->writeln('✓ Remote files updated');
