@@ -165,6 +165,7 @@ class DatabaseService
      * Perform search-replace using wp-cli as a library
      */
     public function searchReplace(
+        array $dbConfig,
         string $wordpressPath,
         string $oldUrl,
         string $newUrl,
@@ -175,22 +176,26 @@ class DatabaseService
         }
 
         if ($sshService !== null) {
-            return $this->executeRemoteSearchReplace($sshService, $wordpressPath, $oldUrl, $newUrl);
+            return $this->executeRemoteSearchReplace($sshService, $wordpressPath, $oldUrl, $newUrl, $dbConfig);
         }
 
-        return $this->executeLocalSearchReplace($wordpressPath, $oldUrl, $newUrl);
+        return $this->executeLocalSearchReplace($wordpressPath, $oldUrl, $newUrl, $dbConfig);
     }
 
     /**
      * Execute search-replace locally using bundled wp-cli classes directly
      */
-    private function executeLocalSearchReplace(string $wordpressPath, string $oldUrl, string $newUrl): bool
-    {
+    private function executeLocalSearchReplace(
+        string $wordpressPath,
+        string $oldUrl,
+        string $newUrl,
+        array $dbConfig,
+    ): bool {
         try {
             Application::loadWpCliClasses();
 
             define('WP_USE_THEMES', false);
-            $_SERVER['HTTP_HOST'] = 'localhost';
+            $this->bootstrapWordpressEnvironment($dbConfig, $newUrl);
 
             if (!file_exists($wordpressPath . '/wp-load.php')) {
                 throw new \RuntimeException("WordPress not found at: {$wordpressPath}");
@@ -238,21 +243,94 @@ class DatabaseService
         string $wordpressPath,
         string $oldUrl,
         string $newUrl,
+        array $dbConfig,
     ): bool {
         if ($this->verbose) {
             $this->output->writeln('Executing search-replace on remote via movepress post-import...');
         }
 
         $remotePharPath = '/usr/local/bin/movepress';
+        $envExports = $this->buildDatabaseEnvExportString($dbConfig);
         $command = sprintf(
-            'cd %s && %s post-import %s %s',
+            'cd %s && %s%s post-import %s %s',
             escapeshellarg($wordpressPath),
+            $envExports !== '' ? $envExports . ' ' : '',
             $remotePharPath,
             escapeshellarg($oldUrl),
             escapeshellarg($newUrl),
         );
 
         return $this->remoteTransfer->executeRemoteCommand($sshService, $command);
+    }
+
+    /**
+     * Prepare environment variables and server globals so WordPress boots with provided credentials and URL context
+     */
+    private function bootstrapWordpressEnvironment(array $dbConfig, string $targetUrl): void
+    {
+        foreach ($this->buildDatabaseEnvVars($dbConfig) as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            putenv($key . '=' . $value);
+            $_ENV[$key] = $value;
+        }
+
+        $parsed = parse_url($targetUrl);
+        $hostOnly = $parsed !== false && isset($parsed['host']) ? $parsed['host'] : 'localhost';
+        $scheme = $parsed !== false && isset($parsed['scheme']) ? strtolower((string) $parsed['scheme']) : 'http';
+        $isHttps = $scheme === 'https';
+        $port = $parsed !== false && isset($parsed['port']) ? (int) $parsed['port'] : ($isHttps ? 443 : 80);
+        $hostHeader = $hostOnly;
+        if ($parsed !== false && isset($parsed['port'])) {
+            $hostHeader .= ':' . $parsed['port'];
+        }
+
+        $_SERVER['HTTP_HOST'] = $hostHeader;
+        $_SERVER['SERVER_NAME'] = $hostOnly;
+        $_SERVER['SERVER_PORT'] = (string) $port;
+        $_SERVER['REQUEST_SCHEME'] = $isHttps ? 'https' : 'http';
+        $_SERVER['HTTPS'] = $isHttps ? 'on' : 'off';
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function buildDatabaseEnvVars(array $dbConfig): array
+    {
+        $host = (string) ($dbConfig['host'] ?? '');
+        $user = (string) ($dbConfig['user'] ?? '');
+        $password = (string) ($dbConfig['password'] ?? '');
+        $name = (string) ($dbConfig['name'] ?? '');
+
+        return [
+            'WORDPRESS_DB_HOST' => $host,
+            'WORDPRESS_DB_USER' => $user,
+            'WORDPRESS_DB_PASSWORD' => $password,
+            'WORDPRESS_DB_NAME' => $name,
+            'DB_HOST' => $host,
+            'DB_USER' => $user,
+            'DB_PASSWORD' => $password,
+            'DB_NAME' => $name,
+            'MYSQL_HOST' => $host,
+            'MYSQL_USER' => $user,
+            'MYSQL_PASSWORD' => $password,
+            'MYSQL_DATABASE' => $name,
+        ];
+    }
+
+    private function buildDatabaseEnvExportString(array $dbConfig): string
+    {
+        $parts = [];
+        foreach ($this->buildDatabaseEnvVars($dbConfig) as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $parts[] = sprintf('%s=%s', $key, escapeshellarg($value));
+        }
+
+        return implode(' ', $parts);
     }
 
     /**

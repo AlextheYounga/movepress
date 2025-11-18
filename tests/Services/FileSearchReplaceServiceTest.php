@@ -63,6 +63,19 @@ class FileSearchReplaceServiceTest extends TestCase
         $this->assertStringContainsString('https://old.test', file_get_contents($file));
     }
 
+    public function test_replaces_json_escaped_urls(): void
+    {
+        $file = $this->tempDir . '/data.json';
+        file_put_contents($file, '{"url":"https:\/\/old.test"}');
+
+        $service = new FileSearchReplaceService();
+        $result = $service->replaceInPath($this->tempDir, 'https://old.test', 'https://new.test');
+
+        $this->assertSame(1, $result['filesChecked']);
+        $this->assertSame(1, $result['filesModified']);
+        $this->assertStringContainsString('https:\\/\\/new.test', file_get_contents($file));
+    }
+
     private function removeDirectory(string $dir): void
     {
         if (!is_dir($dir)) {

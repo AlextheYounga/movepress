@@ -73,7 +73,8 @@ class FileSearchReplaceService
                 continue;
             }
 
-            $updated = str_replace($search, $replace, $contents);
+            $replacementMap = $this->buildReplacementMap($search, $replace);
+            $updated = str_replace(array_keys($replacementMap), array_values($replacementMap), $contents);
             if ($updated === $contents) {
                 continue;
             }
@@ -106,5 +107,25 @@ class FileSearchReplaceService
         }
 
         return strpos($chunk, "\0") === false;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function buildReplacementMap(string $search, string $replace): array
+    {
+        $map = [$search => $replace];
+
+        $escapedSearch = $this->escapeSlashes($search);
+        if ($escapedSearch !== $search) {
+            $map[$escapedSearch] = $this->escapeSlashes($replace);
+        }
+
+        return $map;
+    }
+
+    private function escapeSlashes(string $value): string
+    {
+        return str_replace('/', '\/', $value);
     }
 }

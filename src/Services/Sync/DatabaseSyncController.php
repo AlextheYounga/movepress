@@ -69,7 +69,7 @@ final class DatabaseSyncController
 
             $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
             $destWordpressPath = $destEnv['wordpress_path'];
-            $replacedSuccess = $dbService->searchReplace($destWordpressPath, $sourceUrl, $destUrl, $destSsh);
+            $replacedSuccess = $dbService->searchReplace($destDb, $destWordpressPath, $sourceUrl, $destUrl, $destSsh);
             if (!$replacedSuccess) {
                 throw new \RuntimeException('Failed to perform search-replace');
             }

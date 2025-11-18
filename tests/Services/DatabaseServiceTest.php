@@ -67,4 +67,105 @@ class DatabaseServiceTest extends TestCase
         $result = DatabaseService::isMysqlAvailable();
         $this->assertIsBool($result);
     }
+
+    public function testBootstrapWordpressEnvironmentSetsEnvAndServerGlobals(): void
+    {
+        $service = new DatabaseService($this->output, false);
+        $reflection = new ReflectionClass($service);
+        $method = $reflection->getMethod('bootstrapWordpressEnvironment');
+        $method->setAccessible(true);
+
+        $dbConfig = [
+            'host' => '127.0.0.1:3307',
+            'user' => 'dev',
+            'password' => 'secret',
+            'name' => 'wp',
+        ];
+
+        $originalServer = $_SERVER;
+        $originalEnv = $_ENV;
+        $envKeys = [
+            'WORDPRESS_DB_HOST',
+            'WORDPRESS_DB_USER',
+            'WORDPRESS_DB_PASSWORD',
+            'WORDPRESS_DB_NAME',
+            'DB_HOST',
+            'DB_USER',
+            'DB_PASSWORD',
+            'DB_NAME',
+            'MYSQL_HOST',
+            'MYSQL_USER',
+            'MYSQL_PASSWORD',
+            'MYSQL_DATABASE',
+        ];
+
+        try {
+            $method->invoke($service, $dbConfig, 'https://wp.breakstuff.localhost:8443/path');
+
+            $this->assertSame('127.0.0.1:3307', getenv('WORDPRESS_DB_HOST'));
+            $this->assertSame('dev', getenv('WORDPRESS_DB_USER'));
+            $this->assertSame('wp.breakstuff.localhost:8443', $_SERVER['HTTP_HOST']);
+            $this->assertSame('wp.breakstuff.localhost', $_SERVER['SERVER_NAME']);
+            $this->assertSame('8443', $_SERVER['SERVER_PORT']);
+            $this->assertSame('https', $_SERVER['REQUEST_SCHEME']);
+            $this->assertSame('on', $_SERVER['HTTPS']);
+        } finally {
+            foreach ($envKeys as $key) {
+                putenv($key . '=');
+                unset($_ENV[$key]);
+            }
+            $_SERVER = $originalServer;
+            $_ENV = $originalEnv;
+        }
+    }
+
+    public function testBootstrapWordpressEnvironmentFallsBackToLocalhost(): void
+    {
+        $service = new DatabaseService($this->output, false);
+        $reflection = new ReflectionClass($service);
+        $method = $reflection->getMethod('bootstrapWordpressEnvironment');
+        $method->setAccessible(true);
+
+        $dbConfig = [
+            'host' => 'mysql:3306',
+            'user' => 'root',
+            'password' => 'pass',
+            'name' => 'wordpress',
+        ];
+
+        $originalServer = $_SERVER;
+        $originalEnv = $_ENV;
+        $envKeys = [
+            'WORDPRESS_DB_HOST',
+            'WORDPRESS_DB_USER',
+            'WORDPRESS_DB_PASSWORD',
+            'WORDPRESS_DB_NAME',
+            'DB_HOST',
+            'DB_USER',
+            'DB_PASSWORD',
+            'DB_NAME',
+            'MYSQL_HOST',
+            'MYSQL_USER',
+            'MYSQL_PASSWORD',
+            'MYSQL_DATABASE',
+        ];
+
+        try {
+            $method->invoke($service, $dbConfig, 'not-a-url');
+
+            $this->assertSame('mysql:3306', getenv('WORDPRESS_DB_HOST'));
+            $this->assertSame('localhost', $_SERVER['HTTP_HOST']);
+            $this->assertSame('localhost', $_SERVER['SERVER_NAME']);
+            $this->assertSame('80', $_SERVER['SERVER_PORT']);
+            $this->assertSame('http', $_SERVER['REQUEST_SCHEME']);
+            $this->assertSame('off', $_SERVER['HTTPS']);
+        } finally {
+            foreach ($envKeys as $key) {
+                putenv($key . '=');
+                unset($_ENV[$key]);
+            }
+            $_SERVER = $originalServer;
+            $_ENV = $originalEnv;
+        }
+    }
 }

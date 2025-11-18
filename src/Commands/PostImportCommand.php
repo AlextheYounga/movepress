@@ -32,7 +32,8 @@ class PostImportCommand extends Command
             Application::loadWpCliClasses();
 
             define('WP_USE_THEMES', false);
-            $_SERVER['HTTP_HOST'] = 'localhost';
+            $this->configureServerContext($newUrl);
+            $this->hydrateDatabaseEnvSuperglobals();
 
             $wordpressPath = getcwd();
             if (!file_exists($wordpressPath . '/wp-load.php')) {
@@ -69,6 +70,51 @@ class PostImportCommand extends Command
         } catch (\Exception $e) {
             $io->error('Post-import failed: ' . $e->getMessage());
             return Command::FAILURE;
+        }
+    }
+
+    private function configureServerContext(string $targetUrl): void
+    {
+        $parsed = parse_url($targetUrl);
+        $hostOnly = $parsed !== false && isset($parsed['host']) ? $parsed['host'] : 'localhost';
+        $scheme = $parsed !== false && isset($parsed['scheme']) ? strtolower((string) $parsed['scheme']) : 'http';
+        $isHttps = $scheme === 'https';
+        $port = $parsed !== false && isset($parsed['port']) ? (int) $parsed['port'] : ($isHttps ? 443 : 80);
+        $hostHeader = $hostOnly;
+        if ($parsed !== false && isset($parsed['port'])) {
+            $hostHeader .= ':' . $parsed['port'];
+        }
+
+        $_SERVER['HTTP_HOST'] = $hostHeader;
+        $_SERVER['SERVER_NAME'] = $hostOnly;
+        $_SERVER['SERVER_PORT'] = (string) $port;
+        $_SERVER['REQUEST_SCHEME'] = $isHttps ? 'https' : 'http';
+        $_SERVER['HTTPS'] = $isHttps ? 'on' : 'off';
+    }
+
+    private function hydrateDatabaseEnvSuperglobals(): void
+    {
+        $keys = [
+            'WORDPRESS_DB_HOST',
+            'WORDPRESS_DB_USER',
+            'WORDPRESS_DB_PASSWORD',
+            'WORDPRESS_DB_NAME',
+            'DB_HOST',
+            'DB_USER',
+            'DB_PASSWORD',
+            'DB_NAME',
+            'MYSQL_HOST',
+            'MYSQL_USER',
+            'MYSQL_PASSWORD',
+            'MYSQL_DATABASE',
+        ];
+
+        foreach ($keys as $key) {
+            $value = getenv($key);
+            if ($value === false) {
+                continue;
+            }
+            $_ENV[$key] = $value;
         }
     }
 }
