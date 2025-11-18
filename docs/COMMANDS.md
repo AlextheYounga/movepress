@@ -61,6 +61,7 @@ movepress push local production --untracked-files -v
 
 - If no flags are specified, both `--db` and `--untracked-files` are synced by default
 - Database operations automatically perform search-replace for URLs
+- After untracked files sync, Movepress scans text files in `wp-content/` and replaces the source URL with the destination URL (skips binaries/caches)
 - A backup is created before database import unless `--no-backup` is used, and the backup path is shown after creation
 - File syncs are non-destructive by default. Use `--delete` to remove destination files that don't exist on the source.
 - You'll be prompted to confirm only when a destructive option is in use (`--delete` or `--no-backup`)
@@ -107,6 +108,7 @@ movepress pull production local --db --untracked-files --dry-run
 
 - Works exactly like `push` but in reverse direction
 - Same safety features, backup logging, and destructive-operation prompts as `push`
+- After untracked files sync, Movepress updates text files within `wp-content/` to swap the source URL for the destination URL
 - Remember to use `git pull` or `git fetch` for tracked code files
 
 ---
@@ -352,6 +354,63 @@ movepress backup production --output=/backups/critical
     production:
         backup_path: /var/backups/movepress
     ```
+
+---
+
+## movepress post-files
+
+Run the file-level search/replace manually. Normally Movepress invokes this automatically after syncing untracked files, but you can execute it yourself (locally or remotely) for ad-hoc replacements.
+
+### Syntax
+
+```bash
+movepress post-files <old-url> <new-url> [--path=<subdir>]
+```
+
+### Behaviour
+
+- Must be executed inside a WordPress installation (Movepress checks for `wp-load.php`)
+- Scans the working directory by default; `--path` lets you target a subdirectory such as `wp-content/uploads`
+- Only processes known text extensions and skips files that appear binary
+
+### Example
+
+```bash
+# Update theme files remotely
+ssh deploy@example.com 'cd /var/www/html && movepress post-files https://example.com https://staging.example.com --path=wp-content/themes/mytheme'
+```
+
+### Notes
+
+- Remote servers need the Movepress PHAR available (default `/usr/local/bin/movepress`) so push operations can trigger this command
+- Manual runs are optional; `push`/`pull` already call this command when `--untracked-files` is used
+
+---
+
+## Global Options
+
+These options work with all commands:
+
+- `-h, --help` - Display help for the command
+- `-V, --version` - Display Movepress version
+- `-q, --quiet` - Suppress output messages
+- `-v, --verbose` - Increase verbosity of messages
+- `-n, --no-interaction` - Do not ask any interactive question
+- `--ansi` - Force ANSI output
+- `--no-ansi` - Disable ANSI output
+
+### Examples
+
+```bash
+# Show version
+movepress --version
+
+# Get help for push command
+movepress push --help
+
+# Run without any prompts
+movepress push local production --db --no-interaction
+```
 
 ---
 
