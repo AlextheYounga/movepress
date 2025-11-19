@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Movepress\Commands;
 
 use Movepress\Services\FileSearchReplaceService;
-use Movepress\Services\RemoteMovepressManager;
-use Movepress\Services\RemoteTransferService;
 use Movepress\Services\SshService;
 use Movepress\Services\Sync\DatabaseSyncController;
 use Movepress\Services\Sync\FileSyncController;
+use Movepress\Services\Sync\LocalStagingService;
 use Movepress\Services\ValidationService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -28,6 +27,7 @@ abstract class AbstractSyncCommand extends Command
     protected array $sourceEnv;
     protected array $destEnv;
     protected array $flags;
+    private bool $remoteFilesPreparedLocally = false;
 
     protected function configureArguments(): void
     {
@@ -85,6 +85,7 @@ abstract class AbstractSyncCommand extends Command
         $this->dryRun = $dryRun;
         $this->verbose = $verbose;
         $this->noInteraction = $noInteraction;
+        $this->remoteFilesPreparedLocally = false;
     }
 
     protected function parseSyncFlags(InputInterface $input): array
@@ -154,15 +155,35 @@ abstract class AbstractSyncCommand extends Command
     protected function syncFiles(array $excludes, ?SshService $remoteSsh): bool
     {
         $executor = new FileSyncController($this->output, $this->io, $this->dryRun, $this->verbose);
+        $sourcePath = $this->buildPath($this->sourceEnv);
+        $destPath = $this->buildPath($this->destEnv);
+        $gitignorePath = $this->getGitignorePath();
+        $stagingService = null;
+        $stagedPath = null;
 
-        return $executor->sync(
-            $this->buildPath($this->sourceEnv),
-            $this->buildPath($this->destEnv),
-            $excludes,
-            $remoteSsh,
-            $this->getGitignorePath(),
-            $this->flags['delete'],
-        );
+        if ($this->shouldStageRemoteFiles()) {
+            $this->io->text('Staging files locally for remote upload...');
+            $stagingService = new LocalStagingService($this->output, $this->verbose);
+            $stagedPath = $stagingService->stage($sourcePath, $excludes, $gitignorePath, $this->flags['delete']);
+            $this->applySearchReplaceToStagedFiles($stagedPath);
+            $this->remoteFilesPreparedLocally = true;
+            $sourcePath = $stagedPath;
+        }
+
+        try {
+            return $executor->sync(
+                $sourcePath,
+                $destPath,
+                $excludes,
+                $remoteSsh,
+                $gitignorePath,
+                $this->flags['delete'],
+            );
+        } finally {
+            if ($stagingService !== null) {
+                $stagingService->cleanup($stagedPath);
+            }
+        }
     }
 
     protected function processSyncedFiles(): bool
@@ -179,31 +200,11 @@ abstract class AbstractSyncCommand extends Command
         $targetPath = $this->getFileReplacementPath($basePath, !isset($this->destEnv['ssh']));
 
         if (isset($this->destEnv['ssh'])) {
-            $sshService = new SshService($this->destEnv['ssh']);
-            $remoteTransfer = new RemoteTransferService($this->output, $this->verbose);
-            $remoteManager = new RemoteMovepressManager($remoteTransfer, $this->output, $this->verbose);
-
-            $pathOption = $this->getRelativePath($basePath, $targetPath);
-            $remotePhar = $remoteManager->stage($sshService, $basePath);
-            $command = sprintf(
-                'cd %s && php %s post-files %s %s%s',
-                escapeshellarg($basePath),
-                escapeshellarg($remotePhar),
-                escapeshellarg($sourceUrl),
-                escapeshellarg($destUrl),
-                $pathOption !== null ? ' --path=' . escapeshellarg($pathOption) : '',
-            );
-
-            try {
-                if (!$remoteTransfer->executeRemoteCommand($sshService, $command)) {
-                    $this->io->error('Failed to update remote files after sync.');
-                    return false;
-                }
-            } finally {
-                $remoteManager->cleanup($sshService, $remotePhar);
+            if ($this->remoteFilesPreparedLocally) {
+                $this->io->writeln('✓ Remote files were updated locally before upload');
+            } else {
+                $this->io->warning('Remote replacements were skipped (no staged files available).');
             }
-
-            $this->io->writeln('✓ Remote files updated');
             return true;
         }
 
@@ -239,6 +240,51 @@ abstract class AbstractSyncCommand extends Command
         }
 
         return $targetPath;
+    }
+
+    private function applySearchReplaceToStagedFiles(string $stagedPath): void
+    {
+        $sourceUrl = $this->sourceEnv['url'];
+        $destUrl = $this->destEnv['url'];
+        $destBasePath = rtrim($this->destEnv['wordpress_path'], '/');
+        $targetDestPath = $this->getFileReplacementPath($destBasePath, false);
+        $relativeTarget = $this->getRelativePath($destBasePath, $targetDestPath);
+
+        $targetPath = $stagedPath;
+        if ($relativeTarget !== null) {
+            $candidate = rtrim($stagedPath, '/') . '/' . $relativeTarget;
+            if (is_dir($candidate)) {
+                $targetPath = $candidate;
+            }
+        }
+
+        $service = new FileSearchReplaceService($this->verbose);
+        $result = $service->replaceInPath($targetPath, $sourceUrl, $destUrl);
+
+        $this->io->writeln(
+            sprintf(
+                '✓ Staged files updated (%d modified, %d checked)',
+                $result['filesModified'],
+                $result['filesChecked'],
+            ),
+        );
+    }
+
+    private function shouldStageRemoteFiles(): bool
+    {
+        if ($this->dryRun) {
+            return false;
+        }
+
+        if (!isset($this->destEnv['ssh'])) {
+            return false;
+        }
+
+        if (isset($this->sourceEnv['ssh'])) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function syncDatabase(bool $noBackup): bool
