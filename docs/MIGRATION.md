@@ -181,10 +181,11 @@ database:
     user: user
     password: pass
     host: localhost
+    port: 3306
     # Charset and collate handled automatically by mysqldump/mysql
 ```
 
-**Migration:** Remove `charset` and `collate` if present (handled automatically).
+**Migration:** Remove `charset` and `collate` if present (handled automatically) and, if you relied on `host: localhost:3307`, move the custom port to the dedicated `port` field.
 
 ---
 

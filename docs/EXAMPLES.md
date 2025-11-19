@@ -389,6 +389,7 @@ local:
         user: root
         password: ''
         host: localhost
+        port: 3306
 
 production:
     path: /var/www/html
@@ -402,6 +403,7 @@ production:
         user: ${PROD_DB_USER}
         password: ${PROD_DB_PASSWORD}
         host: localhost
+        port: ${PROD_DB_PORT}
 ```
 
 ---
@@ -424,6 +426,7 @@ dev:
         user: dev_user
         password: ${DEV_DB_PASSWORD}
         host: localhost
+        port: 3306
 
 staging:
     # Pre-production testing
@@ -437,6 +440,7 @@ staging:
         user: staging_user
         password: ${STAGING_DB_PASSWORD}
         host: localhost
+        port: 3306
 
 production:
     # Live site
@@ -450,6 +454,7 @@ production:
         user: prod_user
         password: ${PROD_DB_PASSWORD}
         host: localhost
+        port: ${PROD_DB_PORT}
 ```
 
 ---

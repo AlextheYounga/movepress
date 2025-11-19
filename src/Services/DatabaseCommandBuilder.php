@@ -11,7 +11,7 @@ class DatabaseCommandBuilder
      */
     public function buildExportCommand(array $dbConfig, string $outputPath, bool $compress): string
     {
-        [$host, $port] = $this->parseHostPort($dbConfig['host']);
+        [$host, $port] = $this->resolveHostAndPort($dbConfig);
 
         $parts = ['mysqldump', '--user=' . escapeshellarg($dbConfig['user']), '--host=' . escapeshellarg($host)];
 
@@ -42,7 +42,7 @@ class DatabaseCommandBuilder
      */
     public function buildImportCommand(array $dbConfig, string $inputPath): string
     {
-        [$host, $port] = $this->parseHostPort($dbConfig['host']);
+        [$host, $port] = $this->resolveHostAndPort($dbConfig);
 
         $parts = ['mysql', '--user=' . escapeshellarg($dbConfig['user']), '--host=' . escapeshellarg($host)];
 
@@ -74,6 +74,24 @@ class DatabaseCommandBuilder
                 throw new \RuntimeException("Database configuration missing required field: {$field}");
             }
         }
+    }
+
+    /**
+     * Resolve host/port using explicit port when present, with fallback to host parsing
+     *
+     * @param array{host: string, port?: string|int|null} $dbConfig
+     *
+     * @return array{0: string, 1: string|null}
+     */
+    private function resolveHostAndPort(array $dbConfig): array
+    {
+        [$host, $parsedPort] = $this->parseHostPort($dbConfig['host']);
+
+        if (isset($dbConfig['port']) && $dbConfig['port'] !== '' && $dbConfig['port'] !== null) {
+            return [$host, (string) $dbConfig['port']];
+        }
+
+        return [$host, $parsedPort];
     }
 
     /**

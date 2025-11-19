@@ -101,6 +101,7 @@ Then use `localhost` in movefile.yml:
 local:
     database:
         host: 'localhost' # Or 127.0.0.1
+        port: 3306
 ```
 
 See [Docker Setup Guide](DOCKER.md) for complete configuration.

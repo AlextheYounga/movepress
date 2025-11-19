@@ -24,6 +24,7 @@ local:
     user: "${DB_USER}"
     password: "${DB_PASSWORD}"
     host: "${DB_HOST}"
+    port: "${DB_PORT}"
     # Optional: specify a different table prefix
     # prefix: "wp_"
   
@@ -47,6 +48,7 @@ staging:
     user: "${STAGING_DB_USER}"
     password: "${STAGING_DB_PASSWORD}"
     host: "localhost"
+    port: 3306
   
   url: "https://staging.example.com"
   
@@ -80,6 +82,7 @@ production:
     user: "${PROD_DB_USER}"
     password: "${PROD_DB_PASSWORD}"
     host: "localhost"
+    port: 3306
   
   url: "https://example.com"
   

@@ -6,6 +6,8 @@ A modern WordPress deployment tool for pushing and pulling databases and files b
 
 **Built as a modern successor to [Wordmove](https://github.com/welaika/wordmove)** - the beloved but unmaintained Ruby gem that revolutionized WordPress deployments. Movepress brings the same powerful workflow to modern PHP with improved reliability, better performance, and zero Ruby dependencies.
 
+I translated the logic of the [go-search-replace](https://github.com/Automattic/go-search-replace) algorithm developed by [Automattic] into PHP and incorporated that into this utility. You can find that PHP-ported logic here: [php-search-replace](https://github.com/AlextheYounga/php-search-replace). This allows us to search and replace serialized php inside sql dump files, avoiding the constraints of wp-cli for search-replace functions.
+
 ## Features
 
 - 🚀 Push/pull WordPress databases with automatic search-replace
@@ -134,6 +136,7 @@ local:
         user: root
         password: ''
         host: localhost
+        port: 3306
 
 production:
     wordpress_path: /var/www/html
@@ -148,6 +151,7 @@ production:
         user: ${DB_USER}
         password: ${DB_PASSWORD}
         host: localhost
+        port: 3306
     # Optional: Git deployment configuration
     git:
         repo_path: /var/repos/mysite.git
@@ -166,7 +170,8 @@ global:
 
 - `wordpress_path` - WordPress installation path
 - `url` - WordPress site URL
-- `database` - Database credentials (name, user, password, host)
+- `database` - Database credentials (name, user, password, host, port)
+    - `port` defaults to `3306` if omitted
 
 **Optional:**
 

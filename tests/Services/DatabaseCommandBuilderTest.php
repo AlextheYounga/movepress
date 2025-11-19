@@ -102,6 +102,54 @@ class DatabaseCommandBuilderTest extends TestCase
         $this->assertStringContainsString('< \'/tmp/input.sql\'', $command);
     }
 
+    public function testBuildCommandUsesExplicitPortWhenProvided(): void
+    {
+        $dbConfig = [
+            'name' => 'testdb',
+            'user' => 'testuser',
+            'password' => 'testpass',
+            'host' => 'db.internal',
+            'port' => 3310,
+        ];
+
+        $command = $this->builder->buildExportCommand($dbConfig, '/tmp/output.sql', false);
+
+        $this->assertStringContainsString('--host=\'db.internal\'', $command);
+        $this->assertStringContainsString('--port=\'3310\'', $command);
+    }
+
+    public function testBuildCommandParsesPortFromHostWhenNoExplicitPort(): void
+    {
+        $dbConfig = [
+            'name' => 'testdb',
+            'user' => 'testuser',
+            'password' => 'testpass',
+            'host' => 'db.internal:3311',
+        ];
+
+        $command = $this->builder->buildExportCommand($dbConfig, '/tmp/output.sql', false);
+
+        $this->assertStringContainsString('--host=\'db.internal\'', $command);
+        $this->assertStringContainsString('--port=\'3311\'', $command);
+    }
+
+    public function testExplicitPortOverridesPortEmbeddedInHost(): void
+    {
+        $dbConfig = [
+            'name' => 'testdb',
+            'user' => 'testuser',
+            'password' => 'testpass',
+            'host' => 'db.internal:3307',
+            'port' => 3312,
+        ];
+
+        $command = $this->builder->buildExportCommand($dbConfig, '/tmp/output.sql', false);
+
+        $this->assertStringContainsString('--host=\'db.internal\'', $command);
+        $this->assertStringContainsString('--port=\'3312\'', $command);
+        $this->assertStringNotContainsString('--port=\'3307\'', $command);
+    }
+
     public function testValidateDatabaseConfigThrowsExceptionForMissingName(): void
     {
         $dbConfig = [

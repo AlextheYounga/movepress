@@ -26,7 +26,9 @@ class DockerIntegrationTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         if (!self::shouldRunDockerTests()) {
-            self::markTestSkipped('Docker tests run only when invoked with --group docker/--testsuite Docker or MOVEPRESS_RUN_DOCKER_TESTS=1.');
+            self::markTestSkipped(
+                'Docker tests run only when invoked with --group docker/--testsuite Docker or MOVEPRESS_RUN_DOCKER_TESTS=1.',
+            );
         }
 
         self::$projectRoot = dirname(__DIR__, 2);

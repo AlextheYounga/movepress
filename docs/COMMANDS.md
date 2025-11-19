@@ -460,6 +460,7 @@ production:
     database:
         user: ${DB_USER}
         password: ${DB_PASSWORD}
+        port: ${DB_PORT}
 ```
 
 Define them in your `.env` file:
@@ -467,6 +468,7 @@ Define them in your `.env` file:
 ```
 DB_USER=production_user
 DB_PASSWORD=secret123
+DB_PORT=3306
 ```
 
 ---

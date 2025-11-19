@@ -59,6 +59,7 @@ local:
         user: root
         password: ''
         host: localhost
+        port: 3306
 ```
 
 **Database fields:**
@@ -67,6 +68,7 @@ local:
 - `user` - Database username
 - `password` - Database password (use environment variables for security)
 - `host` - Database host (usually "localhost")
+- `port` - Database port (defaults to `3306`)
 
 ---
 
@@ -196,6 +198,7 @@ production:
         user: ${PROD_DB_USER}
         password: ${PROD_DB_PASSWORD}
         host: localhost
+        port: ${PROD_DB_PORT}
     ssh:
         host: ${PROD_SSH_HOST}
         user: ${PROD_SSH_USER}
@@ -207,6 +210,7 @@ production:
 PROD_DB_NAME=wp_production
 PROD_DB_USER=prod_user
 PROD_DB_PASSWORD=super_secret_password
+PROD_DB_PORT=3306
 PROD_SSH_HOST=server.example.com
 PROD_SSH_USER=deploy
 ```
@@ -227,6 +231,7 @@ local:
         user: root
         password: ''
         host: localhost
+        port: 3306
     exclude:
         - 'wp-config-local.php'
 
@@ -244,6 +249,7 @@ staging:
         user: ${STAGING_DB_USER}
         password: ${STAGING_DB_PASSWORD}
         host: localhost
+        port: 3306
     exclude:
         - 'wp-config-staging.php'
 
@@ -261,6 +267,7 @@ production:
         user: ${PROD_DB_USER}
         password: ${PROD_DB_PASSWORD}
         host: localhost
+        port: ${PROD_DB_PORT}
     exclude:
         - 'wp-config-production.php'
 

@@ -52,6 +52,7 @@ local:
         user: 'root'
         password: 'root'
         host: 'localhost' # Or 127.0.0.1
+        port: 3306
     url: 'http://localhost:8080'
 ```
 
@@ -101,6 +102,7 @@ local:
         user: 'root'
         password: 'root'
         host: 'localhost'
+        port: 3306
     url: 'http://localhost:8080'
 ```
 
@@ -122,7 +124,8 @@ services:
 # movefile.yml
 local:
     database:
-        host: 'localhost:3307' # Specify custom port
+        host: 'localhost'
+        port: 3307 # Specify custom port
 ```
 
 ---
@@ -139,6 +142,7 @@ production:
         user: 'wordpress'
         password: '${PROD_DB_PASSWORD}'
         host: 'localhost' # Database exposed on remote host
+        port: 3306
     url: 'https://example.com'
     ssh:
         host: 'production-server.com'
