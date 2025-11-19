@@ -113,7 +113,12 @@ class SqlSearchReplaceService
         $rebuilt = '';
 
         while ($linePart !== '') {
-            $result = $this->fixLineWithSerializedData($linePart, $replacements);
+            try {
+                $result = $this->fixLineWithSerializedData($linePart, $replacements);
+            } catch (RuntimeException $exception) {
+                $rebuilt .= $linePart;
+                break;
+            }
 
             $rebuilt .= $result->pre . $result->serializedPortion;
             $linePart = $result->post;

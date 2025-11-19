@@ -22,8 +22,11 @@ class SqlSearchReplaceServiceTest extends TestCase
      *
      * @param array<int, array{from:string,to:string}> $replacements
      */
-    public function testProcessLineMatchesGoImplementation(string $inputFixture, string $expectedFixture, array $replacements): void
-    {
+    public function testProcessLineMatchesGoImplementation(
+        string $inputFixture,
+        string $expectedFixture,
+        array $replacements,
+    ): void {
         $input = file_get_contents($inputFixture);
         $expected = file_get_contents($expectedFixture);
 
@@ -39,114 +42,100 @@ class SqlSearchReplaceServiceTest extends TestCase
     public static function provideSerializedFixtures(): array
     {
         $base = __DIR__ . '/../Fixtures/serialized';
+        $doubleEncodedFrom = <<<'TXT'
+        http:\\/\\/example\\.com
+        TXT;
+        $doubleEncodedTo = <<<'TXT'
+        http:\\/\\/example2\\.com
+        TXT;
+        $doubleEncodedSerializedFrom = <<<'TXT'
+        \\s=\\shttp_get(\'http:\\/\\/example\\.com
+        TXT;
+        $doubleEncodedSerializedTo = <<<'TXT'
+        \\s=\\shttp_get(\'http:\\/\\/example2\\.com
+        TXT;
+        $heavyEscapingFrom = <<<'TXT'
+        \\c\\d\\e
+        TXT;
+        $heavyEscapingTo = <<<'TXT'
+        \\x
+        TXT;
 
         return [
             'http to https' => [
                 $base . '/http-to-https.input.sql',
                 $base . '/http-to-https.expected.sql',
-                [
-                    ['from' => 'http://automattic.com', 'to' => 'https://automattic.com'],
-                ],
+                [['from' => 'http://automattic.com', 'to' => 'https://automattic.com']],
             ],
             'multiple occurrences on line' => [
                 $base . '/multiple-occurrences.input.sql',
                 $base . '/multiple-occurrences.expected.sql',
-                [
-                    ['from' => 'http://automattic.com', 'to' => 'https://automattic.com'],
-                ],
+                [['from' => 'http://automattic.com', 'to' => 'https://automattic.com']],
             ],
             'skip already replaced value' => [
                 $base . '/skip-updated.input.sql',
                 $base . '/skip-updated.expected.sql',
-                [
-                    ['from' => 'http://automattic.com', 'to' => 'https://automattic.com'],
-                ],
+                [['from' => 'http://automattic.com', 'to' => 'https://automattic.com']],
             ],
             'emoji from' => [
                 $base . '/emoji-from.input.sql',
                 $base . '/emoji-from.expected.sql',
-                [
-                    ['from' => 'http://🖖.com', 'to' => 'https://spock.com'],
-                ],
+                [['from' => 'http://🖖.com', 'to' => 'https://spock.com']],
             ],
             'emoji to' => [
                 $base . '/emoji-to.input.sql',
                 $base . '/emoji-to.expected.sql',
-                [
-                    ['from' => 'https://spock.com', 'to' => 'http://🖖.com'],
-                ],
+                [['from' => 'https://spock.com', 'to' => 'http://🖖.com']],
             ],
             'null characters' => [
                 $base . '/null-bytes.input.sql',
                 $base . '/null-bytes.expected.sql',
-                [
-                    ['from' => 'EnvironmentObject', 'to' => 'Yeehaw'],
-                ],
+                [['from' => 'EnvironmentObject', 'to' => 'Yeehaw']],
             ],
             'different lengths' => [
                 $base . '/different-lengths.input.sql',
                 $base . '/different-lengths.expected.sql',
-                [
-                    ['from' => 'hello', 'to' => 'goodbye'],
-                ],
+                [['from' => 'hello', 'to' => 'goodbye']],
             ],
             'longer replacements' => [
                 $base . '/long-different-lengths.input.sql',
                 $base . '/long-different-lengths.expected.sql',
-                [
-                    ['from' => 'bbbbbbbbbb', 'to' => 'ccccccccccccccc'],
-                ],
+                [['from' => 'bbbbbbbbbb', 'to' => 'ccccccccccccccc']],
             ],
             'serialized css' => [
                 $base . '/serialized-css.input.sql',
                 $base . '/serialized-css.expected.sql',
-                [
-                    ['from' => 'https://uss-enterprise.com', 'to' => 'https://ncc-1701-d.space'],
-                ],
+                [['from' => 'https://uss-enterprise.com', 'to' => 'https://ncc-1701-d.space']],
             ],
             'double encoded string' => [
                 $base . '/double-encoded.input.sql',
                 $base . '/double-encoded.expected.sql',
-                [
-                    ['from' => 'http:\\/\\/example\\.com', 'to' => 'http:\\/\\/example2\\.com'],
-                ],
+                [['from' => $doubleEncodedFrom, 'to' => $doubleEncodedTo]],
             ],
             'non serialized section with serialized data' => [
                 $base . '/non-serialized-mixed.input.sql',
                 $base . '/non-serialized-mixed.expected.sql',
-                [
-                    ['from' => 'example', 'to' => 'example2'],
-                    ['from' => 'http:\\/\\/example\\.com', 'to' => 'http:\\/\\/example2\\.com'],
-                ],
+                [['from' => 'example', 'to' => 'example2'], ['from' => $doubleEncodedFrom, 'to' => $doubleEncodedTo]],
             ],
             'heavy escaping' => [
                 $base . '/heavy-escaping.input.sql',
                 $base . '/heavy-escaping.expected.sql',
-                [
-                    ['from' => '\\c\\d\\e', 'to' => '\\x'],
-                ],
+                [['from' => $heavyEscapingFrom, 'to' => $heavyEscapingTo]],
             ],
             'escaped delimiters' => [
                 $base . '/escaped-delimiters.input.sql',
                 $base . '/escaped-delimiters.expected.sql',
-                [
-                    ['from' => 'hello', 'to' => 'helloworld'],
-                ],
+                [['from' => 'hello', 'to' => 'helloworld']],
             ],
             'mydumper delimiters' => [
                 $base . '/mydumper-delimiters.input.sql',
                 $base . '/mydumper-delimiters.expected.sql',
-                [
-                    ['from' => 'hello', 'to' => 'helloworld'],
-                ],
+                [['from' => 'hello', 'to' => 'helloworld']],
             ],
             'overlapping replacements without serialization' => [
                 $base . '/overlapping-non-serialized.input.sql',
                 $base . '/overlapping-non-serialized.expected.sql',
-                [
-                    ['from' => 'http:', 'to' => 'https:'],
-                    ['from' => '//automattic.com', 'to' => '//automattic.org'],
-                ],
+                [['from' => 'http:', 'to' => 'https:'], ['from' => '//automattic.com', 'to' => '//automattic.org']],
             ],
         ];
     }
