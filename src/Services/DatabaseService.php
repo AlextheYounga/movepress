@@ -105,26 +105,50 @@ class DatabaseService
             throw new RuntimeException("SQL file not found: {$inputPath}");
         }
 
-        $remoteTempFile = '/tmp/movepress_import_' . uniqid() . (str_ends_with($inputPath, '.gz') ? '.sql.gz' : '.sql');
+        $isCompressed = str_ends_with($inputPath, '.gz');
+        $remoteTempFile = '/tmp/movepress_import_' . uniqid() . ($isCompressed ? '.sql.gz' : '.sql');
+        $remoteSqlPath = $isCompressed ? substr($remoteTempFile, 0, -3) : $remoteTempFile;
 
         // Transfer file to remote
         if (!$this->remoteTransfer->uploadFile($sshService, $inputPath, $remoteTempFile)) {
             return false;
         }
 
-        // Execute import on remote server
-        $mysqlCmd = $this->commandBuilder->buildImportCommand($dbConfig, $remoteTempFile);
+        // Decompress on remote server if needed so we can detect failures explicitly
+        if ($isCompressed) {
+            $decompressCommand = sprintf('gunzip -f %s', escapeshellarg($remoteTempFile));
+            if ($this->verbose) {
+                $this->output->writeln("Remote decompress: {$decompressCommand}");
+            }
+            if (!$this->remoteTransfer->executeRemoteCommand($sshService, $decompressCommand)) {
+                $this->remoteTransfer->executeRemoteCommand(
+                    $sshService,
+                    sprintf('rm -f %s %s', escapeshellarg($remoteTempFile), escapeshellarg($remoteSqlPath)),
+                );
+                return false;
+            }
+        }
+
+        // Execute import on remote server using the decompressed file
+        $mysqlCmd = $this->commandBuilder->buildImportCommand($dbConfig, $remoteSqlPath);
 
         if ($this->verbose) {
             $this->output->writeln("Remote import: {$mysqlCmd}");
         }
 
         if (!$this->remoteTransfer->executeRemoteCommand($sshService, $mysqlCmd)) {
+            $this->remoteTransfer->executeRemoteCommand(
+                $sshService,
+                sprintf('rm -f %s %s', escapeshellarg($remoteTempFile), escapeshellarg($remoteSqlPath)),
+            );
             return false;
         }
 
         // Clean up remote temp file
-        $this->remoteTransfer->executeRemoteCommand($sshService, "rm -f {$remoteTempFile}");
+        $this->remoteTransfer->executeRemoteCommand(
+            $sshService,
+            sprintf('rm -f %s %s', escapeshellarg($remoteTempFile), escapeshellarg($remoteSqlPath)),
+        );
 
         return true;
     }
