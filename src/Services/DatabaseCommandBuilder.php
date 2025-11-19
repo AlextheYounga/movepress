@@ -27,6 +27,7 @@ class DatabaseCommandBuilder
         $parts[] = '--single-transaction';
         $parts[] = '--quick';
         $parts[] = '--lock-tables=false';
+        $parts[] = '--column-statistics=0';
 
         $parts[] = escapeshellarg($dbConfig['name']);
 

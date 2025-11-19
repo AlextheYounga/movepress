@@ -108,6 +108,7 @@ class DatabaseService
         $isCompressed = str_ends_with($inputPath, '.gz');
         $remoteTempFile = '/tmp/movepress_import_' . uniqid() . ($isCompressed ? '.sql.gz' : '.sql');
         $remoteSqlPath = $isCompressed ? substr($remoteTempFile, 0, -3) : $remoteTempFile;
+        $leaveRemoteDump = (bool) getenv('MOVEPRESS_DEBUG_KEEP_REMOTE_IMPORT');
 
         // Transfer file to remote
         if (!$this->remoteTransfer->uploadFile($sshService, $inputPath, $remoteTempFile)) {
@@ -121,10 +122,12 @@ class DatabaseService
                 $this->output->writeln("Remote decompress: {$decompressCommand}");
             }
             if (!$this->remoteTransfer->executeRemoteCommand($sshService, $decompressCommand)) {
-                $this->remoteTransfer->executeRemoteCommand(
-                    $sshService,
-                    sprintf('rm -f %s %s', escapeshellarg($remoteTempFile), escapeshellarg($remoteSqlPath)),
-                );
+                if (!$leaveRemoteDump) {
+                    $this->remoteTransfer->executeRemoteCommand(
+                        $sshService,
+                        sprintf('rm -f %s %s', escapeshellarg($remoteTempFile), escapeshellarg($remoteSqlPath)),
+                    );
+                }
                 return false;
             }
         }
@@ -137,20 +140,40 @@ class DatabaseService
         }
 
         if (!$this->remoteTransfer->executeRemoteCommand($sshService, $mysqlCmd)) {
-            $this->remoteTransfer->executeRemoteCommand(
-                $sshService,
-                sprintf('rm -f %s %s', escapeshellarg($remoteTempFile), escapeshellarg($remoteSqlPath)),
-            );
+            $this->maybeCleanupRemoteImportFiles($sshService, $remoteTempFile, $remoteSqlPath, $leaveRemoteDump);
             return false;
         }
 
-        // Clean up remote temp file
+        // Clean up remote temp file unless debugging is enabled
+        if ($leaveRemoteDump) {
+            $this->output->writeln(
+                sprintf(
+                    '<comment>Leaving remote import artifacts for inspection: %s%s</comment>',
+                    $remoteSqlPath,
+                    $isCompressed ? ' (original gz left as well)' : '',
+                ),
+            );
+        } else {
+            $this->maybeCleanupRemoteImportFiles($sshService, $remoteTempFile, $remoteSqlPath, false);
+        }
+
+        return true;
+    }
+
+    private function maybeCleanupRemoteImportFiles(
+        SshService $sshService,
+        string $remoteTempFile,
+        string $remoteSqlPath,
+        bool $skipCleanup,
+    ): void {
+        if ($skipCleanup) {
+            return;
+        }
+
         $this->remoteTransfer->executeRemoteCommand(
             $sshService,
             sprintf('rm -f %s %s', escapeshellarg($remoteTempFile), escapeshellarg($remoteSqlPath)),
         );
-
-        return true;
     }
 
     /**
