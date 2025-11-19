@@ -13,6 +13,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class DatabaseSyncController
 {
     private SqlSearchReplaceService $sqlProcessor;
+    private bool $preserveDumps;
 
     public function __construct(
         private readonly OutputInterface $output,
@@ -21,6 +22,8 @@ final class DatabaseSyncController
         private readonly bool $verbose,
     ) {
         $this->sqlProcessor = new SqlSearchReplaceService();
+        $value = getenv('MOVEPRESS_DEBUG_KEEP_REMOTE_IMPORT');
+        $this->preserveDumps = $value !== false && (bool) $value;
     }
 
     public function sync(
@@ -142,12 +145,37 @@ final class DatabaseSyncController
             str_replace('.gz', '', $exportFile) . '.rewrite',
         ];
 
+        if ($this->preserveDumps) {
+            $existing = array_values(
+                array_filter($paths, static function ($path) {
+                    return $path !== null && $path !== '' && file_exists($path);
+                }),
+            );
+
+            if (!empty($existing)) {
+                $this->io->note(array_merge(['Preserved database dump artifacts:'], $existing));
+            }
+            return;
+        }
+
         foreach ($paths as $path) {
             if ($path === null || $path === '') {
                 continue;
             }
 
             @unlink($path);
+        }
+    }
+
+    private function ensureLocalDumpNotEmpty(string $path): void
+    {
+        if (!is_file($path)) {
+            throw new \RuntimeException('SQL dump not found: ' . $path);
+        }
+
+        $size = filesize($path);
+        if ($size === false || $size === 0) {
+            throw new \RuntimeException('SQL dump appears to be empty. Aborting to prevent data loss.');
         }
     }
 
@@ -163,6 +191,8 @@ final class DatabaseSyncController
         $wasCompressed = str_ends_with($exportFile, '.gz');
         $plainPath = $wasCompressed ? $this->decompressGzip($exportFile) : $exportFile;
         $rewrittenPath = $plainPath . '.rewrite';
+
+        $this->ensureLocalDumpNotEmpty($plainPath);
 
         $this->sqlProcessor->replaceInFile($plainPath, $rewrittenPath, [['from' => $sourceUrl, 'to' => $destUrl]]);
 

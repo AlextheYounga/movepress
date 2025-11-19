@@ -11,6 +11,23 @@ class DatabaseCommandBuilder
      */
     public function buildExportCommand(array $dbConfig, string $outputPath, bool $compress): string
     {
+        $withColumnStats = $this->buildSingleExportCommand($dbConfig, $outputPath, $compress, true);
+        $withoutColumnStats = $this->buildSingleExportCommand($dbConfig, $outputPath, $compress, false);
+
+        if ($withColumnStats === $withoutColumnStats) {
+            return $withColumnStats;
+        }
+
+        $wrapped = $withColumnStats . ' || ' . $withoutColumnStats;
+        return sprintf('bash -o pipefail -c %s', escapeshellarg($wrapped));
+    }
+
+    private function buildSingleExportCommand(
+        array $dbConfig,
+        string $outputPath,
+        bool $compress,
+        bool $includeColumnStats,
+    ): string {
         [$host, $port] = $this->resolveHostAndPort($dbConfig);
 
         $parts = ['mysqldump', '--user=' . escapeshellarg($dbConfig['user']), '--host=' . escapeshellarg($host)];
@@ -23,11 +40,12 @@ class DatabaseCommandBuilder
             $parts[] = '--password=' . escapeshellarg($dbConfig['password']);
         }
 
-        // Add common mysqldump options for safe, consistent exports
         $parts[] = '--single-transaction';
         $parts[] = '--quick';
         $parts[] = '--lock-tables=false';
-        $parts[] = '--column-statistics=0';
+        if ($includeColumnStats) {
+            $parts[] = '--column-statistics=0';
+        }
 
         $parts[] = escapeshellarg($dbConfig['name']);
 
