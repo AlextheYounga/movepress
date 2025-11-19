@@ -41,24 +41,16 @@ Agents should reference this before making any design or implementation decision
 
 ---
 
-## WP-CLI Integration (CRITICAL)
+## SQL Search-Replace Strategy (CRITICAL)
 
-**NEVER use global `wp` command or call wp-cli as an external command.** Movepress bundles wp-cli and uses it as a PHP library.
-
-- ✅ **Correct:** Call `Application::loadWpCliClasses()`, bootstrap WordPress, initialize WP_CLI config, then use wp-cli classes (e.g., `new Search_Replace_Command()`)
-- ❌ **Wrong:** Execute `wp` command, call `php boot-fs.php`, or run wp-cli as external process
-- **Why:** wp-cli is a PHP library. We have the entire codebase bundled.
-- ✅ **Loading wp-cli:** Call `Movepress\Application::loadWpCliClasses()` which loads all necessary wp-cli files from vendor
-- **Bootstrap order:**
-    1. Call `Application::loadWpCliClasses()`
-    2. Define `WP_USE_THEMES` and `WP_CLI` constants
-    3. Bootstrap WordPress via `require_once $wordpressPath . '/wp-load.php'`
-    4. Initialize WP_CLI config via reflection: `$runner = \WP_CLI::get_runner(); /* set $runner->config via reflection */`
-    5. Use wp-cli command classes: `$cmd = new Search_Replace_Command(); $cmd->__invoke(...);`
-- **Remote execution:** Transfer movepress.phar to remote and execute `movepress post-import` command via SSH
-- **Never:** Try to execute PHP files from within PHAR using `php phar://...` - this doesn't work
-- **Never:** Extract wp-cli files to temporary locations - defeats the purpose of bundling
-- **Exception:** Test environment setup scripts (entrypoint.sh) may download wp-cli for initial WordPress installation ONLY
+- **Always run replacements on SQL dumps using `SqlSearchReplaceService`.**
+    - Dump the source database with mysqldump (gzipped for transfer by default).
+    - Decompress locally when needed and run `SqlSearchReplaceService->replaceInFile()` with `[ ['from' => $sourceUrl, 'to' => $destUrl] ]`.
+    - Recompress (optional) and transfer the rewritten dump to the destination.
+    - Import the updated SQL with `mysql` locally or via SSH—WordPress never boots during this process.
+- **Never call `wp` or bootstrap WordPress for search-replace.** Movepress no longer depends on wp-cli.
+- **Remote servers never run Movepress solely for database updates.** They just import SQL that already contains destination URLs.
+- **Docker/test setup scripts may install wp-cli to provision WordPress quickly,** but Movepress code must stay wp-cli-free.
 
 ---
 
@@ -79,19 +71,18 @@ Agents should reference this before making any design or implementation decision
     - Dry-run mode
 - **Key Fixes:**
     - Fixed `mysql` → `mariadb` command usage for MariaDB containers
-    - Implemented proper wp-cli library integration
-    - Created `PostImportCommand` for remote search-replace execution
+    - Ported Automattic's go-search-replace logic to PHP for SQL dumps
+    - Removed remote search-replace execution and PHAR staging for databases
     - Updated database host configuration for realistic SSH-based operations
 
-### ✅ WP-CLI Library Integration
+### ✅ SQL Search-Replace Library
 
-- **Goal:** Use wp-cli as PHP library instead of external commands
-- **Accomplished:** Complete wp-cli integration with proper bootstrap sequence:
-    - `Application::loadWpCliClasses()` loads all necessary wp-cli files
-    - Reflection-based WP_CLI config initialization
-    - `PostImportCommand` executes search-replace on remote servers
-    - PHAR-based remote execution via `movepress post-import`
-- **Architecture:** Local operations use direct class instantiation, remote operations transfer PHAR and execute via SSH
+- **Goal:** Run URL replacements without wp-cli or WordPress bootstrapping
+- **Accomplished:**
+    - Ported Automattic's go-search-replace library to PHP (`SqlSearchReplaceService`)
+    - Database sync rewrites SQL dumps locally before import (push or pull)
+    - Removed wp-cli bootstrap requirements and the remote `post-import` command
+- **Result:** Simpler deployments and identical behavior for local ↔ remote syncs without remote PHAR staging.
 
 ### ✅ Realistic Test Environment
 

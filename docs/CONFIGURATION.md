@@ -74,7 +74,7 @@ local:
 
 ### wordpress_path
 
-Path to WordPress core files if different from `path`. Used by wp-cli.
+Path to the WordPress installation if different from `path`. Used when scanning files, creating backups, and locating `wp-content`.
 
 ```yaml
 local:

@@ -10,7 +10,7 @@ Guide for migrating from Wordmove to Movepress.
 
 - ✅ Requires no Ruby installation
 - ✅ Ships as a single executable file
-- ✅ Bundles wp-cli (no separate installation)
+- ✅ Contains built-in SQL search-replace (no wp-cli needed)
 - ✅ Has active development and support
 - ✅ Provides better error messages
 - ✅ Includes built-in diagnostics
@@ -181,7 +181,7 @@ database:
     user: user
     password: pass
     host: localhost
-    # Charset and collate handled automatically by wp-cli
+    # Charset and collate handled automatically by mysqldump/mysql
 ```
 
 **Migration:** Remove `charset` and `collate` if present (handled automatically).
@@ -249,7 +249,7 @@ database:
 
 ### Only in Movepress
 
-- ✅ Built-in wp-cli (no separate install)
+- ✅ Built-in SQL search-replace (no wp-cli dependency)
 - ✅ Configuration validation (`movepress validate`)
 - ✅ System diagnostics (`movepress status`)
 - ✅ SSH testing (`movepress ssh`)
@@ -261,14 +261,13 @@ database:
 ### Only in Wordmove
 
 - FTP/SFTP support (Movepress is SSH/rsync only)
-- SQL adapter options (Movepress uses wp-cli for all DB operations)
+- SQL adapter options (Movepress always uses mysqldump/mysql with automatic SQL-dump replacements)
 
 ---
 
 ## Common Migration Issues
 
 - **SSH key not found:** Add explicit `key: ~/.ssh/id_rsa` to SSH config
-- **wp-cli not found:** Movepress bundles wp-cli (verify with `movepress status`)
 - **mysql commands not found:** Install MySQL client (`brew install mysql-client` or `apt-get install mysql-client`)
 - **Source environment required:** Always specify both environments (`movepress push local production --db`)
 
@@ -336,7 +335,7 @@ Update team documentation to include both options during transition period.
 
 | Feature              | Wordmove                    | Movepress                                    |
 | -------------------- | --------------------------- | -------------------------------------------- |
-| **Dependencies**     | Ruby + gems + system wp-cli | Single PHAR file                             |
+| **Dependencies**     | Ruby + gems + system wp-cli | Single PHAR + MySQL client tools             |
 | **Error Messages**   | Generic errors              | Detailed troubleshooting tips                |
 | **Validation**       | Errors during execution     | Pre-flight validation (`movepress validate`) |
 | **Diagnostics**      | Manual testing              | Built-in system checks (`movepress status`)  |

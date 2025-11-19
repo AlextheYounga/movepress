@@ -41,7 +41,6 @@ class ValidationService
                 return false;
             }
             $this->io->writeln('✓ mysql is available');
-            $this->io->writeln('✓ wp-cli is available (bundled)');
 
             if (!$this->validateWordpressPath($destEnv)) {
                 return false;
@@ -96,11 +95,9 @@ class ValidationService
             return true;
         }
 
-        $wpLoadPath = rtrim($wordpressPath, '/') . '/wp-load.php';
-
         if (!isset($env['ssh'])) {
-            if (!file_exists($wpLoadPath)) {
-                $this->io->error("WordPress not found at: {$wpLoadPath}");
+            if (!is_dir($wordpressPath)) {
+                $this->io->error("WordPress path not found: {$wordpressPath}");
                 return false;
             }
 
@@ -110,8 +107,8 @@ class ValidationService
 
         $this->io->write('Checking destination WordPress path via SSH... ');
         $sshService = new SshService($env['ssh']);
-        if (!$sshService->fileExists($wpLoadPath)) {
-            $this->io->error("WordPress not found at remote path: {$wpLoadPath}");
+        if (!$sshService->directoryExists($wordpressPath)) {
+            $this->io->error("WordPress path not found at remote path: {$wordpressPath}");
             return false;
         }
 

@@ -30,11 +30,6 @@ class PostFilesCommand extends Command
         $newUrl = $input->getArgument('new-url');
         $wordpressPath = getcwd();
 
-        if (!file_exists($wordpressPath . '/wp-load.php')) {
-            $io->error("WordPress not found in current directory: {$wordpressPath}");
-            return Command::FAILURE;
-        }
-
         try {
             $scanPath = $this->resolveScanPath($wordpressPath, (string) $input->getOption('path'));
             $service = new FileSearchReplaceService($output->isVeryVerbose() || $output->isDebug());

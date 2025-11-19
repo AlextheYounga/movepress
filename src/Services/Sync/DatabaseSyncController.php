@@ -6,17 +6,22 @@ namespace Movepress\Services\Sync;
 
 use Movepress\Services\DatabaseService;
 use Movepress\Services\SshService;
+use Movepress\Services\SqlSearchReplaceService;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 final class DatabaseSyncController
 {
+    private SqlSearchReplaceService $sqlProcessor;
+
     public function __construct(
         private readonly OutputInterface $output,
         private readonly SymfonyStyle $io,
         private readonly bool $dryRun,
         private readonly bool $verbose,
-    ) {}
+    ) {
+        $this->sqlProcessor = new SqlSearchReplaceService();
+    }
 
     public function sync(
         array $sourceEnv,
@@ -30,8 +35,8 @@ final class DatabaseSyncController
             if (!$noBackup) {
                 $this->io->text('Would create backup of destination database');
             }
+            $this->io->text('Would rewrite SQL dump: ' . $sourceEnv['url'] . ' → ' . $destEnv['url']);
             $this->io->text('Would import to destination database');
-            $this->io->text('Would perform search-replace: ' . $sourceEnv['url'] . ' → ' . $destEnv['url']);
             return true;
         }
 
@@ -58,26 +63,23 @@ final class DatabaseSyncController
         $tempDir = sys_get_temp_dir();
         $exportFile = $tempDir . '/movepress_export_' . uniqid() . '.sql.gz';
 
+        $processedDump = null;
+
         try {
             $this->exportSourceDatabase($dbService, $sourceDb, $exportFile, $sourceSsh);
+            $processedDump = $this->prepareSqlDumpForDestination($exportFile, $sourceUrl, $destUrl);
 
             if (!$noBackup) {
                 $this->createDestinationBackup($dbService, $destDb, $destSsh, $destEnv);
             }
 
-            $this->importDestinationDatabase($dbService, $destDb, $exportFile, $destSsh);
+            $this->importDestinationDatabase($dbService, $destDb, $processedDump, $destSsh);
+            $this->io->success("Replaced URLs in SQL dump: {$sourceUrl} → {$destUrl}");
 
-            $this->io->text("Performing search-replace: {$sourceUrl} → {$destUrl}");
-            $destWordpressPath = $destEnv['wordpress_path'];
-            $replacedSuccess = $dbService->searchReplace($destDb, $destWordpressPath, $sourceUrl, $destUrl, $destSsh);
-            if (!$replacedSuccess) {
-                throw new \RuntimeException('Failed to perform search-replace');
-            }
-
-            @unlink($exportFile);
+            $this->cleanupTempFiles($exportFile, $processedDump);
             return true;
         } catch (\Exception $e) {
-            $this->cleanupTempFiles($exportFile);
+            $this->cleanupTempFiles($exportFile, $processedDump);
             $this->io->error($e->getMessage());
             return false;
         }
@@ -130,10 +132,123 @@ final class DatabaseSyncController
         }
     }
 
-    private function cleanupTempFiles(string $exportFile): void
+    private function cleanupTempFiles(string $exportFile, ?string $processedDump = null): void
     {
-        @unlink($exportFile);
-        @unlink(str_replace('.gz', '', $exportFile));
-        @unlink(str_replace('.gz', '', $exportFile) . '.bak');
+        $paths = [
+            $exportFile,
+            $processedDump,
+            str_replace('.gz', '', $exportFile),
+            str_replace('.gz', '', $exportFile) . '.bak',
+            str_replace('.gz', '', $exportFile) . '.rewrite',
+        ];
+
+        foreach ($paths as $path) {
+            if ($path === null || $path === '') {
+                continue;
+            }
+
+            @unlink($path);
+        }
+    }
+
+    private function prepareSqlDumpForDestination(string $exportFile, string $sourceUrl, string $destUrl): string
+    {
+        if ($sourceUrl === $destUrl) {
+            $this->io->text('Source and destination URLs match; skipping SQL rewrite.');
+            return $exportFile;
+        }
+
+        $this->io->text("Rewriting SQL dump for {$sourceUrl} → {$destUrl}");
+
+        $wasCompressed = str_ends_with($exportFile, '.gz');
+        $plainPath = $wasCompressed ? $this->decompressGzip($exportFile) : $exportFile;
+        $rewrittenPath = $plainPath . '.rewrite';
+
+        $this->sqlProcessor->replaceInFile($plainPath, $rewrittenPath, [['from' => $sourceUrl, 'to' => $destUrl]]);
+
+        if (!@rename($rewrittenPath, $plainPath)) {
+            @unlink($rewrittenPath);
+            throw new \RuntimeException('Failed to finalize rewritten SQL dump.');
+        }
+
+        if ($wasCompressed) {
+            $this->compressGzip($plainPath, $exportFile);
+            @unlink($plainPath);
+            return $exportFile;
+        }
+
+        return $plainPath;
+    }
+
+    private function decompressGzip(string $gzipPath): string
+    {
+        $plainPath = substr($gzipPath, 0, -3);
+        $input = gzopen($gzipPath, 'rb');
+
+        if ($input === false) {
+            throw new \RuntimeException('Unable to read compressed SQL dump: ' . $gzipPath);
+        }
+
+        $output = fopen($plainPath, 'wb');
+        if ($output === false) {
+            gzclose($input);
+            throw new \RuntimeException('Unable to create temporary SQL file: ' . $plainPath);
+        }
+
+        try {
+            while (!gzeof($input)) {
+                $chunk = gzread($input, 1024 * 1024);
+                if ($chunk === false) {
+                    throw new \RuntimeException('Failed while extracting SQL dump.');
+                }
+
+                if ($chunk === '') {
+                    continue;
+                }
+
+                if (fwrite($output, $chunk) === false) {
+                    throw new \RuntimeException('Failed to write extracted SQL dump.');
+                }
+            }
+        } finally {
+            gzclose($input);
+            fclose($output);
+        }
+
+        return $plainPath;
+    }
+
+    private function compressGzip(string $plainPath, string $targetPath): void
+    {
+        $input = fopen($plainPath, 'rb');
+        if ($input === false) {
+            throw new \RuntimeException('Unable to open SQL dump for compression: ' . $plainPath);
+        }
+
+        $output = gzopen($targetPath, 'wb9');
+        if ($output === false) {
+            fclose($input);
+            throw new \RuntimeException('Unable to recreate compressed SQL dump: ' . $targetPath);
+        }
+
+        try {
+            while (!feof($input)) {
+                $chunk = fread($input, 1024 * 1024);
+                if ($chunk === false) {
+                    throw new \RuntimeException('Failed while compressing SQL dump.');
+                }
+
+                if ($chunk === '') {
+                    continue;
+                }
+
+                if (gzwrite($output, $chunk) === false) {
+                    throw new \RuntimeException('Failed to write compressed SQL chunk.');
+                }
+            }
+        } finally {
+            fclose($input);
+            gzclose($output);
+        }
     }
 }

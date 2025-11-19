@@ -77,28 +77,6 @@ class CommandValidationTest extends TestCase
         $this->assertStringContainsString('--host', $output);
     }
 
-    public function testWpCliAcceptsSearchReplaceCommand(): void
-    {
-        // Use bundled wp-cli only
-        $bundledBootstrap = dirname(__DIR__, 2) . '/vendor/wp-cli/wp-cli/php/boot-fs.php';
-
-        if (!file_exists($bundledBootstrap)) {
-            $this->markTestSkipped('Bundled wp-cli not available');
-        }
-
-        // Check that search-replace command exists
-        $process = new Process([PHP_BINARY, $bundledBootstrap, 'help', 'search-replace']);
-        $process->run();
-
-        $this->assertTrue($process->isSuccessful(), 'wp-cli does not support search-replace command');
-
-        // Verify our flags are supported
-        $output = $process->getOutput();
-        $this->assertStringContainsString('--skip-columns', $output);
-        $this->assertStringContainsString('--path', $output);
-        $this->assertStringContainsString('--quiet', $output);
-    }
-
     public function testSshAcceptsOurFlags(): void
     {
         if (!$this->isCommandAvailable('ssh')) {

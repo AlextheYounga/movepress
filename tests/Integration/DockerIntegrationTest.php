@@ -25,6 +25,10 @@ class DockerIntegrationTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
+        if (!self::shouldRunDockerTests()) {
+            self::markTestSkipped('Docker tests run only when invoked with --group docker/--testsuite Docker or MOVEPRESS_RUN_DOCKER_TESTS=1.');
+        }
+
         self::$projectRoot = dirname(__DIR__, 2);
         self::$dockerDir = self::$projectRoot . '/tests/docker';
         self::$movepressBin = self::$projectRoot . '/build/movepress.phar';
@@ -77,6 +81,55 @@ class DockerIntegrationTest extends TestCase
             //   cd tests/docker && docker compose stop
             echo "\nℹ️ Leaving Docker environment running to speed up subsequent runs.\n";
         }
+    }
+
+    private static function shouldRunDockerTests(): bool
+    {
+        if (filter_var(getenv('MOVEPRESS_RUN_DOCKER_TESTS'), FILTER_VALIDATE_BOOL)) {
+            return true;
+        }
+
+        $argv = $_SERVER['argv'] ?? [];
+        $total = count($argv);
+
+        for ($index = 0; $index < $total; $index++) {
+            $arg = $argv[$index];
+
+            if ($arg === '--group' && isset($argv[$index + 1]) && self::argumentContainsDocker($argv[$index + 1])) {
+                return true;
+            }
+
+            if (str_starts_with($arg, '--group=') && self::argumentContainsDocker(substr($arg, 8))) {
+                return true;
+            }
+
+            if ($arg === '--testsuite' && isset($argv[$index + 1]) && self::isDockerSuite($argv[$index + 1])) {
+                return true;
+            }
+
+            if (str_starts_with($arg, '--testsuite=') && self::isDockerSuite(substr($arg, 12))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function argumentContainsDocker(string $value): bool
+    {
+        $parts = array_map('trim', explode(',', $value));
+        foreach ($parts as $part) {
+            if (strcasecmp($part, 'docker') === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function isDockerSuite(string $value): bool
+    {
+        return strcasecmp(trim($value), 'docker') === 0;
     }
 
     public function testConfigurationValidation(): void

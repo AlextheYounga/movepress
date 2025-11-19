@@ -170,20 +170,6 @@ mysql:
 
 ---
 
-### Issue: "wp-cli error: WordPress not found at path"
-
-**Cause:** WordPress files not accessible on host machine
-
-**Solution:** Add volume mount in `docker-compose.yml`:
-
-```yaml
-wordpress:
-    volumes:
-        - ./wordpress:/var/www/html
-```
-
----
-
 ### Issue: Rsync can't find wp-content
 
 **Cause:** Using container path instead of host path

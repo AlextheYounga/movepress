@@ -13,7 +13,7 @@ A modern WordPress deployment tool for pushing and pulling databases and files b
 - 🔧 Git-based deployment for tracked files (themes, plugins, core)
 - 🔐 Environment variable support in configuration
 - 🎯 Flexible exclude patterns (global and per-environment)
-- 📦 Bundled with wp-cli - no separate installation needed
+- 🧠 Native SQL search-replace (ported from Automattic's go-search-replace)
 - ⚡ Single executable `.phar` file
 - 🔁 Automatic URL updates in synced files and databases
 
@@ -204,7 +204,6 @@ movepress push local production --untracked-files # Sync uploads
 - SSH access to remote servers
 - rsync installed on local and remote systems
 - mysql/mysqldump command-line tools
-- wp-cli (bundled with Movepress)
 
 ## Development
 
@@ -284,12 +283,12 @@ movepress status
 # Run unit and integration tests (fast)
 ./vendor/bin/phpunit
 
-# Run all tests including Docker integration (slower)
+# Run Docker integration tests (requires Docker + built PHAR)
 ./vendor/bin/phpunit --group=docker
-
-# Or run just Docker tests
-./vendor/bin/phpunit --testsuite=Docker
+# Equivalent: ./vendor/bin/phpunit --testsuite=Docker
 ```
+
+Docker tests are skipped unless you explicitly request them with `--group docker`/`--testsuite Docker` or export `MOVEPRESS_RUN_DOCKER_TESTS=1`.
 
 ### Docker Test Environment
 
@@ -297,7 +296,7 @@ A complete Docker-based integration testing environment spins up two WordPress e
 
 ```bash
 # Via PHPUnit (recommended)
-./vendor/bin/phpunit --testsuite=Docker
+./vendor/bin/phpunit --group=docker
 
 # Or via bash script
 cd tests/docker && bash run-tests.sh
@@ -317,7 +316,7 @@ See [tests/Docker/README.md](tests/Docker/README.md) for details.
 - ✅ **Single executable** - Distributed as a self-contained `.phar` file
 - ✅ **Git-based deployments** - Modern workflow with Git for code, rsync for uploads
 - ✅ **Actively maintained** - Modern codebase with ongoing support
-- ✅ **Built-in wp-cli** - No separate installation needed
+- ✅ **Built-in SQL search-replace** - No wp-cli dependency
 - ✅ **Better validation** - Comprehensive config validation and diagnostics
 - ✅ **Improved error handling** - Clear error messages and troubleshooting tips
 - ✅ **Modern PHP** - Takes advantage of PHP 8.1+ features

@@ -57,7 +57,6 @@ class StatusCommand extends Command
             ['rsync', RsyncService::isAvailable()],
             ['mysqldump', DatabaseService::isMysqldumpAvailable()],
             ['mysql', DatabaseService::isMysqlAvailable()],
-            ['wp-cli', true], // Always bundled
         ];
 
         $rows = [];

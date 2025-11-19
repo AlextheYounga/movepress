@@ -226,7 +226,7 @@ movepress status production
 
 Displays:
 
-- System tools availability (rsync, mysql, mysqldump, wp-cli)
+- System tools availability (rsync, mysql, mysqldump)
 - List of configured environments
 - Environment details (when specific environment is provided)
 
@@ -369,7 +369,7 @@ movepress post-files <old-url> <new-url> [--path=<subdir>]
 
 ### Behaviour
 
-- Must be executed inside a WordPress installation (Movepress checks for `wp-load.php`)
+- Should be executed from your WordPress root (Movepress scans the current working directory by default)
 - Scans the working directory by default; `--path` lets you target a subdirectory such as `wp-content/uploads`
 - Only processes known text extensions and skips files that appear binary
 

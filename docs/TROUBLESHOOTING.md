@@ -112,7 +112,7 @@ See [Docker Setup Guide](DOCKER.md) for complete configuration.
 **Problem:**
 
 ```
-wp-cli error: WordPress not found at path
+WordPress not found at: /var/www/html
 ```
 
 **Solution:**
