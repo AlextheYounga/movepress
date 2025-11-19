@@ -187,7 +187,7 @@ Use `${VAR_NAME}` syntax to reference variables from your `.env` file.
 Movepress uses a **hybrid approach** for managing WordPress sites:
 
 1. **Git for tracked files** - Deploy themes, plugins, and WordPress core via Git
-2. **Rsync for untracked files** - Sync uploads, caches, and other generated content
+2. **Rsync for untracked files** - Sync uploads, caches, and other generated content (requires at least one local endpoint so Movepress can update URLs locally)
 3. **Database sync** - Export, search-replace, and import databases between environments
 
 **Typical workflow:**

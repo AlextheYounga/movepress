@@ -66,6 +66,41 @@ class ValidationServiceTest extends TestCase
         $this->assertSame('', $style->fetchOutput());
     }
 
+    public function test_rejects_remote_to_remote_untracked_sync(): void
+    {
+        $style = $this->createStyle();
+        $service = new ValidationService($style);
+
+        $source = [
+            'wordpress_path' => '/var/www/source',
+            'url' => 'https://source.test',
+            'database' => ['name' => 'src'],
+            'ssh' => ['host' => 'source.test'],
+        ];
+
+        $dest = [
+            'wordpress_path' => '/var/www/dest',
+            'url' => 'https://dest.test',
+            'database' => ['name' => 'dest'],
+            'ssh' => ['host' => 'dest.test'],
+        ];
+
+        $result = $service->validatePrerequisites(
+            $source,
+            $dest,
+            [
+                'db' => false,
+                'untracked_files' => true,
+                'delete' => false,
+                'no_backup' => false,
+            ],
+            true,
+        );
+
+        $this->assertFalse($result);
+        $this->assertStringContainsString('Remote-to-remote file syncs are not supported', $style->fetchOutput());
+    }
+
     private function createStyle(): TestSymfonyStyle
     {
         return new TestSymfonyStyle(new ArrayInput([]), new BufferedOutput());

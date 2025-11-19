@@ -154,6 +154,11 @@ abstract class AbstractSyncCommand extends Command
 
     protected function syncFiles(array $excludes, ?SshService $remoteSsh): bool
     {
+        if ($this->isRemoteToRemoteSync()) {
+            $this->io->error('Remote-to-remote untracked file syncs are not supported. Sync via a local environment.');
+            return false;
+        }
+
         $executor = new FileSyncController($this->output, $this->io, $this->dryRun, $this->verbose);
         $sourcePath = $this->buildPath($this->sourceEnv);
         $destPath = $this->buildPath($this->destEnv);
@@ -285,6 +290,11 @@ abstract class AbstractSyncCommand extends Command
         }
 
         return true;
+    }
+
+    private function isRemoteToRemoteSync(): bool
+    {
+        return isset($this->sourceEnv['ssh']) && isset($this->destEnv['ssh']);
     }
 
     protected function syncDatabase(bool $noBackup): bool

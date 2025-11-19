@@ -21,6 +21,11 @@ class ValidationService
 
         // Check rsync availability for untracked file operations
         if ($flags['untracked_files']) {
+            if ($this->isRemoteToRemote($sourceEnv, $destEnv)) {
+                $this->io->error('Remote-to-remote file syncs are not supported. Provide a local endpoint or run post-files manually.');
+                return false;
+            }
+
             if (!RsyncService::isAvailable()) {
                 $this->io->error('rsync is not available. Please install rsync to sync files.');
                 return false;
@@ -132,5 +137,10 @@ class ValidationService
 
         $this->io->writeln('✓');
         return true;
+    }
+
+    private function isRemoteToRemote(array $sourceEnv, array $destEnv): bool
+    {
+        return isset($sourceEnv['ssh']) && isset($destEnv['ssh']);
     }
 }

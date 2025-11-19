@@ -61,7 +61,7 @@ movepress push local production --untracked-files -v
 
 - If no flags are specified, both `--db` and `--untracked-files` are synced by default
 - Database operations automatically perform search-replace for URLs
-- After untracked files sync, Movepress scans text files in `wp-content/` and replaces the source URL with the destination URL (skips binaries/caches)
+- After untracked files sync, Movepress scans text files in `wp-content/` and replaces the source URL with the destination URL (skips binaries/caches). At least one side of the sync must be local for this to occur.
 - A backup is created before database import unless `--no-backup` is used, and the backup path is shown after creation
 - File syncs are non-destructive by default. Use `--delete` to remove destination files that don't exist on the source.
 - You'll be prompted to confirm only when a destructive option is in use (`--delete` or `--no-backup`)
@@ -108,7 +108,7 @@ movepress pull production local --db --untracked-files --dry-run
 
 - Works exactly like `push` but in reverse direction
 - Same safety features, backup logging, and destructive-operation prompts as `push`
-- After untracked files sync, Movepress updates text files within `wp-content/` to swap the source URL for the destination URL
+- After untracked files sync, Movepress updates text files within `wp-content/` to swap the source URL for the destination URL. At least one side of the sync must be local for this to occur.
 - Remember to use `git pull` or `git fetch` for tracked code files
 
 ---
@@ -376,14 +376,15 @@ movepress post-files <old-url> <new-url> [--path=<subdir>]
 ### Example
 
 ```bash
-# Update theme files remotely
+# Update theme files remotely (requires movepress installed on the server)
 ssh deploy@example.com 'cd /var/www/html && movepress post-files https://example.com https://staging.example.com --path=wp-content/themes/mytheme'
 ```
 
 ### Notes
 
-- Remote servers need the Movepress PHAR available (default `/usr/local/bin/movepress`) so push operations can trigger this command
-- Manual runs are optional; `push`/`pull` already call this command when `--untracked-files` is used
+- Remote manual runs require the Movepress PHAR installed on the server (default `/usr/local/bin/movepress`)
+- Manual runs are optional; `push`/`pull` already call this command locally when `--untracked-files` is used
+- Untracked file syncs require at least one local endpoint so replacements happen on the machine running Movepress. For remote→remote replacements, run `post-files` manually on the destination after syncing via other tooling.
 
 ---
 
