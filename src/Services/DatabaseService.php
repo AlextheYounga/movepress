@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
+use Movepress\Console\MovepressStyle;
 use RuntimeException;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
@@ -19,6 +20,7 @@ class DatabaseService
     {
         $this->output = $output;
         $this->verbose = $verbose;
+        MovepressStyle::registerCustomStyles($this->output);
         $this->commandBuilder = new DatabaseCommandBuilder();
         $this->remoteTransfer = new RemoteTransferService($output, $verbose);
     }
@@ -33,7 +35,7 @@ class DatabaseService
         $command = $this->commandBuilder->buildExportCommand($dbConfig, $outputPath, $compress);
 
         if ($this->verbose) {
-            $this->output->writeln("Executing: {$command}");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
         }
 
         return $this->executeCommand($command);
@@ -57,7 +59,7 @@ class DatabaseService
         $mysqldumpCmd = $this->commandBuilder->buildExportCommand($dbConfig, $remoteTempFile, $compress);
 
         if ($this->verbose) {
-            $this->output->writeln("Remote export: {$mysqldumpCmd}");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $mysqldumpCmd));
         }
 
         if (!$this->remoteTransfer->executeRemoteCommand($sshService, $mysqldumpCmd)) {
@@ -108,7 +110,7 @@ class DatabaseService
         $command = $this->commandBuilder->buildImportCommand($dbConfig, $inputPath);
 
         if ($this->verbose) {
-            $this->output->writeln("Executing: {$command}");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
         }
 
         return $this->executeCommand($command);
@@ -144,7 +146,7 @@ class DatabaseService
                 ),
             );
             if ($this->verbose) {
-                $this->output->writeln("Remote decompress: {$decompressCommand}");
+                $this->output->writeln(sprintf('<cmd>› %s</cmd>', $decompressCommand));
             }
             if (!$this->remoteTransfer->executeRemoteCommand($sshService, $decompressCommand)) {
                 $this->maybeCleanupRemoteImportFiles($sshService, $remoteTempFile, $remoteSqlPath, $preserveDumps);
@@ -163,7 +165,7 @@ class DatabaseService
         $mysqlCmd = $this->commandBuilder->buildImportCommand($dbConfig, $remoteSqlPath);
 
         if ($this->verbose) {
-            $this->output->writeln("Remote import: {$mysqlCmd}");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $mysqlCmd));
         }
 
         if (!$this->assertRemoteFileNotEmpty($sshService, $remoteSqlPath)) {

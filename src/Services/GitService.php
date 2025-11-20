@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
+use Movepress\Console\MovepressStyle;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -16,6 +17,7 @@ class GitService
     {
         $this->output = $output;
         $this->verbose = $verbose;
+        MovepressStyle::registerCustomStyles($this->output);
     }
 
     /**
@@ -67,7 +69,7 @@ class GitService
         $process->setTimeout(30);
 
         if ($this->verbose) {
-            $this->output->writeln('<comment>Creating post-receive hook</comment>');
+            $this->output->writeln('<muted>Creating post-receive hook</muted>');
         }
 
         $process->run(function ($type, $buffer) {
@@ -197,8 +199,8 @@ class GitService
     private function runCommand(string $command, string $description): bool
     {
         if ($this->verbose) {
-            $this->output->writeln("<comment>{$description}</comment>");
-            $this->output->writeln("<comment>Executing: {$command}</comment>");
+            $this->output->writeln("<muted>{$description}</muted>");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
         }
 
         $process = Process::fromShellCommandline($command);

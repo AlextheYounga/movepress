@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Movepress\Commands;
 
+use Movepress\Console\MovepressStyle;
 use Movepress\Config\ConfigLoader;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 class ValidateCommand extends Command
 {
@@ -19,7 +19,7 @@ class ValidateCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $io = new MovepressStyle($input, $output);
         $io->title('Validating Configuration');
 
         try {

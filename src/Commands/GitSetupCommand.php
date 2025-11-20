@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Movepress\Commands;
 
+use Movepress\Console\MovepressStyle;
 use Movepress\Config\ConfigLoader;
 use Movepress\Services\GitService;
 use Movepress\Services\SshService;
@@ -12,7 +13,6 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 class GitSetupCommand extends Command
 {
@@ -25,7 +25,7 @@ class GitSetupCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $io = new MovepressStyle($input, $output);
         $envName = $input->getArgument('environment');
         $verbose = $output->isVerbose();
 
@@ -130,7 +130,7 @@ class GitSetupCommand extends Command
     }
 
     private function displayConfiguration(
-        SymfonyStyle $io,
+        MovepressStyle $io,
         string $envName,
         string $wordpressPath,
         string $repoPath,
@@ -152,7 +152,7 @@ class GitSetupCommand extends Command
         ]);
     }
 
-    private function displayNextSteps(SymfonyStyle $io, string $envName): void
+    private function displayNextSteps(MovepressStyle $io, string $envName): void
     {
         $io->section('Next Steps');
         $io->writeln("Git deployment is now configured for <info>{$envName}</info>.");

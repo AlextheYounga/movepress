@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
+use Movepress\Console\MovepressStyle;
 use Movepress\Services\Sync\RsyncDryRunSummary;
 use Movepress\Services\Sync\RsyncStats;
 use Movepress\Services\Sync\RsyncStatsParser;
@@ -26,6 +27,7 @@ class RsyncService
         $this->output = $output;
         $this->dryRun = $dryRun;
         $this->verbose = $verbose;
+        MovepressStyle::registerCustomStyles($this->output);
         $this->parser = new RsyncStatsParser();
     }
 
@@ -87,7 +89,7 @@ class RsyncService
         $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService, $delete);
 
         if ($this->verbose || $this->dryRun) {
-            $this->output->writeln("<comment>Executing: {$command}</comment>");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
         }
 
         $process = Process::fromShellCommandline($command);

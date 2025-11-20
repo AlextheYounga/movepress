@@ -7,8 +7,8 @@ namespace Movepress\Services\Sync;
 use Movepress\Services\DatabaseService;
 use Movepress\Services\SshService;
 use Movepress\Services\SqlSearchReplaceService;
+use Movepress\Console\MovepressStyle;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 final class DatabaseSyncController
 {
@@ -17,7 +17,7 @@ final class DatabaseSyncController
 
     public function __construct(
         private readonly OutputInterface $output,
-        private readonly SymfonyStyle $io,
+        private readonly MovepressStyle $io,
         private readonly bool $dryRun,
         private readonly bool $verbose,
     ) {

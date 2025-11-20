@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Movepress\Services\Sync;
 
+use Movepress\Console\MovepressStyle;
 use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 final class FileSyncController
 {
@@ -15,7 +15,7 @@ final class FileSyncController
 
     public function __construct(
         private readonly OutputInterface $output,
-        private readonly SymfonyStyle $io,
+        private readonly MovepressStyle $io,
         private readonly bool $dryRun,
         private readonly bool $verbose,
     ) {

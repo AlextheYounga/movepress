@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Movepress\Commands;
 
+use Movepress\Console\MovepressStyle;
 use Movepress\Services\FileSearchReplaceService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 class PostFilesCommand extends Command
 {
@@ -25,7 +25,7 @@ class PostFilesCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $io = new MovepressStyle($input, $output);
         $oldUrl = $input->getArgument('old-url');
         $newUrl = $input->getArgument('new-url');
         $wordpressPath = getcwd();

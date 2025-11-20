@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
+use Movepress\Console\MovepressStyle;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -16,6 +17,7 @@ class RemoteTransferService
     {
         $this->output = $output;
         $this->verbose = $verbose;
+        MovepressStyle::registerCustomStyles($this->output);
     }
 
     /**
@@ -26,7 +28,7 @@ class RemoteTransferService
         $command = $this->buildSshCommand($sshService, $remoteCommand);
 
         if ($this->verbose) {
-            $this->output->writeln("Remote command: {$command}");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
         }
 
         return $this->executeCommand($command);
@@ -41,7 +43,7 @@ class RemoteTransferService
 
         if ($this->verbose) {
             $this->output->writeln("Uploading: {$localPath} → {$remotePath}");
-            $this->output->writeln("SCP command: {$command}");
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
         }
 
         return $this->executeCommand($command);

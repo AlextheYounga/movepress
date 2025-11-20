@@ -10,17 +10,17 @@ use Movepress\Services\Sync\DatabaseSyncController;
 use Movepress\Services\Sync\FileSyncController;
 use Movepress\Services\Sync\LocalStagingService;
 use Movepress\Services\ValidationService;
+use Movepress\Console\MovepressStyle;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 abstract class AbstractSyncCommand extends Command
 {
     protected OutputInterface $output;
-    protected SymfonyStyle $io;
+    protected MovepressStyle $io;
     protected bool $dryRun;
     protected bool $verbose;
     protected bool $noInteraction;
@@ -69,7 +69,7 @@ abstract class AbstractSyncCommand extends Command
 
     protected function initializeContext(
         OutputInterface $output,
-        SymfonyStyle $io,
+        MovepressStyle $io,
         array $sourceEnv,
         array $destEnv,
         array $flags,

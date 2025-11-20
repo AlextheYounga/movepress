@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Movepress\Commands;
 
+use Movepress\Console\MovepressStyle;
 use Movepress\Config\ConfigLoader;
 use Movepress\Services\DatabaseService;
 use Movepress\Services\RsyncService;
@@ -11,7 +12,6 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 
 class StatusCommand extends Command
 {
@@ -24,7 +24,7 @@ class StatusCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $io = new MovepressStyle($input, $output);
         $io->title('Movepress Status');
 
         try {
@@ -49,7 +49,7 @@ class StatusCommand extends Command
         }
     }
 
-    private function showSystemTools(SymfonyStyle $io): void
+    private function showSystemTools(MovepressStyle $io): void
     {
         $io->section('System Tools');
 
@@ -67,7 +67,7 @@ class StatusCommand extends Command
         $io->table(['Tool', 'Status'], $rows);
     }
 
-    private function showAllEnvironments(SymfonyStyle $io, ConfigLoader $config): void
+    private function showAllEnvironments(MovepressStyle $io, ConfigLoader $config): void
     {
         $environments = $config->getEnvironments();
 
@@ -87,7 +87,7 @@ class StatusCommand extends Command
         $io->note('Use: movepress status <environment> for detailed information');
     }
 
-    private function showEnvironment(SymfonyStyle $io, ConfigLoader $config, string $name): void
+    private function showEnvironment(MovepressStyle $io, ConfigLoader $config, string $name): void
     {
         $env = $config->getEnvironment($name);
 
@@ -134,7 +134,7 @@ class StatusCommand extends Command
         $this->validateEnvironment($io, $name, $env);
     }
 
-    private function displayEnvironmentSummary(SymfonyStyle $io, string $name, array $env): void
+    private function displayEnvironmentSummary(MovepressStyle $io, string $name, array $env): void
     {
         $type = isset($env['ssh']) ? '<fg=blue>Remote</>' : '<fg=green>Local</>';
         $url = $env['url'] ?? '<fg=red>No URL</>';
@@ -143,7 +143,7 @@ class StatusCommand extends Command
         $io->writeln("  <fg=cyan>$name</> [{$type}] - {$url} - DB: {$db}");
     }
 
-    private function validateEnvironment(SymfonyStyle $io, string $name, array $env): void
+    private function validateEnvironment(MovepressStyle $io, string $name, array $env): void
     {
         $io->section('Validation');
 
