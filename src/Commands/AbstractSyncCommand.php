@@ -31,6 +31,72 @@ abstract class AbstractSyncCommand extends Command
     private bool $remoteFilesPreparedLocally = false;
     private array $excludePatterns = [];
 
+    /**
+     * Return git-tracked files relative to the provided WordPress path.
+     *
+     * @return array<string>
+     */
+    public function getGitTrackedFiles(string $wordpressPath): array
+    {
+        $resolvedPath = realpath($wordpressPath);
+        if ($resolvedPath === false) {
+            return [];
+        }
+
+        $rootProcess = Process::fromShellCommandline('git rev-parse --show-toplevel', $resolvedPath);
+        $rootProcess->run();
+        if (!$rootProcess->isSuccessful()) {
+            return [];
+        }
+
+        $repoRoot = rtrim(trim($rootProcess->getOutput()), "/ \n");
+        if ($repoRoot === '') {
+            return [];
+        }
+
+        $normalizedRoot = rtrim($repoRoot, '/');
+        $normalizedPath = rtrim($resolvedPath, '/');
+        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
+            return [];
+        }
+
+        $relativePrefix = ltrim(str_replace($normalizedRoot, '', $normalizedPath), '/');
+        $pathspec = $relativePrefix === '' ? '.' : $relativePrefix;
+
+        $listProcess = Process::fromShellCommandline(
+            sprintf('git -C %s ls-files -z -- %s', escapeshellarg($repoRoot), escapeshellarg($pathspec)),
+        );
+        $listProcess->run();
+        if (!$listProcess->isSuccessful()) {
+            return [];
+        }
+
+        $raw = rtrim($listProcess->getOutput(), "\0");
+        if ($raw === '') {
+            return [];
+        }
+
+        $files = [];
+        foreach (explode("\0", $raw) as $file) {
+            if ($relativePrefix !== '') {
+                $prefix = $relativePrefix . '/';
+                if (str_starts_with($file, $prefix)) {
+                    $file = substr($file, strlen($prefix));
+                } elseif ($file === $relativePrefix) {
+                    $file = basename($file);
+                } else {
+                    continue;
+                }
+            }
+
+            if ($file !== '') {
+                $files[] = $file;
+            }
+        }
+
+        return array_values(array_unique($files));
+    }
+
     protected function configureArguments(): void
     {
         $this->addArgument('source', InputArgument::REQUIRED, 'Source environment name')->addArgument(
@@ -292,72 +358,6 @@ abstract class AbstractSyncCommand extends Command
         }
 
         return null;
-    }
-
-    /**
-     * Return git-tracked files relative to the provided WordPress path.
-     *
-     * @return array<string>
-     */
-    private function getGitTrackedFiles(string $wordpressPath): array
-    {
-        $resolvedPath = realpath($wordpressPath);
-        if ($resolvedPath === false) {
-            return [];
-        }
-
-        $rootProcess = Process::fromShellCommandline('git rev-parse --show-toplevel', $resolvedPath);
-        $rootProcess->run();
-        if (!$rootProcess->isSuccessful()) {
-            return [];
-        }
-
-        $repoRoot = rtrim(trim($rootProcess->getOutput()), "/ \n");
-        if ($repoRoot === '') {
-            return [];
-        }
-
-        $normalizedRoot = rtrim($repoRoot, '/');
-        $normalizedPath = rtrim($resolvedPath, '/');
-        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
-            return [];
-        }
-
-        $relativePrefix = ltrim(str_replace($normalizedRoot, '', $normalizedPath), '/');
-        $pathspec = $relativePrefix === '' ? '.' : $relativePrefix;
-
-        $listProcess = Process::fromShellCommandline(
-            sprintf('git -C %s ls-files -z -- %s', escapeshellarg($repoRoot), escapeshellarg($pathspec)),
-        );
-        $listProcess->run();
-        if (!$listProcess->isSuccessful()) {
-            return [];
-        }
-
-        $raw = rtrim($listProcess->getOutput(), "\0");
-        if ($raw === '') {
-            return [];
-        }
-
-        $files = [];
-        foreach (explode("\0", $raw) as $file) {
-            if ($relativePrefix !== '') {
-                $prefix = $relativePrefix . '/';
-                if (str_starts_with($file, $prefix)) {
-                    $file = substr($file, strlen($prefix));
-                } elseif ($file === $relativePrefix) {
-                    $file = basename($file);
-                } else {
-                    continue;
-                }
-            }
-
-            if ($file !== '') {
-                $files[] = $file;
-            }
-        }
-
-        return array_values(array_unique($files));
     }
 
     /**
