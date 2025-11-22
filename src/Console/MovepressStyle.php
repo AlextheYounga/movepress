@@ -11,7 +11,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Artisan-inspired console style for Movepress.
- * Replaces heavy blocks with lightweight, icon-led lines and dim command echoes.
+ * Replaces heavy blocks with lightweight, icon-led lines and muted command echoes.
  */
 final class MovepressStyle extends SymfonyStyle
 {
@@ -30,11 +30,12 @@ final class MovepressStyle extends SymfonyStyle
         $formatter = $output->getFormatter();
 
         if (!$formatter->hasStyle(self::COMMAND_STYLE)) {
-            $formatter->setStyle(self::COMMAND_STYLE, new OutputFormatterStyle('white', null, ['dim']));
+            // Non-intrusive command echo (darker on dark terminals)
+            $formatter->setStyle(self::COMMAND_STYLE, new OutputFormatterStyle('blue'));
         }
 
         if (!$formatter->hasStyle(self::MUTED_STYLE)) {
-            $formatter->setStyle(self::MUTED_STYLE, new OutputFormatterStyle('white', null, ['dim']));
+            $formatter->setStyle(self::MUTED_STYLE, new OutputFormatterStyle('blue'));
         }
     }
 

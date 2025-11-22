@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
-use Movepress\Console\MovepressStyle;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 class ValidationService
 {
-    private MovepressStyle $io;
+    private SymfonyStyle $io;
 
-    public function __construct(MovepressStyle $io)
+    public function __construct(SymfonyStyle $io)
     {
         $this->io = $io;
     }

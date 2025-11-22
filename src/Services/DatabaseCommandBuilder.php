@@ -19,7 +19,7 @@ class DatabaseCommandBuilder
         }
 
         $wrapped = $withColumnStats . ' || ' . $withoutColumnStats;
-        return sprintf('bash -o pipefail -c %s', escapeshellarg($wrapped));
+        return $this->wrapWithPipefail($wrapped);
     }
 
     private function buildSingleExportCommand(
@@ -80,6 +80,13 @@ class DatabaseCommandBuilder
         }
 
         return implode(' ', $parts) . ' < ' . escapeshellarg($inputPath);
+    }
+
+    private function wrapWithPipefail(string $command): string
+    {
+        // Use double quotes to keep single-quoted args readable while escaping bash meta inside
+        $escaped = addcslashes($command, "\"\\$`");
+        return sprintf('bash -o pipefail -c "%s"', $escaped);
     }
 
     /**
