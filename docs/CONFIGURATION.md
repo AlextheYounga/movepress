@@ -133,6 +133,7 @@ git push production master
 movepress push local production --db --files
 
 Movepress auto-excludes git-tracked files for --files; if Git is missing, it excludes common code patterns. Use --include-git-tracked to override.
+WordPress core paths are always excluded for safety (`wp-admin/`, `wp-includes/`, `wp-content/plugins/`, `wp-content/mu-plugins/`, `wp-content/themes/`, `index.php`, `wp-*.php`, `license.txt`, `readme.html`, `wp-config-sample.php`).
 ```
 
 ### backup_path
@@ -183,7 +184,8 @@ exclude:
 
 - Use trailing slash for directories: `"folder/"`
 - Use wildcards: `"*.log"`, `"cache/*"`
-- Patterns are passed to rsync's `--exclude` flag
+- Patterns are written to a temporary file and passed to rsync via `--exclude-from` to avoid argument-length issues
+- WordPress core paths are always excluded for safety (even if not listed above)
 
 ---
 

@@ -66,12 +66,13 @@ exclude:
 
 ## File Sync Issues
 
-| Problem               | Solution                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| **rsync not found**   | Install: `brew install rsync` or `apt-get install rsync`                                   |
-| **Permission denied** | On remote: `sudo chown -R deploy:www-data /var/www/mysite && chmod -R 775 /var/www/mysite` |
-| **Files not syncing** | Check `exclude` patterns. Use `--dry-run` and `--verbose` flags                            |
-| **Slow sync**         | Sync specific folders: `--include="wp-content/uploads/2024"`. Use Git for code (faster)    |
+| Problem                | Solution                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| **rsync not found**    | Install: `brew install rsync` or `apt-get install rsync`                                       |
+| **Permission denied**  | On remote: `sudo chown -R deploy:www-data /var/www/mysite && chmod -R 775 /var/www/mysite`     |
+| **Files not syncing**  | Check `exclude` patterns. Use `--dry-run` and `--verbose` flags                                |
+| **Large exclude list** | Upgrade Movepress (excludes are written to a temp `--exclude-from` file to avoid shell limits) |
+| **Slow sync**          | Sync specific folders: `--include="wp-content/uploads/2024"`. Use Git for code (faster)        |
 
 ---
 

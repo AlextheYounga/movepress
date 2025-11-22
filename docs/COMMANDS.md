@@ -62,10 +62,13 @@ movepress push local production --files -v
 
 - If no flags are specified, both `--db` and `--files` are synced by default
 - Database operations automatically perform search-replace for URLs
-- After files sync, Movepress scans text files in `wp-content/` and replaces the source URL with the destination URL (skips binaries/caches). At least one side of the sync must be local for this to occur.
+- **File syncs use a staged workflow**: Files are first copied to a temporary directory via silent rsync with excludes written to a temporary `--exclude-from` file (avoids argument-length issues), URL replacements are applied to the staged files, then you see a preview with counts before confirming the final transfer. Temp dirs and exclude files are cleaned up automatically.
+- The preview shows directories and file counts based on the staged files. The `wp-content/uploads/` directory is collapsed to a single entry with a total file count for readability.
+- Search-replace happens during staging for both push and pull operations, before the final sync, so the preview reflects the final content
+- WordPress core paths are always excluded for safety (`wp-admin/`, `wp-includes/`, `wp-content/plugins/`, `wp-content/mu-plugins/`, `wp-content/themes/`, `index.php`, `wp-*.php`, `license.txt`, `readme.html`, `wp-config-sample.php`)
 - A backup is created before database import unless `--no-backup` is used, and the backup path is shown after creation
 - File syncs are non-destructive by default. Use `--delete` to remove destination files that don't exist on the source.
-- You'll be prompted to confirm only when a destructive option is in use (`--delete` or `--no-backup`)
+- You'll be prompted to confirm destructive operations (`--delete` or `--no-backup`) and all file syncs (after seeing the preview)
 - For tracked files (themes, plugins), use `git push <environment> <branch>` after running `git-setup`
 
 ---
@@ -108,8 +111,9 @@ movepress pull production local --db --files --dry-run
 ### Notes
 
 - Works exactly like `push` but in reverse direction
-- Same safety features, backup logging, and destructive-operation prompts as `push`
-- After files sync, Movepress updates text files within `wp-content/` to swap the source URL for the destination URL. At least one side of the sync must be local for this to occur.
+- **Uses the same staged workflow**: Remote files are downloaded to a temporary directory via silent rsync with a temporary `--exclude-from` file, URLs are updated, you see a preview, then confirm before files are copied to the local destination
+- Same safety features, backup logging, confirmation prompts, and preview as `push`
+- Search-replace runs on staged files before you confirm the sync; previews come from the staged files
 - Remember to use `git pull` or `git fetch` for tracked code files
 
 ---

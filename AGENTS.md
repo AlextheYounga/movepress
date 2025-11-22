@@ -107,3 +107,13 @@ Agents should reference this before making any design or implementation decision
 - **Scope:** Favor broad functional tests over micro-unit tests.
 - **No external calls.** Tests must not depend on network connectivity.
 - **Tests must be fast:** No test should feel “expensive” to run.
+
+---
+
+## File Sync Workflow (Current)
+
+- Stage before preview for both push and pull: remote files are staged locally (or local files staged for push), URLs are search-replaced in the staged copy, then the preview is generated from those staged files. Confirmation happens after staging and is required for every sync.
+- Use silent rsync for staging via the `$silent` constructor flag. Users should see staging progress messages but not the rsync transfer output.
+- Rsync excludes must be written to a temporary file and passed with `--exclude-from` to avoid argument length errors; clean up the temp file even on failure.
+- Always exclude WordPress core paths for file syncs (`wp-admin/`, `wp-includes/`, `wp-content/plugins/`, `wp-content/mu-plugins/`, `wp-content/themes/`, `index.php`, `wp-*.php`, `license.txt`, `readme.html`, `wp-config-sample.php`) regardless of Git state.
+- File sync previews must collapse `wp-content/uploads/` into a single entry showing a total file count; do not list its subdirectories.

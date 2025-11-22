@@ -95,8 +95,20 @@ movepress pull production local --files
 - `--include-git-tracked` - Include git-tracked files in file syncs (disables automatic git exclusions)
 - `-v, --verbose` - Show detailed output
 
+**File Sync Process:**
+
+When syncing files, Movepress uses a **staged confirmation workflow** for safety and accuracy:
+
+1. **Staging** - Files are copied to a temporary directory with exclusions applied via a temporary `--exclude-from` file (silent, avoids argument-length issues)
+2. **Search-Replace** - URLs are updated in staged files before transfer, so previews match final content
+3. **Preview** - You see exactly what will be synced based on the staged files (works the same for push and pull)
+4. **Confirmation** - Required for every file sync before any changes are made
+5. **Transfer** - Only after confirmation are files synced to the destination; staging temp dirs are cleaned up automatically
+
+This ensures you always know exactly what's being deployed. The `wp-content/uploads/` directory is shown as a single entry with a total file count to keep the preview clean. WordPress core paths are always excluded for safety (`wp-admin/`, `wp-includes/`, `wp-content/plugins/`, `wp-content/mu-plugins/`, `wp-content/themes/`, `index.php`, `wp-*.php`, `license.txt`, `readme.html`, `wp-config-sample.php`).
+
 **Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. Use `git push <environment> <branch>` after running `movepress git-setup`.
-When syncing files, Movepress reads the local Git repo to auto-exclude tracked files; if Git isn’t available, it falls back to excluding common code patterns (themes, plugins, core). Use `--include-git-tracked` to override and send everything not covered by movefile excludes.
+When syncing files, Movepress reads the local Git repo to auto-exclude tracked files; if Git isn't available, it falls back to excluding common code patterns (themes, plugins, core). Use `--include-git-tracked` to override and send everything not covered by movefile excludes.
 
 File syncs are non-destructive by default—Movepress only removes destination files when you explicitly pass `--delete`, and it will warn you before doing so. Database syncs create a backup automatically unless `--no-backup` is provided, and the backup path is printed for easy reference.
 

@@ -45,9 +45,22 @@ git push production master
 # Sync database and files
 movepress push local production --db --files
 
-Movepress auto-excludes git-tracked files for --files; if Git is missing, it excludes common code patterns. Use --include-git-tracked to override.
+# Movepress will:
+# 1. Stage files to a temporary directory via silent rsync (excludes written to a temp --exclude-from file)
+# 2. Apply URL replacements in staged files (so preview matches final content)
+# 3. Show preview with file counts based on staged files:
+#    Total files to sync: 2,817
+#    • wp-content/uploads/ (1,107 files)
+#    • wp-content/languages/ (218 files)
+#    ...
+# 4. Ask for confirmation (required for every file sync)
+# 5. Only after approval, sync to production and clean up staging
 
-# Or preview changes first
+# Movepress auto-excludes git-tracked files for --files; if Git is missing,
+# it excludes common code patterns. WordPress core paths are always excluded for safety.
+# Use --include-git-tracked to override.
+
+# Or preview changes first (dry-run mode)
 movepress push local production --db --files --dry-run
 
 # Skip backup (not recommended)
@@ -267,10 +280,74 @@ movepress pull production local --files \
 
 ---
 
+## File Sync Confirmation Workflow
+
+### Understanding the Staged Sync Process
+
+When you run a file sync with `--files`, Movepress uses a **staged confirmation workflow** for safety:
+
+**Example output:**
+
+```bash
+$ movepress push local production --files
+
+› File Synchronization
+ Excluding 20,848 git-tracked files from sync
+ Staging files locally for remote upload...
+✓ Staged files updated (5 modified, 167 checked)
+
+› File Sync Preview
+ Analyzing files to sync...
+
+Total files to sync: 2,817
+
+Directories and files:
+  • movefile-old.yml
+  • wp-content/ (1,334 files)
+  • wp-content/uploads/ (1,107 files)
+  • wp-content/languages/ (218 files)
+  • xmlrpc.php
+
+ Proceed with file sync? (yes/no) [no]:
+ > yes
+
+Transfer starting: 2,817 files
+...
+```
+
+**What's happening:**
+
+1. **Staging** - Files copied to `/tmp/movepress_stage_xyz` with exclusions applied via a temporary `--exclude-from` file (silent rsync, avoids argument-length errors)
+2. **Search-Replace** - URLs updated in staged files (e.g., http://local.test → https://example.com) before preview
+3. **Preview** - Shows exactly what's in the staged directory (same flow for push and pull)
+4. **Confirmation** - Required for every file sync; you approve or cancel after the preview
+5. **Transfer** - Only after "yes", files sync to destination; WordPress core paths are always excluded
+6. **Cleanup** - Temp directory and exclude file automatically removed
+
+**Benefits:**
+
+- 100% accurate preview (shows actual staged files, not estimates)
+- URLs already replaced before you confirm
+- Cancel anytime before final sync
+- `wp-content/uploads/` collapsed to single entry with total file count for readability
+
+**Cancelling:**
+
+```bash
+ Proceed with file sync? (yes/no) [no]:
+ > no
+
+File sync cancelled.
+```
+
+Temp directory is cleaned up automatically when you cancel.
+
+---
+
 ## Advanced Patterns
 
 ```bash
-# Preview changes before deployment
+# Preview changes before deployment (stages and previews, skips final transfer)
 movepress push local production --files --dry-run
 
 # Verbose debugging (shows rsync commands, DB operations, etc.)
