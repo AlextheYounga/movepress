@@ -244,8 +244,8 @@ abstract class AbstractSyncCommand extends Command
         // Stage files first (for both push and pull) so preview is accurate
         if ($this->shouldStageRemoteFiles()) {
             $message = $isPull
-                ? 'Staging files locally from remote source...'
-                : 'Staging files locally for remote upload...';
+                ? 'Pulling files to temporary local directory from remote source for analysis and search-replace. Hold tight...'
+                : 'Staging files to temporary local directory for analysis and search-replace before remote upload. Hold tight...';
             $this->io->text($message);
 
             $stagingService = new LocalStagingService($this->output, false);
