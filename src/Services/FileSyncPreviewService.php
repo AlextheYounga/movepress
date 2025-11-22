@@ -59,6 +59,23 @@ class FileSyncPreviewService
                     continue;
                 }
 
+                // Special case: wp-content/uploads - don't recurse, just count all files
+                if (
+                    $itemRelativePath === 'wp-content/uploads' ||
+                    str_ends_with($itemRelativePath, '/wp-content/uploads')
+                ) {
+                    $subFileCount = $this->countFilesRecursive($fullPath);
+                    if ($subFileCount > 0) {
+                        $result[] = [
+                            'type' => 'dir',
+                            'path' => $itemRelativePath,
+                            'count' => $subFileCount,
+                        ];
+                        $fileCount += $subFileCount;
+                    }
+                    continue;
+                }
+
                 // Recursively scan subdirectory and count its files
                 $subFileCount = $this->scanDirectoriesRecursive($fullPath, $basePath, $result);
 
@@ -88,6 +105,38 @@ class FileSyncPreviewService
         }
 
         return $fileCount;
+    }
+
+    /**
+     * Count all files recursively without building detailed directory structure.
+     * Used for wp-content/uploads to avoid showing every subdirectory.
+     */
+    private function countFilesRecursive(string $path): int
+    {
+        if (!is_dir($path)) {
+            return 0;
+        }
+
+        $items = @scandir($path);
+        if ($items === false) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $fullPath = $path . '/' . $item;
+            if (is_dir($fullPath)) {
+                $count += $this->countFilesRecursive($fullPath);
+            } else {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**

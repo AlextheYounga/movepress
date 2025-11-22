@@ -71,12 +71,16 @@ class FileSyncPreviewServiceTest extends TestCase
         $preview = new FileSyncPreviewService([]);
         $result = $preview->scanDirectoriesWithCounts($this->testDir, $this->testDir);
 
-        // Find the count for uploads/2024/01
-        $jan2024 = array_filter($result, fn($item) => $item['path'] === 'wp-content/uploads/2024/01');
-        $jan2024 = reset($jan2024);
+        // wp-content/uploads should be collapsed into single entry with total count
+        $uploads = array_filter($result, fn($item) => $item['path'] === 'wp-content/uploads');
+        $uploads = reset($uploads);
 
-        $this->assertNotFalse($jan2024);
-        $this->assertEquals(2, $jan2024['count']);
+        $this->assertNotFalse($uploads);
+        $this->assertEquals(3, $uploads['count']); // All 3 files in uploads
+
+        // Subdirectories under uploads should NOT appear
+        $subdirs = array_filter($result, fn($item) => str_starts_with($item['path'], 'wp-content/uploads/'));
+        $this->assertEmpty($subdirs);
     }
 
     public function test_excludes_files_by_glob_pattern(): void

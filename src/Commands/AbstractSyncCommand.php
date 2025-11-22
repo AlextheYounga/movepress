@@ -248,7 +248,7 @@ abstract class AbstractSyncCommand extends Command
                 : 'Staging files locally for remote upload...';
             $this->io->text($message);
 
-            $stagingService = new LocalStagingService($this->output, $this->verbose);
+            $stagingService = new LocalStagingService($this->output, false);
             $stagedPath = $stagingService->stage($sourcePath, $this->excludePatterns, $this->flags['delete']);
             $this->applySearchReplaceToStagedFiles($stagedPath);
             $this->remoteFilesPreparedLocally = true;

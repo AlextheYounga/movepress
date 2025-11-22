@@ -54,9 +54,9 @@ class RsyncServiceTest extends TestCase
 
         $command = $service->exposedBuildCommand('/source/path', '/dest/path', $excludes);
 
-        $this->assertStringContainsString("--exclude '.git/'", $command);
-        $this->assertStringContainsString("--exclude 'node_modules/'", $command);
-        $this->assertStringContainsString("--exclude '*.log'", $command);
+        // Now uses --exclude-from file to avoid "Argument list too long" errors
+        $this->assertStringContainsString('--exclude-from', $command);
+        $this->assertStringContainsString('/rsync_exclude_', $command);
     }
 
     public function test_includes_ssh_options_for_remote_sync(): void

@@ -17,15 +17,22 @@ class RsyncService
     private OutputInterface $output;
     private bool $dryRun;
     private bool $verbose;
+    private bool $silent;
     private ?RsyncStats $lastStats = null;
     private ?array $lastDryRunSummary = null;
     private RsyncStatsParser $parser;
+    private ?string $excludeFile = null;
 
-    public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
-    {
+    public function __construct(
+        OutputInterface $output,
+        bool $dryRun = false,
+        bool $verbose = false,
+        bool $silent = false,
+    ) {
         $this->output = $output;
         $this->dryRun = $dryRun;
         $this->verbose = $verbose;
+        $this->silent = $silent;
         MovepressStyle::registerCustomStyles($this->output);
         $this->parser = new RsyncStatsParser();
     }
@@ -72,7 +79,7 @@ class RsyncService
         $capturedOutput = '';
         $process->run(function ($type, $buffer) use (&$capturedOutput) {
             $capturedOutput .= $buffer;
-            if ($this->verbose || $type === Process::OUT) {
+            if (!$this->silent && ($this->verbose || $type === Process::OUT)) {
                 $this->output->write($buffer, false, OutputInterface::OUTPUT_RAW);
             }
         });
@@ -80,12 +87,25 @@ class RsyncService
         if (!$process->isSuccessful()) {
             $this->output->writeln('<error>Rsync failed:</error>');
             $this->output->writeln($process->getErrorOutput());
+
+            // Clean up temporary exclude file on failure
+            if ($this->excludeFile !== null && file_exists($this->excludeFile)) {
+                @unlink($this->excludeFile);
+                $this->excludeFile = null;
+            }
+
             return false;
         }
 
         $fullOutput = $capturedOutput !== '' ? $capturedOutput : $process->getOutput() . $process->getErrorOutput();
         $this->lastStats = $this->parser->parse($fullOutput);
         $this->lastDryRunSummary = $this->dryRun ? $this->parser->parseDryRunSummary($fullOutput) : null;
+
+        // Clean up temporary exclude file
+        if ($this->excludeFile !== null && file_exists($this->excludeFile)) {
+            @unlink($this->excludeFile);
+            $this->excludeFile = null;
+        }
 
         return true;
     }
@@ -118,7 +138,13 @@ class RsyncService
         }
 
         if (!empty($excludes)) {
-            $rsync->setOption(Rsync::OPT_EXCLUDE, $excludes);
+            // Use --exclude-from file to avoid "Argument list too long" errors
+            $this->excludeFile = tempnam(sys_get_temp_dir(), 'rsync_exclude_');
+            if ($this->excludeFile === false) {
+                throw new \RuntimeException('Failed to create temporary exclude file');
+            }
+            file_put_contents($this->excludeFile, implode("\n", $excludes));
+            $rsync->setOption(Rsync::OPT_EXCLUDE_FROM, $this->excludeFile);
         }
 
         if ($sshService) {

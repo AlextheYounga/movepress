@@ -27,7 +27,7 @@ class LocalStagingService
             throw new RuntimeException('Failed to create temporary staging directory.');
         }
 
-        $rsync = new RsyncService($this->output, false, $this->verbose);
+        $rsync = new RsyncService($this->output, false, false, true);
         if (!$rsync->syncFiles($sourcePath, $tempDir, $excludes, null, $delete)) {
             $this->cleanup($tempDir);
             throw new RuntimeException('Failed to stage files locally for remote sync.');
