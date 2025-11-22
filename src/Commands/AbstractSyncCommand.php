@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Movepress\Commands;
 
 use Movepress\Services\FileSearchReplaceService;
+use Movepress\Services\FileSyncPreviewService;
 use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
 use Movepress\Services\Sync\DatabaseSyncController;
@@ -464,68 +465,61 @@ abstract class AbstractSyncCommand extends Command
     private function confirmFileSyncOperation(string $sourcePath, string $destPath): bool
     {
         $this->io->section('File Sync Preview');
-        $this->io->text('Analyzing files to sync...');
 
-        // Run rsync in dry-run mode to get list of files
-        $rsyncService = new RsyncService($this->output, true, false);
         $localSourcePath = $this->getLocalPath($sourcePath);
-        $previewDestPath = $this->isLocalPath($destPath) ? $destPath : sys_get_temp_dir() . '/movepress-preview';
 
-        $success = $rsyncService->syncFiles(
-            $localSourcePath,
-            $previewDestPath,
-            $this->excludePatterns,
-            null,
-            $this->flags['delete'],
-        );
+        // Scan and display all directories with file counts
+        $this->io->text('Analyzing directories to sync...');
+        
+        $preview = new FileSyncPreviewService($this->excludePatterns);
+        $directorySummary = $preview->scanDirectoriesWithCounts($localSourcePath, $localSourcePath);
 
-        if (!$success) {
-            $this->io->warning('Unable to preview files. Proceeding with confirmation only.');
-            return $this->io->confirm('Proceed with file sync?', false);
+        if (!empty($directorySummary)) {
+            $this->io->writeln("\nDirectories and files to sync:");
+            
+            $displayLimit = 50;
+            $displayed = 0;
+            
+            foreach ($directorySummary as $item) {
+                if ($displayed >= $displayLimit) {
+                    $remaining = count($directorySummary) - $displayed;
+                    $this->io->writeln("  ... and {$remaining} more directories");
+                    break;
+                }
+                
+                if ($item['type'] === 'file') {
+                    $this->io->writeln("  • {$item['path']}");
+                } else {
+                    $fileCount = number_format($item['count']);
+                    $this->io->writeln("  • {$item['path']}/ <comment>({$fileCount} files)</comment>");
+                }
+                $displayed++;
+            }
+            $this->io->newLine();
         }
 
-        $stats = $rsyncService->getLastStats();
-        $dryRunSummary = $rsyncService->getLastDryRunSummary();
+        if ($this->flags['delete']) {
+            $this->io->warning('Delete mode is enabled - files missing from source will be removed from destination.');
+        }
 
-        if ($stats !== null) {
-            $fileCount = $dryRunSummary['files'] ?? 0;
-            $byteCount = $dryRunSummary['bytes'] ?? 0;
+        $exclusionCount = count($this->excludePatterns);
+        $this->io->writeln("Exclusion patterns applied: <info>{$exclusionCount}</info>");
 
-            if ($fileCount === 0) {
-                $this->io->success('No files need to be synchronized.');
-                return true;
+        if ($this->verbose && $exclusionCount > 0) {
+            $this->io->writeln("\nExcluding:");
+            $displayLimit = 20;
+            $patterns = array_slice($this->excludePatterns, 0, $displayLimit);
+            foreach ($patterns as $pattern) {
+                $this->io->writeln("  - {$pattern}");
             }
-
-            $size = $this->formatBytes($byteCount);
-            $this->io->writeln(["Files to sync: <info>{$fileCount}</info>", "Total size: <info>{$size}</info>"]);
-
-            if ($this->flags['delete']) {
-                $this->io->warning(
-                    'Delete mode is enabled - files missing from source will be removed from destination.',
-                );
-            }
-
-            $exclusionCount = count($this->excludePatterns);
-            $this->io->writeln("Exclusion patterns applied: <info>{$exclusionCount}</info>");
-
-            if ($this->verbose) {
-                $this->io->writeln("\nExcluding:");
-                $displayLimit = 20;
-                $patterns = array_slice($this->excludePatterns, 0, $displayLimit);
-                foreach ($patterns as $pattern) {
-                    $this->io->writeln("  - {$pattern}");
-                }
-                if ($exclusionCount > $displayLimit) {
-                    $remaining = $exclusionCount - $displayLimit;
-                    $this->io->writeln("  ... and {$remaining} more");
-                }
+            if ($exclusionCount > $displayLimit) {
+                $remaining = $exclusionCount - $displayLimit;
+                $this->io->writeln("  ... and {$remaining} more");
             }
         }
 
         return $this->io->confirm('Proceed with file sync?', false);
-    }
-
-    /**
+    }    /**
      * Get local path from a potentially remote path string.
      */
     private function getLocalPath(string $path): string
