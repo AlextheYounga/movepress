@@ -2,7 +2,7 @@
 
 A modern WordPress deployment tool for pushing and pulling databases and files between environments via SSH.
 
-**WARNING:** Movepress is still under active development. Proceed with caution until this warning is removed.
+### WARNING: Movepress is still under active development. I have covered many edge cases but proceed with caution until this message is removed.
 
 **Built as a modern successor to [Wordmove](https://github.com/welaika/wordmove)** - the beloved but unmaintained Ruby gem that revolutionized WordPress deployments. Movepress brings the same powerful workflow to modern PHP with improved reliability, better performance, and zero Ruby dependencies.
 
