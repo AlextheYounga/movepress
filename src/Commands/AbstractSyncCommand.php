@@ -236,26 +236,48 @@ abstract class AbstractSyncCommand extends Command
         $destPath = $this->buildPath($this->destEnv);
         $this->excludePatterns = $this->prepareFileFilters($excludes);
 
-        // Confirm file sync operation with user
-        if (!$this->dryRun && !$this->noInteraction && !$this->confirmFileSyncOperation($sourcePath, $destPath)) {
-            $this->io->writeln('File sync cancelled.');
-            return false;
-        }
-
         $stagingService = null;
         $stagedPath = null;
+        $previewPath = $sourcePath;
+        $isPull = isset($this->sourceEnv['ssh']);
 
+        // Stage files first (for both push and pull) so preview is accurate
         if ($this->shouldStageRemoteFiles()) {
-            $this->io->text('Staging files locally for remote upload...');
+            $message = $isPull
+                ? 'Staging files locally from remote source...'
+                : 'Staging files locally for remote upload...';
+            $this->io->text($message);
+
             $stagingService = new LocalStagingService($this->output, $this->verbose);
             $stagedPath = $stagingService->stage($sourcePath, $this->excludePatterns, $this->flags['delete']);
             $this->applySearchReplaceToStagedFiles($stagedPath);
             $this->remoteFilesPreparedLocally = true;
+
+            // For push: staged files go to remote destination
+            // For pull: staged files go to local destination
+            if ($isPull) {
+                $destPath = $this->destEnv['wordpress_path'];
+            }
+
             $sourcePath = $stagedPath;
+            $previewPath = $stagedPath;
+        }
+
+        // Confirm file sync operation with user (after staging for accurate preview)
+        if (!$this->dryRun && !$this->noInteraction) {
+            if (!$this->confirmFileSyncOperation($previewPath, $destPath)) {
+                $this->io->writeln('File sync cancelled.');
+                if ($stagingService !== null) {
+                    $stagingService->cleanup($stagedPath);
+                }
+                return false;
+            }
         }
 
         try {
-            return $executor->sync($sourcePath, $destPath, $this->excludePatterns, $remoteSsh, $this->flags['delete']);
+            // For pull: no SSH needed since we're syncing staged (local) → local
+            $sshForSync = $isPull ? null : $remoteSsh;
+            return $executor->sync($sourcePath, $destPath, $this->excludePatterns, $sshForSync, $this->flags['delete']);
         } finally {
             if ($stagingService !== null) {
                 $stagingService->cleanup($stagedPath);
@@ -330,7 +352,12 @@ abstract class AbstractSyncCommand extends Command
      */
     private function prepareFileFilters(array $baseExcludes): array
     {
+        // Always exclude git metadata
         $excludes = array_values(array_unique(array_merge($baseExcludes, ['.git', '.git/', '.gitignore'])));
+
+        // Always exclude WordPress core directories and files (safety measure)
+        $alwaysExclude = $this->getAlwaysExcludedPaths();
+        $excludes = array_values(array_unique(array_merge($excludes, $alwaysExclude)));
 
         if ($this->flags['include_git_tracked']) {
             $this->io->text('Including git-tracked files (flag provided).');
@@ -354,6 +381,27 @@ abstract class AbstractSyncCommand extends Command
         }
 
         return $excludes;
+    }
+
+    /**
+     * Paths that should always be excluded from file sync for safety.
+     * These are WordPress core files that should never be synced.
+     */
+    private function getAlwaysExcludedPaths(): array
+    {
+        return [
+            'wp-admin/',
+            'wp-includes/',
+            'wp-content/plugins/',
+            'wp-content/mu-plugins/',
+            'wp-content/upgrade/',
+            'wp-content/themes/',
+            'index.php',
+            'wp-*.php',
+            'license.txt',
+            'readme.html',
+            'wp-config-sample.php',
+        ];
     }
 
     private function getLocalWordpressPath(): ?string
@@ -396,15 +444,9 @@ abstract class AbstractSyncCommand extends Command
             return false;
         }
 
-        if (!isset($this->destEnv['ssh'])) {
-            return false;
-        }
-
-        if (isset($this->sourceEnv['ssh'])) {
-            return false;
-        }
-
-        return true;
+        // Stage for both push (local→remote) and pull (remote→local)
+        // This allows accurate preview and search-replace before final sync
+        return isset($this->sourceEnv['ssh']) || isset($this->destEnv['ssh']);
     }
 
     private function isRemoteToRemoteSync(): bool
@@ -461,6 +503,7 @@ abstract class AbstractSyncCommand extends Command
 
     /**
      * Preview and confirm file sync operation with the user.
+     * Scans the actual source path (which may be staged) for accurate preview.
      */
     private function confirmFileSyncOperation(string $sourcePath, string $destPath): bool
     {
@@ -469,57 +512,49 @@ abstract class AbstractSyncCommand extends Command
         $localSourcePath = $this->getLocalPath($sourcePath);
 
         // Scan and display all directories with file counts
-        $this->io->text('Analyzing directories to sync...');
-        
-        $preview = new FileSyncPreviewService($this->excludePatterns);
+        $this->io->text('Analyzing files to sync...');
+
+        // Since we're scanning the actual staged directory (if applicable),
+        // we don't need to apply exclusion patterns - what's in the directory IS what will sync
+        $preview = new FileSyncPreviewService([]);
         $directorySummary = $preview->scanDirectoriesWithCounts($localSourcePath, $localSourcePath);
 
-        if (!empty($directorySummary)) {
-            $this->io->writeln("\nDirectories and files to sync:");
-            
-            $displayLimit = 50;
-            $displayed = 0;
-            
-            foreach ($directorySummary as $item) {
-                if ($displayed >= $displayLimit) {
-                    $remaining = count($directorySummary) - $displayed;
-                    $this->io->writeln("  ... and {$remaining} more directories");
-                    break;
-                }
-                
-                if ($item['type'] === 'file') {
-                    $this->io->writeln("  • {$item['path']}");
-                } else {
-                    $fileCount = number_format($item['count']);
-                    $this->io->writeln("  • {$item['path']}/ <comment>({$fileCount} files)</comment>");
-                }
-                $displayed++;
-            }
-            $this->io->newLine();
+        if (empty($directorySummary)) {
+            $this->io->success('No files need to be synchronized.');
+            return true;
         }
+
+        $totalFiles = array_sum(array_column($directorySummary, 'count'));
+        $this->io->writeln("\n<info>Total files to sync: " . number_format($totalFiles) . "</info>\n");
+
+        $this->io->writeln('Directories and files:');
+
+        $displayLimit = 50;
+        $displayed = 0;
+
+        foreach ($directorySummary as $item) {
+            if ($displayed >= $displayLimit) {
+                $remaining = count($directorySummary) - $displayed;
+                $this->io->writeln("  ... and {$remaining} more directories");
+                break;
+            }
+
+            if ($item['type'] === 'file') {
+                $this->io->writeln("  • {$item['path']}");
+            } else {
+                $fileCount = number_format($item['count']);
+                $this->io->writeln("  • {$item['path']}/ <comment>({$fileCount} files)</comment>");
+            }
+            $displayed++;
+        }
+        $this->io->newLine();
 
         if ($this->flags['delete']) {
             $this->io->warning('Delete mode is enabled - files missing from source will be removed from destination.');
         }
 
-        $exclusionCount = count($this->excludePatterns);
-        $this->io->writeln("Exclusion patterns applied: <info>{$exclusionCount}</info>");
-
-        if ($this->verbose && $exclusionCount > 0) {
-            $this->io->writeln("\nExcluding:");
-            $displayLimit = 20;
-            $patterns = array_slice($this->excludePatterns, 0, $displayLimit);
-            foreach ($patterns as $pattern) {
-                $this->io->writeln("  - {$pattern}");
-            }
-            if ($exclusionCount > $displayLimit) {
-                $remaining = $exclusionCount - $displayLimit;
-                $this->io->writeln("  ... and {$remaining} more");
-            }
-        }
-
         return $this->io->confirm('Proceed with file sync?', false);
-    }    /**
+    } /**
      * Get local path from a potentially remote path string.
      */
     private function getLocalPath(string $path): string
@@ -529,27 +564,5 @@ abstract class AbstractSyncCommand extends Command
             return substr($path, strpos($path, ':') + 1);
         }
         return $path;
-    }
-
-    /**
-     * Check if path is local (not remote SSH path).
-     */
-    private function isLocalPath(string $path): bool
-    {
-        return !str_contains($path, ':');
-    }
-
-    /**
-     * Format bytes into human-readable size.
-     */
-    private function formatBytes(int $bytes): string
-    {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $bytes = max($bytes, 0);
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-        $bytes /= 1 << 10 * $pow;
-
-        return round($bytes, 2) . ' ' . $units[$pow];
     }
 }
