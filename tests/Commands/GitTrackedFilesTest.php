@@ -84,7 +84,7 @@ class GitTrackedFilesTest extends TestCase
     {
         $this->initializeGitRepo($this->testDir);
         $this->createAndCommitFile('tracked.php');
-        
+
         file_put_contents($this->testDir . '/untracked.php', "<?php\n");
 
         $result = $this->command->getGitTrackedFiles($this->testDir);

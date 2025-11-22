@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Movepress\Commands;
 
 use Movepress\Services\FileSearchReplaceService;
+use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
 use Movepress\Services\Sync\DatabaseSyncController;
 use Movepress\Services\Sync\FileSyncController;
@@ -233,6 +234,13 @@ abstract class AbstractSyncCommand extends Command
         $sourcePath = $this->buildPath($this->sourceEnv);
         $destPath = $this->buildPath($this->destEnv);
         $this->excludePatterns = $this->prepareFileFilters($excludes);
+
+        // Confirm file sync operation with user
+        if (!$this->dryRun && !$this->noInteraction && !$this->confirmFileSyncOperation($sourcePath, $destPath)) {
+            $this->io->writeln('File sync cancelled.');
+            return false;
+        }
+
         $stagingService = null;
         $stagedPath = null;
 
@@ -448,5 +456,106 @@ abstract class AbstractSyncCommand extends Command
     {
         $validator = new ValidationService($this->io);
         return $validator->confirmDestructiveOperation($destination, $this->flags, $this->noInteraction);
+    }
+
+    /**
+     * Preview and confirm file sync operation with the user.
+     */
+    private function confirmFileSyncOperation(string $sourcePath, string $destPath): bool
+    {
+        $this->io->section('File Sync Preview');
+        $this->io->text('Analyzing files to sync...');
+
+        // Run rsync in dry-run mode to get list of files
+        $rsyncService = new RsyncService($this->output, true, false);
+        $localSourcePath = $this->getLocalPath($sourcePath);
+        $previewDestPath = $this->isLocalPath($destPath) ? $destPath : sys_get_temp_dir() . '/movepress-preview';
+
+        $success = $rsyncService->syncFiles(
+            $localSourcePath,
+            $previewDestPath,
+            $this->excludePatterns,
+            null,
+            $this->flags['delete'],
+        );
+
+        if (!$success) {
+            $this->io->warning('Unable to preview files. Proceeding with confirmation only.');
+            return $this->io->confirm('Proceed with file sync?', false);
+        }
+
+        $stats = $rsyncService->getLastStats();
+        $dryRunSummary = $rsyncService->getLastDryRunSummary();
+
+        if ($stats !== null) {
+            $fileCount = $dryRunSummary['files'] ?? 0;
+            $byteCount = $dryRunSummary['bytes'] ?? 0;
+
+            if ($fileCount === 0) {
+                $this->io->success('No files need to be synchronized.');
+                return true;
+            }
+
+            $size = $this->formatBytes($byteCount);
+            $this->io->writeln(["Files to sync: <info>{$fileCount}</info>", "Total size: <info>{$size}</info>"]);
+
+            if ($this->flags['delete']) {
+                $this->io->warning(
+                    'Delete mode is enabled - files missing from source will be removed from destination.',
+                );
+            }
+
+            $exclusionCount = count($this->excludePatterns);
+            $this->io->writeln("Exclusion patterns applied: <info>{$exclusionCount}</info>");
+
+            if ($this->verbose) {
+                $this->io->writeln("\nExcluding:");
+                $displayLimit = 20;
+                $patterns = array_slice($this->excludePatterns, 0, $displayLimit);
+                foreach ($patterns as $pattern) {
+                    $this->io->writeln("  - {$pattern}");
+                }
+                if ($exclusionCount > $displayLimit) {
+                    $remaining = $exclusionCount - $displayLimit;
+                    $this->io->writeln("  ... and {$remaining} more");
+                }
+            }
+        }
+
+        return $this->io->confirm('Proceed with file sync?', false);
+    }
+
+    /**
+     * Get local path from a potentially remote path string.
+     */
+    private function getLocalPath(string $path): string
+    {
+        if (str_contains($path, ':')) {
+            // Extract path after colon for remote paths (user@host:/path -> /path)
+            return substr($path, strpos($path, ':') + 1);
+        }
+        return $path;
+    }
+
+    /**
+     * Check if path is local (not remote SSH path).
+     */
+    private function isLocalPath(string $path): bool
+    {
+        return !str_contains($path, ':');
+    }
+
+    /**
+     * Format bytes into human-readable size.
+     */
+    private function formatBytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+        $bytes /= 1 << 10 * $pow;
+
+        return round($bytes, 2) . ' ' . $units[$pow];
     }
 }
