@@ -2,8 +2,6 @@
 
 A modern WordPress deployment tool for pushing and pulling databases and files between environments via SSH.
 
-### WARNING: Movepress is still under active development. I have covered many edge cases but proceed with caution until this message is removed.
-
 **Built as a modern successor to [Wordmove](https://github.com/welaika/wordmove)** - the beloved but unmaintained Ruby gem that revolutionized WordPress deployments. Movepress brings the same powerful workflow to modern PHP with improved reliability, better performance, and zero Ruby dependencies.
 
 I translated the logic of the [go-search-replace](https://github.com/Automattic/go-search-replace) algorithm developed by [Automattic] into PHP and incorporated that into this utility. You can find that PHP-ported logic here: [php-search-replace](https://github.com/AlextheYounga/php-search-replace). This allows us to search and replace serialized php inside sql dump files, avoiding the constraints of wp-cli for search-replace functions.
