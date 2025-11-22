@@ -11,8 +11,6 @@ use Symfony\Component\Console\Output\BufferedOutput;
 
 class TestableRsyncService extends RsyncService
 {
-    private bool $progress2Support = true;
-
     public function exposedBuildCommand(
         string $source,
         string $dest,
@@ -22,16 +20,6 @@ class TestableRsyncService extends RsyncService
         bool $delete = false,
     ): string {
         return $this->buildRsyncCommand($source, $dest, $excludes, $includes, $sshService, $delete);
-    }
-
-    public function setProgress2Support(bool $supported): void
-    {
-        $this->progress2Support = $supported;
-    }
-
-    protected function supportsProgress2(): bool
-    {
-        return $this->progress2Support;
     }
 }
 
@@ -51,12 +39,10 @@ class RsyncServiceTest extends TestCase
         $command = $service->exposedBuildCommand('/source/path', '/dest/path');
 
         $this->assertStringContainsString('rsync', $command);
-        $this->assertStringContainsString('-avz', $command);
+        $this->assertStringContainsString('-avzOni', $command);
         $this->assertStringContainsString('--stats', $command);
         $this->assertStringNotContainsString('--delete', $command);
-        $this->assertStringContainsString('--dry-run', $command);
-        $this->assertStringContainsString('--itemize-changes', $command);
-        $this->assertStringContainsString('--out-format=', $command);
+        $this->assertStringContainsString('--out-format', $command);
         $this->assertStringContainsString('/source/path/', $command);
         $this->assertStringContainsString('/dest/path', $command);
     }
@@ -69,9 +55,9 @@ class RsyncServiceTest extends TestCase
 
         $command = $service->exposedBuildCommand('/source/path', '/dest/path', $excludes);
 
-        $this->assertStringContainsString("--exclude='.git/'", $command);
-        $this->assertStringContainsString("--exclude='node_modules/'", $command);
-        $this->assertStringContainsString("--exclude='*.log'", $command);
+        $this->assertStringContainsString("--exclude '.git/'", $command);
+        $this->assertStringContainsString("--exclude 'node_modules/'", $command);
+        $this->assertStringContainsString("--exclude '*.log'", $command);
     }
 
     public function test_includes_ssh_options_for_remote_sync(): void
@@ -87,25 +73,15 @@ class RsyncServiceTest extends TestCase
 
         $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], [], $sshService);
 
-        $this->assertStringContainsString('-e', $command);
-        $this->assertStringContainsString('ssh', $command);
+        $this->assertStringContainsString("-e 'ssh", $command);
     }
 
     public function test_always_includes_progress_flag(): void
     {
         $service = new TestableRsyncService($this->output, false, false);
-        $service->setProgress2Support(false);
         $command = $service->exposedBuildCommand('/source/path', '/dest/path');
         $this->assertStringContainsString('--progress', $command);
         $this->assertStringNotContainsString('--info=progress2', $command);
-    }
-
-    public function test_includes_progress2_when_supported(): void
-    {
-        $service = new TestableRsyncService($this->output, false, false);
-        $service->setProgress2Support(true);
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path');
-        $this->assertStringContainsString('--info=progress2', $command);
     }
 
     public function test_includes_delete_flag_when_requested(): void
@@ -151,9 +127,26 @@ class RsyncServiceTest extends TestCase
 
         $command = $service->exposedBuildCommand('/source/path', '/dest/path', $excludes);
 
-        $this->assertStringContainsString("--exclude='*.php'", $command);
-        $this->assertStringContainsString("--exclude='*.js'", $command);
-        $this->assertStringContainsString("--exclude='wp-content/themes/'", $command);
+        $this->assertStringContainsString("--exclude '*.php'", $command);
+        $this->assertStringContainsString("--exclude '*.js'", $command);
+        $this->assertStringContainsString("--exclude 'wp-content/themes/'", $command);
+    }
+
+    public function test_git_excludes_are_applied_before_includes(): void
+    {
+        $service = new TestableRsyncService($this->output, true, false);
+
+        $excludes = ['.git/', '*'];
+        $includes = ['.*']; // Emulates a gitignore entry that would otherwise include .git
+
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', $excludes, $includes);
+
+        $excludePos = strpos($command, "--exclude '.git/'");
+        $includePos = strpos($command, "--include '.*'");
+
+        $this->assertNotFalse($excludePos);
+        $this->assertNotFalse($includePos);
+        $this->assertLessThan($includePos, $excludePos, 'Excludes should precede includes so .git stays excluded');
     }
 
     public function test_is_available_returns_true_when_rsync_exists(): void

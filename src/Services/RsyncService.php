@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Movepress\Services;
 
-use Movepress\Console\MovepressStyle;
 use Movepress\Console\CommandFormatter;
+use Movepress\Console\MovepressStyle;
 use Movepress\Services\Sync\RsyncDryRunSummary;
 use Movepress\Services\Sync\RsyncStats;
 use Movepress\Services\Sync\RsyncStatsParser;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
+use xobotyi\rsync\Rsync;
 
 class RsyncService
 {
@@ -21,7 +22,6 @@ class RsyncService
     private ?RsyncStats $lastStats = null;
     private ?RsyncDryRunSummary $lastDryRunSummary = null;
     private RsyncStatsParser $parser;
-    private static ?bool $progress2Supported = null;
 
     public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
     {
@@ -63,6 +63,9 @@ class RsyncService
             // Fallback: exclude common tracked files when no .gitignore exists
             $finalExcludes = array_merge($finalExcludes, $gitignorePatterns['exclude']);
         }
+
+        // Always avoid syncing VCS metadata, even if user excludes are missing
+        $finalExcludes = array_values(array_unique(array_merge($finalExcludes, ['.git', '.git/'])));
 
         return $this->sync($sourcePath, $destPath, $finalExcludes, $includes, $sshService, null, $delete);
     }
@@ -133,52 +136,54 @@ class RsyncService
         ?SshService $sshService,
         bool $delete = false,
     ): string {
-        $options = [
-            '-avz', // archive, verbose, compress
-            '--stats',
-            '--progress',
-            '--omit-dir-times',
-        ];
-
-        if ($this->supportsProgress2()) {
-            $options[] = '--info=progress2';
-        }
+        $rsync = new Rsync();
+        $rsync
+            ->setOption(Rsync::OPT_ARCHIVE)
+            ->setOption(Rsync::OPT_VERBOSE)
+            ->setOption(Rsync::OPT_COMPRESS)
+            ->setOption(Rsync::OPT_STATS)
+            ->setOption(Rsync::OPT_PROGRESS)
+            ->setOption(Rsync::OPT_OMIT_DIR_TIMES);
 
         if ($delete) {
-            $options[] = '--delete'; // delete files that don't exist on source
+            $rsync->setOption(Rsync::OPT_DELETE);
         }
 
         if ($this->dryRun) {
-            $options[] = '--dry-run';
-            $options[] = '--itemize-changes';
-            $options[] = '--out-format=' . escapeshellarg('INFO:%i:%l:%n%L');
+            $rsync
+                ->setOption(Rsync::OPT_DRY_RUN)
+                ->setOption(Rsync::OPT_ITEMIZE_CHANGES)
+                ->setOption(Rsync::OPT_OUT_FORMAT, 'INFO:%i:%l:%n%L');
         }
 
-        // Add include rules before excludes so they take precedence
-        foreach ($includes as $include) {
-            $options[] = '--include=' . escapeshellarg($include);
+        if (!empty($excludes)) {
+            $rsync->setOption(Rsync::OPT_EXCLUDE, $excludes);
         }
 
-        // Add excludes
-        foreach ($excludes as $exclude) {
-            $options[] = '--exclude=' . escapeshellarg($exclude);
+        if (!empty($includes)) {
+            $rsync->setOption(Rsync::OPT_INCLUDE, $includes);
         }
 
-        // Build SSH options if remote connection
         if ($sshService) {
-            $sshOptions = implode(' ', $sshService->getSshOptions());
-            $options[] = '-e';
-            $options[] = escapeshellarg("ssh {$sshOptions}");
+            $sshCommand = trim('ssh ' . implode(' ', $sshService->getSshOptions()));
+            $rsync->setSSH(
+                new class ($sshCommand) extends \xobotyi\rsync\SSH {
+                    public function __construct(private readonly string $command) {}
+
+                    public function __toString(): string
+                    {
+                        return $this->command;
+                    }
+                },
+            );
         }
 
         // Ensure trailing slash on source for proper sync behavior
         $source = rtrim($source, '/') . '/';
 
-        $optionsString = implode(' ', $options);
-        $sourceEscaped = escapeshellarg($source);
-        $destEscaped = escapeshellarg($dest);
+        $rsync->setParameters([escapeshellarg($source), escapeshellarg($dest)]);
 
-        return "rsync {$optionsString} {$sourceEscaped} {$destEscaped}";
+        return (string) $rsync;
     }
 
     public function getLastStats(): ?RsyncStats
@@ -270,10 +275,11 @@ class RsyncService
             '*.css',
             '*.json',
             '*.md',
-            '*.txt',
             '*.xml',
             '*.yml',
             '*.yaml',
+            '.git/',
+            '.git',
             'wp-content/themes/',
             'wp-content/plugins/',
             'wp-includes/',
@@ -290,30 +296,5 @@ class RsyncService
         $process->run();
 
         return $process->isSuccessful();
-    }
-
-    protected function supportsProgress2(): bool
-    {
-        if (self::$progress2Supported !== null) {
-            return self::$progress2Supported;
-        }
-
-        $process = Process::fromShellCommandline('rsync --version');
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            return self::$progress2Supported = false;
-        }
-
-        $output = $process->getOutput();
-        if (preg_match('/rsync\s+version\s+(\d+)\.(\d+)/i', $output, $matches)) {
-            $major = (int) $matches[1];
-            $minor = (int) $matches[2];
-            if ($major > 3 || ($major === 3 && $minor >= 1)) {
-                return self::$progress2Supported = true;
-            }
-        }
-
-        return self::$progress2Supported = false;
     }
 }

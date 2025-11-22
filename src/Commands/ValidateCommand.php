@@ -38,7 +38,7 @@ class ValidateCommand extends Command
                 return Command::FAILURE;
             }
 
-            $io->section("Found {count($environments)} environment(s)");
+            $io->section(sprintf('Found %d environment(s)', count($environments)));
             $io->listing($environments);
 
             // Validate each environment
