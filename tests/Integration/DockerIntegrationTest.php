@@ -257,9 +257,17 @@ class DockerIntegrationTest extends TestCase
     public function testFilePush(): void
     {
         $hardcodedPath = '/var/www/html/wp-content/uploads/hardcoded.txt';
+
+        // Ensure the file is NOT git-tracked (it may have been committed by testGitSetup)
+        // Remove it from git index if present, keeping the working copy
+        $removeFromGitCommand = "docker exec movepress-local bash -lc 'git -C /var/www/html rm --cached {$hardcodedPath} 2>/dev/null || true'";
+        $process = Process::fromShellCommandline($removeFromGitCommand);
+        $process->run();
+
+        // Now set the local file contents (this ensures it's an untracked file)
         $this->setLocalFileContents($hardcodedPath, "Local hardcoded URL: http://localhost:8080\n");
 
-        $process = $this->runMovepress('push local remote --untracked-files --verbose --no-interaction');
+        $process = $this->runMovepress('push local remote --files --verbose --no-interaction');
 
         $this->assertTrue(
             $process->isSuccessful(),
@@ -299,7 +307,7 @@ class DockerIntegrationTest extends TestCase
         $hardcodedPath = '/var/www/html/wp-content/uploads/hardcoded.txt';
         $this->setRemoteFileContents($hardcodedPath, "Remote hardcoded URL: http://localhost:8081\n");
 
-        $process = $this->runMovepress('pull remote local --untracked-files --verbose --no-interaction');
+        $process = $this->runMovepress('pull remote local --files --verbose --no-interaction');
 
         $this->assertTrue(
             $process->isSuccessful(),

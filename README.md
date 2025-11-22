@@ -11,7 +11,7 @@ I translated the logic of the [go-search-replace](https://github.com/Automattic/
 ## Features
 
 - 🚀 Push/pull WordPress databases with automatic search-replace
-- 📁 Sync untracked files (uploads, caches) using rsync over SSH
+- 📁 Sync files (uploads, caches) using rsync over SSH (git-tracked files excluded by default)
 - 🔧 Git-based deployment for tracked files (themes, plugins, core)
 - 🔐 Environment variable support in configuration
 - 🎯 Flexible exclude patterns (global and per-environment)
@@ -62,22 +62,22 @@ movepress git-setup production
 # Deploy code changes via Git
 git push production master
 
-# Sync database and untracked files
-movepress push local production --db --untracked-files
+# Sync database and files
+movepress push local production --db --files
 
 # Pull database from staging
 movepress pull staging local --db
 
-# Pull only untracked files (uploads, etc.) from production
-movepress pull production local --untracked-files
+# Pull only files (uploads, etc.) from production
+movepress pull production local --files
 ```
 
 ## Commands
 
 ### Core Commands
 
-- `movepress push <source> <destination>` - Push database/untracked files from source to destination
-- `movepress pull <source> <destination>` - Pull database/untracked files from source to destination
+- `movepress push <source> <destination>` - Push database/files from source to destination
+- `movepress pull <source> <destination>` - Pull database/files from source to destination
 - `movepress git-setup <environment>` - Set up Git deployment for remote environment
 - `movepress init` - Initialize a new movefile.yml configuration
 - `movepress status` - Show system tools availability and configured environments
@@ -88,13 +88,15 @@ movepress pull production local --untracked-files
 ### Push/Pull Options
 
 - `--db` - Sync database only
-- `--untracked-files` - Sync files not tracked by Git (uploads, caches, etc.)
+- `--files` - Sync files (uploads, caches, etc.), excluding git-tracked files by default
 - `--dry-run` - Preview changes without making them
 - `--no-backup` - Skip backup before database import
-- `--delete` - Delete destination files missing from source during untracked file syncs (destructive)
+- `--delete` - Delete destination files missing from source during file syncs (destructive)
+- `--include-git-tracked` - Include git-tracked files in file syncs (disables automatic git exclusions)
 - `-v, --verbose` - Show detailed output
 
 **Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. Use `git push <environment> <branch>` after running `movepress git-setup`.
+When syncing files, Movepress reads the local Git repo to auto-exclude tracked files; if Git isn’t available, it falls back to excluding common code patterns (themes, plugins, core). Use `--include-git-tracked` to override and send everything not covered by movefile excludes.
 
 File syncs are non-destructive by default—Movepress only removes destination files when you explicitly pass `--delete`, and it will warn you before doing so. Database syncs create a backup automatically unless `--no-backup` is provided, and the backup path is printed for easy reference.
 
@@ -107,17 +109,17 @@ movepress git-setup production
 # Deploy code changes via Git
 git push production master
 
-# Sync database and untracked files to production
-movepress push local production --db --untracked-files
+# Sync database and files to production
+movepress push local production --db --files
 
 # Pull database only from staging
 movepress pull staging local --db
 
-# Sync only untracked files (uploads, etc.) from production
-movepress pull production local --untracked-files
+# Sync only files (uploads, etc.) from production
+movepress pull production local --files
 
 # Preview what would be pushed (dry run)
-movepress push local staging --db --untracked-files --dry-run
+movepress push local staging --db --files --dry-run
 
 # Create a backup before making changes
 movepress backup production
@@ -187,7 +189,7 @@ Use `${VAR_NAME}` syntax to reference variables from your `.env` file.
 Movepress uses a **hybrid approach** for managing WordPress sites:
 
 1. **Git for tracked files** - Deploy themes, plugins, and WordPress core via Git
-2. **Rsync for untracked files** - Sync uploads, caches, and other generated content (requires at least one local endpoint so Movepress can update URLs locally)
+2. **Rsync for files** - Sync uploads, caches, and other generated content (requires at least one local endpoint so Movepress can update URLs locally)
 3. **Database sync** - Export, search-replace, and import databases between environments
 
 **Typical workflow:**
@@ -198,9 +200,9 @@ movepress git-setup production
 
 # Regular deployments
 git commit -am "Update theme"
-git push production master                        # Deploy code
-movepress push local production --db              # Sync database
-movepress push local production --untracked-files # Sync uploads
+git push production master              # Deploy code
+movepress push local production --db    # Sync database
+movepress push local production --files # Sync uploads
 ```
 
 ## Requirements
@@ -330,7 +332,7 @@ See [tests/Docker/README.md](tests/Docker/README.md) for details.
 
 - 📝 Same `movefile.yml` configuration format (mostly compatible!)
 - 🔄 Same push/pull command structure
-- 🎯 Simplified sync options (--db, --untracked-files)
+- 🎯 Simplified sync options (--db, --files)
 - ⚙️ Same exclude pattern system
 - 🔧 New git-setup command for modern deployments
 

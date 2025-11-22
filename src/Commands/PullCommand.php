@@ -66,8 +66,8 @@ class PullCommand extends AbstractSyncCommand
                 return Command::SUCCESS;
             }
 
-            // Sync untracked files if requested
-            if ($this->flags['untracked_files']) {
+            // Sync files if requested
+            if ($this->flags['files']) {
                 $io->section('File Synchronization');
 
                 $excludes = $config->getExcludes($destination);
@@ -81,7 +81,7 @@ class PullCommand extends AbstractSyncCommand
                     return Command::FAILURE;
                 }
 
-                $io->success('Untracked files synchronized successfully');
+                $io->success('Files synchronized successfully');
             }
 
             // Sync database if requested

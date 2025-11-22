@@ -158,7 +158,7 @@ See [Docker Setup Guide](DOCKER.md) for examples.
 
 ## Debugging Steps
 
-`bash\n# 1. Validate configuration\nmovepress validate\n\n# 2. Check system status\nmovepress status\n\n# 3. Test SSH connection\nmovepress ssh production\n\n# 4. Preview changes\nmovepress push local production --untracked-files --dry-run\n\n# 5. Run with verbose output\nmovepress push local production --db -v\n`\n\nFor cron/systemd issues, check logs: `journalctl -xe` or `grep CRON /var/log/syslog`\n\n---
+`bash\n# 1. Validate configuration\nmovepress validate\n\n# 2. Check system status\nmovepress status\n\n# 3. Test SSH connection\nmovepress ssh production\n\n# 4. Preview changes\nmovepress push local production --files --dry-run\n\n# 5. Run with verbose output\nmovepress push local production --db -v\n`\n\nFor cron/systemd issues, check logs: `journalctl -xe` or `grep CRON /var/log/syslog`\n\n---
 
 ## See Also
 

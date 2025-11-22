@@ -88,21 +88,21 @@ class PullCommandTest extends TestCase
         $this->assertEquals(1, $this->commandTester->getStatusCode());
     }
 
-    public function test_displays_configuration_with_untracked_files_flag(): void
+    public function test_displays_configuration_with_files_flag(): void
     {
         $this->createMinimalConfig();
 
         $this->commandTester->execute([
             'source' => 'local',
             'destination' => 'local',
-            '--untracked-files' => true,
+            '--files' => true,
             '--dry-run' => true,
         ]);
 
         $output = $this->commandTester->getDisplay();
         $this->assertStringContainsString('Source: local', $output);
         $this->assertStringContainsString('Destination: local', $output);
-        $this->assertStringContainsString('Untracked Files: ✓', $output);
+        $this->assertStringContainsString('Files: ✓', $output);
         $this->assertStringContainsString('Tracked files (themes, plugins, core) should be deployed', $output);
         $this->assertStringContainsString('Use: git push', $output);
     }
@@ -310,7 +310,7 @@ class PullCommandTest extends TestCase
         $this->assertEquals(0, $this->commandTester->getStatusCode());
     }
 
-    public function test_syncs_both_database_and_untracked_files_by_default(): void
+    public function test_syncs_both_database_and_files_by_default(): void
     {
         $this->createMinimalConfig();
 
@@ -322,7 +322,7 @@ class PullCommandTest extends TestCase
 
         $output = $this->commandTester->getDisplay();
         $this->assertStringContainsString('Database: ✓', $output);
-        $this->assertStringContainsString('Untracked Files: ✓', $output);
+        $this->assertStringContainsString('Files: ✓', $output);
     }
 
     private function createMinimalConfig(): void

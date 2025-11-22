@@ -24,44 +24,45 @@ movepress push <source> <destination> [options]
 **Sync Options:**
 
 - `--db` - Sync database only
-- `--untracked-files` - Sync files not tracked by Git (uploads, caches, etc.)
+- `--files` - Sync files (uploads, caches, etc.), excluding git-tracked files by default
+- `--include-git-tracked` - Include git-tracked files during file syncs
 
 **Safety Options:**
 
 - `--dry-run` - Preview changes without executing them
 - `--no-backup` - Skip database backup before import (not recommended)
-- `--delete` - Delete destination files that don't exist on the source when syncing untracked files (destructive)
+- `--delete` - Delete destination files that don't exist on the source when syncing files (destructive)
 
 **Output Options:**
 
 - `-v, --verbose` - Show detailed output including rsync/database commands
 
-**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. See `git-setup` command below.
+**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. For file syncs, Movepress auto-excludes git-tracked files from the local repo; if Git isn’t available, it falls back to excluding common code patterns. Use `--include-git-tracked` to override and include everything not covered by your movefile excludes. See `git-setup` command below.
 
 ### Examples
 
 ```bash
-# Push database and untracked files to production
-movepress push local production --db --untracked-files
+# Push database and files to production
+movepress push local production --db --files
 
 # Push database only
 movepress push local staging --db
 
-# Push only untracked files (uploads, etc.)
-movepress push local production --untracked-files
+# Push only files (uploads, etc.)
+movepress push local production --files
 
 # Preview changes without executing
-movepress push local production --db --untracked-files --dry-run
+movepress push local production --db --files --dry-run
 
 # Push with verbose output
-movepress push local production --untracked-files -v
+movepress push local production --files -v
 ```
 
 ### Notes
 
-- If no flags are specified, both `--db` and `--untracked-files` are synced by default
+- If no flags are specified, both `--db` and `--files` are synced by default
 - Database operations automatically perform search-replace for URLs
-- After untracked files sync, Movepress scans text files in `wp-content/` and replaces the source URL with the destination URL (skips binaries/caches). At least one side of the sync must be local for this to occur.
+- After files sync, Movepress scans text files in `wp-content/` and replaces the source URL with the destination URL (skips binaries/caches). At least one side of the sync must be local for this to occur.
 - A backup is created before database import unless `--no-backup` is used, and the backup path is shown after creation
 - File syncs are non-destructive by default. Use `--delete` to remove destination files that don't exist on the source.
 - You'll be prompted to confirm only when a destructive option is in use (`--delete` or `--no-backup`)
@@ -92,23 +93,23 @@ Same options as `push` command (see above).
 
 ```bash
 # Pull database and uploads from production
-movepress pull production local --db --untracked-files
+movepress pull production local --db --files
 
 # Pull database only
 movepress pull staging local --db
 
-# Pull only untracked files (uploads, etc.)
-movepress pull production local --untracked-files
+# Pull only files (uploads, etc.)
+movepress pull production local --files
 
 # Preview changes without executing
-movepress pull production local --db --untracked-files --dry-run
+movepress pull production local --db --files --dry-run
 ```
 
 ### Notes
 
 - Works exactly like `push` but in reverse direction
 - Same safety features, backup logging, and destructive-operation prompts as `push`
-- After untracked files sync, Movepress updates text files within `wp-content/` to swap the source URL for the destination URL. At least one side of the sync must be local for this to occur.
+- After files sync, Movepress updates text files within `wp-content/` to swap the source URL for the destination URL. At least one side of the sync must be local for this to occur.
 - Remember to use `git pull` or `git fetch` for tracked code files
 
 ---
@@ -359,7 +360,7 @@ movepress backup production --output=/backups/critical
 
 ## movepress post-files
 
-Run the file-level search/replace manually. Normally Movepress invokes this automatically after syncing untracked files, but you can execute it yourself (locally or remotely) for ad-hoc replacements.
+Run the file-level search/replace manually. Normally Movepress invokes this automatically after syncing files, but you can execute it yourself (locally or remotely) for ad-hoc replacements.
 
 ### Syntax
 
@@ -383,7 +384,7 @@ ssh deploy@example.com 'cd /var/www/html && movepress post-files https://example
 ### Notes
 
 - Remote manual runs require the Movepress PHAR installed on the server (default `/usr/local/bin/movepress`)
-- Manual runs are optional; `push`/`pull` already call this command locally when `--untracked-files` is used
+- Manual runs are optional; `push`/`pull` already call this command locally when `--files` is used
 - Untracked file syncs require at least one local endpoint so replacements happen on the machine running Movepress. For remote→remote replacements, run `post-files` manually on the destination after syncing via other tooling.
 
 ---

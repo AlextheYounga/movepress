@@ -19,8 +19,8 @@ class ValidationService
     {
         $this->io->section('Validating prerequisites');
 
-        // Check rsync availability for untracked file operations
-        if ($flags['untracked_files']) {
+        // Check rsync availability for file operations
+        if ($flags['files']) {
             if ($this->isRemoteToRemote($sourceEnv, $destEnv)) {
                 $this->io->error(
                     'Remote-to-remote file syncs are not supported. Provide a local endpoint or run post-files manually.',

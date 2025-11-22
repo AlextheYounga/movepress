@@ -27,12 +27,12 @@ final class FileSyncController
         string $destPath,
         array $excludes,
         ?SshService $remoteSsh,
-        ?string $gitignorePath,
         bool $delete,
+        ?string $excludeFromFile,
     ): bool {
         $rsync = new RsyncService($this->output, $this->dryRun, $this->verbose);
 
-        $this->io->text('Syncing untracked files (uploads, caches, etc.)...');
+        $this->io->text('Syncing files (uploads, caches, etc.)...');
         if ($delete) {
             $this->io->warning([
                 'You have enabled --delete. Files missing from the source will be removed from the destination.',
@@ -40,7 +40,7 @@ final class FileSyncController
             ]);
         }
 
-        $success = $rsync->syncUntrackedFiles($sourcePath, $destPath, $excludes, $remoteSsh, $gitignorePath, $delete);
+        $success = $rsync->syncFiles($sourcePath, $destPath, $excludes, $remoteSsh, $excludeFromFile, $delete);
 
         if ($success && ($stats = $rsync->getLastStats()) !== null) {
             $lines = $this->formatter->formatNoteLines($stats, $rsync->getLastDryRunSummary(), $this->dryRun);

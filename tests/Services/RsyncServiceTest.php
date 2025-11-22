@@ -15,11 +15,11 @@ class TestableRsyncService extends RsyncService
         string $source,
         string $dest,
         array $excludes = [],
-        array $includes = [],
+        ?string $excludeFrom = null,
         ?SshService $sshService = null,
         bool $delete = false,
     ): string {
-        return $this->buildRsyncCommand($source, $dest, $excludes, $includes, $sshService, $delete);
+        return $this->buildRsyncCommand($source, $dest, $excludes, $excludeFrom, $sshService, $delete);
     }
 }
 
@@ -71,7 +71,7 @@ class RsyncServiceTest extends TestCase
         $sshService = new SshService($sshConfig);
         $service = new TestableRsyncService($this->output, true, false);
 
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], [], $sshService);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], null, $sshService);
 
         $this->assertStringContainsString("-e 'ssh", $command);
     }
@@ -88,7 +88,7 @@ class RsyncServiceTest extends TestCase
     {
         $service = new TestableRsyncService($this->output, false, false);
 
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], [], null, true);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], null, null, true);
 
         $this->assertStringContainsString('--delete', $command);
     }
@@ -118,35 +118,18 @@ class RsyncServiceTest extends TestCase
         $this->assertStringNotContainsString('/source/path//', $command);
     }
 
-    public function test_excludes_pattern_from_gitignore(): void
+    public function test_supports_exclude_from_file(): void
     {
         $service = new TestableRsyncService($this->output, true, false);
 
-        // Test that .gitignore patterns become excludes
-        $excludes = ['*.php', '*.js', 'wp-content/themes/'];
+        $temp = tempnam(sys_get_temp_dir(), 'mp_rsync_test');
+        file_put_contents($temp, ".env\nvendor/\n");
 
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', $excludes);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], $temp);
 
-        $this->assertStringContainsString("--exclude '*.php'", $command);
-        $this->assertStringContainsString("--exclude '*.js'", $command);
-        $this->assertStringContainsString("--exclude 'wp-content/themes/'", $command);
-    }
+        $this->assertStringContainsString("--exclude-from '{$temp}'", $command);
 
-    public function test_git_excludes_are_applied_before_includes(): void
-    {
-        $service = new TestableRsyncService($this->output, true, false);
-
-        $excludes = ['.git/', '*'];
-        $includes = ['.*']; // Emulates a gitignore entry that would otherwise include .git
-
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', $excludes, $includes);
-
-        $excludePos = strpos($command, "--exclude '.git/'");
-        $includePos = strpos($command, "--include '.*'");
-
-        $this->assertNotFalse($excludePos);
-        $this->assertNotFalse($includePos);
-        $this->assertLessThan($includePos, $excludePos, 'Excludes should precede includes so .git stays excluded');
+        @unlink($temp);
     }
 
     public function test_is_available_returns_true_when_rsync_exists(): void

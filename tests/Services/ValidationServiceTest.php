@@ -66,7 +66,7 @@ class ValidationServiceTest extends TestCase
         $this->assertSame('', $style->fetchOutput());
     }
 
-    public function test_rejects_remote_to_remote_untracked_sync(): void
+    public function test_rejects_remote_to_remote_file_sync(): void
     {
         $style = $this->createStyle();
         $service = new ValidationService($style);
@@ -90,7 +90,7 @@ class ValidationServiceTest extends TestCase
             $dest,
             [
                 'db' => false,
-                'untracked_files' => true,
+                'files' => true,
                 'delete' => false,
                 'no_backup' => false,
             ],

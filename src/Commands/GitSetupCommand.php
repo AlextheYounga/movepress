@@ -162,7 +162,7 @@ class GitSetupCommand extends Command
         $io->writeln("  <comment>git push {$envName} master</comment>");
         $io->newLine();
 
-        $io->writeln('To sync database and untracked files (uploads, etc.), use:');
-        $io->writeln("  <comment>movepress push local {$envName} --db --untracked-files</comment>");
+        $io->writeln('To sync database and files (uploads, etc.), use:');
+        $io->writeln("  <comment>movepress push local {$envName} --db --files</comment>");
     }
 }

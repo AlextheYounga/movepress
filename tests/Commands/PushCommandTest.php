@@ -88,21 +88,21 @@ class PushCommandTest extends TestCase
         $this->assertEquals(1, $this->commandTester->getStatusCode());
     }
 
-    public function test_displays_configuration_with_untracked_files_flag(): void
+    public function test_displays_configuration_with_files_flag(): void
     {
         $this->createMinimalConfig();
 
         $this->commandTester->execute([
             'source' => 'local',
             'destination' => 'local',
-            '--untracked-files' => true,
+            '--files' => true,
             '--dry-run' => true,
         ]);
 
         $output = $this->commandTester->getDisplay();
         $this->assertStringContainsString('Source: local', $output);
         $this->assertStringContainsString('Destination: local', $output);
-        $this->assertStringContainsString('Untracked Files: ✓', $output);
+        $this->assertStringContainsString('Files: ✓', $output);
         $this->assertStringContainsString('Tracked files (themes, plugins, core) should be deployed', $output);
         $this->assertStringContainsString('Use: git push', $output);
     }

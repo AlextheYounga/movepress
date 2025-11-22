@@ -130,7 +130,9 @@ movepress git-setup production
 git push production master
 
 # Sync database and uploads
-movepress push local production --db --untracked-files
+movepress push local production --db --files
+
+Movepress auto-excludes git-tracked files for --files; if Git is missing, it excludes common code patterns. Use --include-git-tracked to override.
 ```
 
 ### backup_path
