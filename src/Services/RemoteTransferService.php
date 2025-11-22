@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Movepress\Services;
 
 use Movepress\Console\MovepressStyle;
+use Movepress\Console\CommandFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -28,7 +29,7 @@ class RemoteTransferService
         $command = $this->buildSshCommand($sshService, $remoteCommand);
 
         if ($this->verbose) {
-            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', CommandFormatter::forDisplay($command)));
         }
 
         return $this->executeCommand($command);
@@ -43,7 +44,7 @@ class RemoteTransferService
 
         if ($this->verbose) {
             $this->output->writeln("Uploading: {$localPath} → {$remotePath}");
-            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', CommandFormatter::forDisplay($command)));
         }
 
         return $this->executeCommand($command);

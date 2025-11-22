@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Movepress\Services;
 
 use Movepress\Console\MovepressStyle;
+use Movepress\Console\CommandFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -200,7 +201,7 @@ class GitService
     {
         if ($this->verbose) {
             $this->output->writeln("<muted>{$description}</muted>");
-            $this->output->writeln(sprintf('<cmd>› %s</cmd>', $command));
+            $this->output->writeln(sprintf('<cmd>› %s</cmd>', CommandFormatter::forDisplay($command)));
         }
 
         $process = Process::fromShellCommandline($command);
