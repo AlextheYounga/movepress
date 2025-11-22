@@ -17,10 +17,11 @@ class TestableRsyncService extends RsyncService
         string $source,
         string $dest,
         array $excludes = [],
+        array $includes = [],
         ?SshService $sshService = null,
         bool $delete = false,
     ): string {
-        return $this->buildRsyncCommand($source, $dest, $excludes, $sshService, $delete);
+        return $this->buildRsyncCommand($source, $dest, $excludes, $includes, $sshService, $delete);
     }
 
     public function setProgress2Support(bool $supported): void
@@ -84,7 +85,7 @@ class RsyncServiceTest extends TestCase
         $sshService = new SshService($sshConfig);
         $service = new TestableRsyncService($this->output, true, false);
 
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], $sshService);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], [], $sshService);
 
         $this->assertStringContainsString('-e', $command);
         $this->assertStringContainsString('ssh', $command);
@@ -111,7 +112,7 @@ class RsyncServiceTest extends TestCase
     {
         $service = new TestableRsyncService($this->output, false, false);
 
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], null, true);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], [], null, true);
 
         $this->assertStringContainsString('--delete', $command);
     }

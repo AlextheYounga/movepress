@@ -50,14 +50,21 @@ class RsyncService
         ?string $gitignorePath = null,
         bool $delete = false,
     ): bool {
-        // Load .gitignore patterns if available
-        $gitignoreExcludes = $this->getGitignoreExcludes($gitignorePath);
+        $includes = [];
+        $finalExcludes = $excludes;
 
-        // Merge .gitignore patterns with user-provided excludes
-        // .gitignore patterns are inverted - we want to INCLUDE only what Git ignores
-        $allExcludes = array_merge($excludes, $gitignoreExcludes);
+        $gitignorePatterns = $this->getGitignorePatterns($gitignorePath);
 
-        return $this->sync($sourcePath, $destPath, $allExcludes, $sshService, null, $delete);
+        if (!empty($gitignorePatterns['include'])) {
+            // Honor .gitignore by including only ignored files, then exclude everything else
+            $includes = $gitignorePatterns['include'];
+            $finalExcludes[] = '*';
+        } elseif (!empty($gitignorePatterns['exclude'])) {
+            // Fallback: exclude common tracked files when no .gitignore exists
+            $finalExcludes = array_merge($finalExcludes, $gitignorePatterns['exclude']);
+        }
+
+        return $this->sync($sourcePath, $destPath, $finalExcludes, $includes, $sshService, null, $delete);
     }
 
     /**
@@ -73,6 +80,7 @@ class RsyncService
         string $sourcePath,
         string $destPath,
         array $excludes = [],
+        array $includes = [],
         ?SshService $sshService = null,
         ?string $subfolder = null,
         bool $delete = false,
@@ -87,7 +95,7 @@ class RsyncService
         $this->lastDryRunSummary = null;
 
         // Build rsync command
-        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService, $delete);
+        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $includes, $sshService, $delete);
 
         if ($this->verbose || $this->dryRun) {
             $this->output->writeln(sprintf('<cmd>› %s</cmd>', CommandFormatter::forDisplay($command)));
@@ -121,6 +129,7 @@ class RsyncService
         string $source,
         string $dest,
         array $excludes,
+        array $includes,
         ?SshService $sshService,
         bool $delete = false,
     ): string {
@@ -143,6 +152,11 @@ class RsyncService
             $options[] = '--dry-run';
             $options[] = '--itemize-changes';
             $options[] = '--out-format=' . escapeshellarg('INFO:%i:%l:%n%L');
+        }
+
+        // Add include rules before excludes so they take precedence
+        foreach ($includes as $include) {
+            $options[] = '--include=' . escapeshellarg($include);
         }
 
         // Add excludes
@@ -178,25 +192,25 @@ class RsyncService
     }
 
     /**
-     * Get exclude patterns from .gitignore file
-     * Returns patterns of files that Git tracks (to exclude from rsync)
+     * Return include/exclude patterns derived from .gitignore, or fall back to default excludes.
+     *
+     * @return array{include: array, exclude: array}
      */
-    private function getGitignoreExcludes(?string $gitignorePath): array
+    private function getGitignorePatterns(?string $gitignorePath): array
     {
         if ($gitignorePath === null || !file_exists($gitignorePath)) {
-            // Return default patterns for common tracked files
-            return $this->getDefaultTrackedPatterns();
+            return ['include' => [], 'exclude' => $this->getDefaultTrackedPatterns()];
         }
 
         if ($this->gitignorePatterns !== null) {
-            return $this->gitignorePatterns;
+            return ['include' => $this->gitignorePatterns, 'exclude' => []];
         }
 
         $patterns = [];
         $lines = file($gitignorePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
         if ($lines === false) {
-            return $this->getDefaultTrackedPatterns();
+            return ['include' => [], 'exclude' => $this->getDefaultTrackedPatterns()];
         }
 
         foreach ($lines as $line) {
@@ -207,12 +221,41 @@ class RsyncService
                 continue;
             }
 
-            // Add pattern as-is for rsync
-            $patterns[] = $line;
+            $patterns = array_merge($patterns, $this->expandIncludePattern($line));
         }
 
         $this->gitignorePatterns = $patterns;
-        return $patterns;
+        return ['include' => $patterns, 'exclude' => []];
+    }
+
+    /**
+     * Ensure parent directories are included so rsync can descend into ignored paths.
+     *
+     * @return array<string>
+     */
+    private function expandIncludePattern(string $pattern): array
+    {
+        $expanded = [];
+
+        if (!str_contains($pattern, '/')) {
+            // File glob only; keep as-is so it matches files
+            return [$pattern];
+        }
+
+        // Split on slashes to build parent directories
+        $parts = explode('/', trim($pattern, '/'));
+        $current = '';
+        foreach ($parts as $index => $part) {
+            $current .= ($current === '' ? '' : '/') . $part;
+            $expanded[] = $current . '/';
+
+            // Last part: add recursive include for files within
+            if ($index === count($parts) - 1) {
+                $expanded[] = $current . '/**';
+            }
+        }
+
+        return array_values(array_unique($expanded));
     }
 
     /**
