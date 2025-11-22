@@ -15,11 +15,10 @@ class TestableRsyncService extends RsyncService
         string $source,
         string $dest,
         array $excludes = [],
-        ?string $excludeFrom = null,
         ?SshService $sshService = null,
         bool $delete = false,
     ): string {
-        return $this->buildRsyncCommand($source, $dest, $excludes, $excludeFrom, $sshService, $delete);
+        return $this->buildRsyncCommand($source, $dest, $excludes, $sshService, $delete);
     }
 }
 
@@ -71,7 +70,7 @@ class RsyncServiceTest extends TestCase
         $sshService = new SshService($sshConfig);
         $service = new TestableRsyncService($this->output, true, false);
 
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], null, $sshService);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], $sshService);
 
         $this->assertStringContainsString("-e 'ssh", $command);
     }
@@ -88,7 +87,7 @@ class RsyncServiceTest extends TestCase
     {
         $service = new TestableRsyncService($this->output, false, false);
 
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], null, null, true);
+        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], null, true);
 
         $this->assertStringContainsString('--delete', $command);
     }
@@ -116,20 +115,6 @@ class RsyncServiceTest extends TestCase
 
         $this->assertStringContainsString('/source/path/', $command);
         $this->assertStringNotContainsString('/source/path//', $command);
-    }
-
-    public function test_supports_exclude_from_file(): void
-    {
-        $service = new TestableRsyncService($this->output, true, false);
-
-        $temp = tempnam(sys_get_temp_dir(), 'mp_rsync_test');
-        file_put_contents($temp, ".env\nvendor/\n");
-
-        $command = $service->exposedBuildCommand('/source/path', '/dest/path', [], $temp);
-
-        $this->assertStringContainsString("--exclude-from '{$temp}'", $command);
-
-        @unlink($temp);
     }
 
     public function test_is_available_returns_true_when_rsync_exists(): void

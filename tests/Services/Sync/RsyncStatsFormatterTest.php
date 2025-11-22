@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Movepress\Tests\Services\Sync;
 
-use Movepress\Services\Sync\RsyncDryRunSummary;
 use Movepress\Services\Sync\RsyncStats;
 use Movepress\Services\Sync\RsyncStatsFormatter;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +24,7 @@ class RsyncStatsFormatterTest extends TestCase
     public function test_formats_dry_run_stats_with_summary(): void
     {
         $stats = new RsyncStats(50, 0, 102400, 0);
-        $summary = new RsyncDryRunSummary(3, 2048);
+        $summary = ['files' => 3, 'bytes' => 2048];
         $formatter = new RsyncStatsFormatter();
 
         $lines = $formatter->formatNoteLines($stats, $summary, true);

@@ -35,7 +35,7 @@ class LocalStagingServiceTest extends TestCase
     {
         $service = new LocalStagingService($this->output, false);
 
-        $staged = $service->stage($this->sourceDir, [], null, false);
+        $staged = $service->stage($this->sourceDir, [], false);
 
         $this->assertFileExists($staged . '/wp-content/uploads/sample.jpg');
 

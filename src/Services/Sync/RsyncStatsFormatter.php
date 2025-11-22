@@ -6,14 +6,14 @@ namespace Movepress\Services\Sync;
 
 final class RsyncStatsFormatter
 {
-    public function formatNoteLines(RsyncStats $stats, ?RsyncDryRunSummary $dryRunSummary, bool $isDryRun): array
+    public function formatNoteLines(RsyncStats $stats, ?array $dryRunSummary, bool $isDryRun): array
     {
         $filesTransferred = $stats->getFilesTransferred() ?? 0;
         $bytesTransferred = $stats->getBytesTransferred();
 
         if ($isDryRun && $dryRunSummary !== null) {
-            $filesTransferred = $dryRunSummary->getFiles();
-            $bytesTransferred = $dryRunSummary->getBytes();
+            $filesTransferred = $dryRunSummary['files'];
+            $bytesTransferred = $dryRunSummary['bytes'];
         }
 
         $filesTotal = $stats->getFilesTotal();

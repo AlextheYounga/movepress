@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Movepress\Tests\Services\Sync;
 
-use Movepress\Services\Sync\RsyncDryRunSummary;
 use Movepress\Services\Sync\RsyncStatsParser;
 use PHPUnit\Framework\TestCase;
 
@@ -41,8 +40,8 @@ class RsyncStatsParserTest extends TestCase
 
         $summary = $parser->parseDryRunSummary($output);
 
-        $this->assertInstanceOf(RsyncDryRunSummary::class, $summary);
-        $this->assertSame(2, $summary->getFiles());
-        $this->assertSame(5555, $summary->getBytes());
+        $this->assertIsArray($summary);
+        $this->assertSame(2, $summary['files']);
+        $this->assertSame(5555, $summary['bytes']);
     }
 }

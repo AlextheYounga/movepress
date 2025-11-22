@@ -29,6 +29,7 @@ abstract class AbstractSyncCommand extends Command
     protected array $destEnv;
     protected array $flags;
     private bool $remoteFilesPreparedLocally = false;
+    private array $excludePatterns = [];
 
     protected function configureArguments(): void
     {
@@ -165,39 +166,22 @@ abstract class AbstractSyncCommand extends Command
         $executor = new FileSyncController($this->output, $this->io, $this->dryRun, $this->verbose);
         $sourcePath = $this->buildPath($this->sourceEnv);
         $destPath = $this->buildPath($this->destEnv);
-        $filter = $this->prepareFileFilters($excludes);
+        $this->excludePatterns = $this->prepareFileFilters($excludes);
         $stagingService = null;
         $stagedPath = null;
 
         if ($this->shouldStageRemoteFiles()) {
             $this->io->text('Staging files locally for remote upload...');
             $stagingService = new LocalStagingService($this->output, $this->verbose);
-            $stagedPath = $stagingService->stage(
-                $sourcePath,
-                $filter['excludes'],
-                $filter['exclude_from'],
-                $this->flags['delete'],
-            );
+            $stagedPath = $stagingService->stage($sourcePath, $this->excludePatterns, $this->flags['delete']);
             $this->applySearchReplaceToStagedFiles($stagedPath);
             $this->remoteFilesPreparedLocally = true;
             $sourcePath = $stagedPath;
-            // Clear exclude_from since staging already applied git-tracked file exclusions
-            $filter['exclude_from'] = null;
         }
 
         try {
-            return $executor->sync(
-                $sourcePath,
-                $destPath,
-                $filter['excludes'],
-                $remoteSsh,
-                $this->flags['delete'],
-                $filter['exclude_from'],
-            );
+            return $executor->sync($sourcePath, $destPath, $this->excludePatterns, $remoteSsh, $this->flags['delete']);
         } finally {
-            if ($filter['exclude_from'] !== null && file_exists($filter['exclude_from'])) {
-                @unlink($filter['exclude_from']);
-            }
             if ($stagingService !== null) {
                 $stagingService->cleanup($stagedPath);
             }
@@ -246,20 +230,6 @@ abstract class AbstractSyncCommand extends Command
         return $wpContentPath;
     }
 
-    private function getRelativePath(string $basePath, string $targetPath): ?string
-    {
-        if ($targetPath === $basePath) {
-            return null;
-        }
-
-        $prefix = $basePath . '/';
-        if (str_starts_with($targetPath, $prefix)) {
-            return substr($targetPath, strlen($prefix));
-        }
-
-        return $targetPath;
-    }
-
     private function applySearchReplaceToStagedFiles(string $stagedPath): void
     {
         $sourceUrl = $this->sourceEnv['url'];
@@ -279,28 +249,27 @@ abstract class AbstractSyncCommand extends Command
     }
 
     /**
-     * Build excludes and optional exclude-from file based on git tracked files and movefile excludes.
+     * Build merged array of excludes based on git tracked files and movefile excludes.
      *
-     * @return array{excludes: array, exclude_from: ?string}
+     * @return array
      */
     private function prepareFileFilters(array $baseExcludes): array
     {
         $excludes = array_values(array_unique(array_merge($baseExcludes, ['.git', '.git/', '.gitignore'])));
-        $excludeFrom = null;
 
         if ($this->flags['include_git_tracked']) {
             $this->io->text('Including git-tracked files (flag provided).');
-            return ['excludes' => $excludes, 'exclude_from' => null];
+            return $excludes;
         }
 
         $localPath = $this->getLocalWordpressPath();
         if ($localPath === null) {
-            return ['excludes' => $excludes, 'exclude_from' => null];
+            return $excludes;
         }
 
         $trackedFiles = $this->getGitTrackedFiles($localPath);
         if (!empty($trackedFiles)) {
-            $excludeFrom = $this->writeExcludeFile($trackedFiles);
+            $excludes = array_values(array_unique(array_merge($excludes, $trackedFiles)));
             $this->io->text(sprintf('Excluding %d git-tracked files from sync', count($trackedFiles)));
         } else {
             // Fall back to default tracked patterns to avoid syncing code when git data is unavailable
@@ -309,7 +278,7 @@ abstract class AbstractSyncCommand extends Command
             $this->io->text('Git metadata not available; using default code excludes for safety.');
         }
 
-        return ['excludes' => $excludes, 'exclude_from' => $excludeFrom];
+        return $excludes;
     }
 
     private function getLocalWordpressPath(): ?string
@@ -410,13 +379,6 @@ abstract class AbstractSyncCommand extends Command
             'wp-includes/',
             'wp-admin/',
         ];
-    }
-
-    private function writeExcludeFile(array $paths): string
-    {
-        $tempFile = rtrim(sys_get_temp_dir(), '/') . '/movepress_git_excludes_' . uniqid();
-        file_put_contents($tempFile, implode("\n", $paths) . "\n");
-        return $tempFile;
     }
 
     private function shouldStageRemoteFiles(): bool

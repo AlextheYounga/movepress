@@ -18,7 +18,7 @@ final class RsyncStatsParser
         return $stats->hasAnyValues() ? $stats : null;
     }
 
-    public function parseDryRunSummary(string $output): ?RsyncDryRunSummary
+    public function parseDryRunSummary(string $output): ?array
     {
         $matches = [];
         preg_match_all('/^INFO:([^:]+):(\d+):(.+)$/m', $output, $matches, PREG_SET_ORDER);
@@ -44,7 +44,7 @@ final class RsyncStatsParser
             }
         }
 
-        return new RsyncDryRunSummary($files, $bytes);
+        return ['files' => $files, 'bytes' => $bytes];
     }
 
     private function matchInt(string $pattern, string $subject): ?int

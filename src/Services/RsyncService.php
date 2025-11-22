@@ -6,7 +6,6 @@ namespace Movepress\Services;
 
 use Movepress\Console\CommandFormatter;
 use Movepress\Console\MovepressStyle;
-use Movepress\Services\Sync\RsyncDryRunSummary;
 use Movepress\Services\Sync\RsyncStats;
 use Movepress\Services\Sync\RsyncStatsParser;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -19,7 +18,7 @@ class RsyncService
     private bool $dryRun;
     private bool $verbose;
     private ?RsyncStats $lastStats = null;
-    private ?RsyncDryRunSummary $lastDryRunSummary = null;
+    private ?array $lastDryRunSummary = null;
     private RsyncStatsParser $parser;
 
     public function __construct(OutputInterface $output, bool $dryRun = false, bool $verbose = false)
@@ -36,11 +35,10 @@ class RsyncService
         string $destPath,
         array $excludes = [],
         ?SshService $sshService = null,
-        ?string $excludeFromFile = null,
         bool $delete = false,
     ): bool {
         $finalExcludes = array_values(array_unique(array_merge($excludes, ['.git', '.git/'])));
-        return $this->sync($sourcePath, $destPath, $finalExcludes, $sshService, $excludeFromFile, $delete);
+        return $this->sync($sourcePath, $destPath, $finalExcludes, $sshService, $delete);
     }
 
     /**
@@ -50,22 +48,19 @@ class RsyncService
      * @param string $destPath Destination path (local or remote)
      * @param array $excludes Array of exclude patterns
      * @param SshService|null $sshService SSH service for remote connections
-     * @param string|null $subfolder Optional subfolder to sync (e.g., 'wp-content/uploads')
      */
     private function sync(
         string $sourcePath,
         string $destPath,
         array $excludes = [],
         ?SshService $sshService = null,
-        ?string $excludeFromFile = null,
         bool $delete = false,
     ): bool {
-        // Append subfolder if specified
         $this->lastStats = null;
         $this->lastDryRunSummary = null;
 
         // Build rsync command
-        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $excludeFromFile, $sshService, $delete);
+        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService, $delete);
 
         if ($this->verbose || $this->dryRun) {
             $this->output->writeln(sprintf('<cmd>› %s</cmd>', CommandFormatter::forDisplay($command)));
@@ -99,7 +94,6 @@ class RsyncService
         string $source,
         string $dest,
         array $excludes,
-        ?string $excludeFromFile,
         ?SshService $sshService,
         bool $delete = false,
     ): string {
@@ -125,10 +119,6 @@ class RsyncService
 
         if (!empty($excludes)) {
             $rsync->setOption(Rsync::OPT_EXCLUDE, $excludes);
-        }
-
-        if ($excludeFromFile !== null) {
-            $rsync->setOption(Rsync::OPT_EXCLUDE_FROM, $excludeFromFile);
         }
 
         if ($sshService) {
@@ -158,7 +148,7 @@ class RsyncService
         return $this->lastStats;
     }
 
-    public function getLastDryRunSummary(): ?RsyncDryRunSummary
+    public function getLastDryRunSummary(): ?array
     {
         return $this->lastDryRunSummary;
     }

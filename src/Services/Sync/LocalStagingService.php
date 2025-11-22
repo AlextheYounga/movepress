@@ -19,7 +19,7 @@ class LocalStagingService
     /**
      * Stage files into a temporary directory that mirrors what rsync would upload.
      */
-    public function stage(string $sourcePath, array $excludes, ?string $excludeFromFile, bool $delete): string
+    public function stage(string $sourcePath, array $excludes, bool $delete): string
     {
         $tempDir = rtrim(sys_get_temp_dir(), '/') . '/movepress_stage_' . uniqid();
 
@@ -28,7 +28,7 @@ class LocalStagingService
         }
 
         $rsync = new RsyncService($this->output, false, $this->verbose);
-        if (!$rsync->syncFiles($sourcePath, $tempDir, $excludes, null, $excludeFromFile, $delete)) {
+        if (!$rsync->syncFiles($sourcePath, $tempDir, $excludes, null, $delete)) {
             $this->cleanup($tempDir);
             throw new RuntimeException('Failed to stage files locally for remote sync.');
         }
