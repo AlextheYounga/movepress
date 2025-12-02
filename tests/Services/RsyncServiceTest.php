@@ -17,8 +17,18 @@ class TestableRsyncService extends RsyncService
         array $excludes = [],
         ?SshService $sshService = null,
         bool $delete = false,
+        array $includes = [],
+        bool $restrictToSelection = false,
     ): string {
-        return $this->buildRsyncCommand($source, $dest, $excludes, $sshService, $delete);
+        return $this->buildRsyncCommand(
+            $source,
+            $dest,
+            $excludes,
+            $sshService,
+            $delete,
+            $includes,
+            $restrictToSelection,
+        );
     }
 }
 

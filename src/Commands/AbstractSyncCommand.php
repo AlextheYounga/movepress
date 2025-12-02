@@ -10,7 +10,9 @@ use Movepress\Services\RsyncService;
 use Movepress\Services\SshService;
 use Movepress\Services\Sync\DatabaseSyncController;
 use Movepress\Services\Sync\FileSyncController;
+use Movepress\Services\Sync\InteractivePathSelector;
 use Movepress\Services\Sync\LocalStagingService;
+use Movepress\Services\Sync\SelectionRulesBuilder;
 use Movepress\Services\ValidationService;
 use Movepress\Console\MovepressStyle;
 use Symfony\Component\Console\Command\Command;
@@ -18,7 +20,6 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Process\Process;
 
 abstract class AbstractSyncCommand extends Command
 {
@@ -32,72 +33,8 @@ abstract class AbstractSyncCommand extends Command
     protected array $flags;
     private bool $remoteFilesPreparedLocally = false;
     private array $excludePatterns = [];
-
-    /**
-     * Return git-tracked files relative to the provided WordPress path.
-     *
-     * @return array<string>
-     */
-    public function getGitTrackedFiles(string $wordpressPath): array
-    {
-        $resolvedPath = realpath($wordpressPath);
-        if ($resolvedPath === false) {
-            return [];
-        }
-
-        $rootProcess = Process::fromShellCommandline('git rev-parse --show-toplevel', $resolvedPath);
-        $rootProcess->run();
-        if (!$rootProcess->isSuccessful()) {
-            return [];
-        }
-
-        $repoRoot = rtrim(trim($rootProcess->getOutput()), "/ \n");
-        if ($repoRoot === '') {
-            return [];
-        }
-
-        $normalizedRoot = rtrim($repoRoot, '/');
-        $normalizedPath = rtrim($resolvedPath, '/');
-        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
-            return [];
-        }
-
-        $relativePrefix = ltrim(str_replace($normalizedRoot, '', $normalizedPath), '/');
-        $pathspec = $relativePrefix === '' ? '.' : $relativePrefix;
-
-        $listProcess = Process::fromShellCommandline(
-            sprintf('git -C %s ls-files -z -- %s', escapeshellarg($repoRoot), escapeshellarg($pathspec)),
-        );
-        $listProcess->run();
-        if (!$listProcess->isSuccessful()) {
-            return [];
-        }
-
-        $raw = rtrim($listProcess->getOutput(), "\0");
-        if ($raw === '') {
-            return [];
-        }
-
-        $files = [];
-        foreach (explode("\0", $raw) as $file) {
-            if ($relativePrefix !== '') {
-                $prefix = $relativePrefix . '/';
-                if (str_starts_with($file, $prefix)) {
-                    $file = substr($file, strlen($prefix));
-                } elseif ($file === $relativePrefix) {
-                    $file = basename($file);
-                } else {
-                    continue;
-                }
-            }
-
-            if ($file !== '') {
-                $files[] = $file;
-            }
-        }
-
-        return array_values(array_unique($files));
-    }
+    private array $includePatterns = [];
+    private bool $restrictToSelection = false;
 
     protected function configureArguments(): void
     {
@@ -219,8 +156,8 @@ abstract class AbstractSyncCommand extends Command
         }
 
         $this->io->note([
-            'Tracked files (themes, plugins, core) should be deployed via Git.',
-            'Use: git push ' . $destination . ' master',
+            'Select which paths to sync (tracked and untracked); movefile excludes still apply.',
+            'You can deploy code via Git as usual: git push ' . $destination . ' master',
         ]);
     }
 
@@ -235,6 +172,13 @@ abstract class AbstractSyncCommand extends Command
         $sourcePath = $this->buildPath($this->sourceEnv);
         $destPath = $this->buildPath($this->destEnv);
         $this->excludePatterns = $this->prepareFileFilters($excludes);
+        $this->includePatterns = [];
+
+        $sourceSelectionSsh = isset($this->sourceEnv['ssh']) ? new SshService($this->sourceEnv['ssh']) : null;
+        $selectionRules = $this->selectPathsForSync($sourcePath, $sourceSelectionSsh);
+        $restrictToSelection = $selectionRules['restrict'];
+        $this->restrictToSelection = $restrictToSelection;
+        $this->includePatterns = $selectionRules['includes'];
 
         $stagingService = null;
         $stagedPath = null;
@@ -249,7 +193,13 @@ abstract class AbstractSyncCommand extends Command
             $this->io->text($message);
 
             $stagingService = new LocalStagingService($this->output, false);
-            $stagedPath = $stagingService->stage($sourcePath, $this->excludePatterns, $this->flags['delete']);
+            $stagedPath = $stagingService->stage(
+                $sourcePath,
+                $this->excludePatterns,
+                $this->flags['delete'],
+                $this->includePatterns,
+                $restrictToSelection,
+            );
             $this->applySearchReplaceToStagedFiles($stagedPath);
             $this->remoteFilesPreparedLocally = true;
 
@@ -277,7 +227,15 @@ abstract class AbstractSyncCommand extends Command
         try {
             // For pull: no SSH needed since we're syncing staged (local) → local
             $sshForSync = $isPull ? null : $remoteSsh;
-            return $executor->sync($sourcePath, $destPath, $this->excludePatterns, $sshForSync, $this->flags['delete']);
+            return $executor->sync(
+                $sourcePath,
+                $destPath,
+                $this->excludePatterns,
+                $sshForSync,
+                $this->flags['delete'],
+                $this->includePatterns,
+                $restrictToSelection,
+            );
         } finally {
             if ($stagingService !== null) {
                 $stagingService->cleanup($stagedPath);
@@ -352,90 +310,45 @@ abstract class AbstractSyncCommand extends Command
      */
     private function prepareFileFilters(array $baseExcludes): array
     {
-        // Always exclude git metadata
-        $excludes = array_values(array_unique(array_merge($baseExcludes, ['.git', '.git/', '.gitignore'])));
-
-        // Always exclude WordPress core directories and files (safety measure)
-        $alwaysExclude = $this->getAlwaysExcludedPaths();
-        $excludes = array_values(array_unique(array_merge($excludes, $alwaysExclude)));
+        $excludes = array_values(array_unique(array_filter($baseExcludes, fn($pattern) => $pattern !== '')));
 
         if ($this->flags['include_git_tracked']) {
-            $this->io->text('Including git-tracked files (flag provided).');
-            return $excludes;
-        }
-
-        $localPath = $this->getLocalWordpressPath();
-        if ($localPath === null) {
-            return $excludes;
-        }
-
-        $trackedFiles = $this->getGitTrackedFiles($localPath);
-        if (!empty($trackedFiles)) {
-            $excludes = array_values(array_unique(array_merge($excludes, $trackedFiles)));
-            $this->io->text(sprintf('Excluding %d git-tracked files from sync', count($trackedFiles)));
-        } else {
-            // Fall back to default tracked patterns to avoid syncing code when git data is unavailable
-            $defaults = $this->getDefaultTrackedPatterns();
-            $excludes = array_values(array_unique(array_merge($excludes, $defaults)));
-            $this->io->text('Git metadata not available; using default code excludes for safety.');
+            $this->io->note('Git-tracked files are included by default now; movefile excludes control filtering.');
         }
 
         return $excludes;
     }
 
     /**
-     * Paths that should always be excluded from file sync for safety.
-     * These are WordPress core files that should never be synced.
+     * @return array{restrict: bool, includes: array<int, string>}
      */
-    private function getAlwaysExcludedPaths(): array
+    private function selectPathsForSync(string $sourcePath, ?SshService $sourceSsh): array
     {
-        return [
-            'wp-admin/',
-            'wp-includes/',
-            'wp-content/plugins/',
-            'wp-content/mu-plugins/',
-            'wp-content/upgrade/',
-            'wp-content/themes/',
-            'index.php',
-            'wp-*.php',
-            'license.txt',
-            'readme.html',
-            'wp-config-sample.php',
-        ];
-    }
+        $rootPath = $this->getLocalPath($sourcePath);
+        $selector = new InteractivePathSelector($this->io, $this->excludePatterns, $this->noInteraction, $sourceSsh);
+        $builder = new SelectionRulesBuilder();
 
-    private function getLocalWordpressPath(): ?string
-    {
-        if (!isset($this->sourceEnv['ssh'])) {
-            return $this->sourceEnv['wordpress_path'];
+        try {
+            $result = $selector->select($rootPath);
+        } catch (\RuntimeException $e) {
+            $this->io->warning($e->getMessage());
+            $this->io->warning('Proceeding with all paths selected.');
+            return ['restrict' => false, 'includes' => []];
         }
 
-        if (!isset($this->destEnv['ssh'])) {
-            return $this->destEnv['wordpress_path'];
+        $rules = $builder->build($result['selection'], $result['selectAll']);
+
+        if ($rules['restrict']) {
+            $chosen = array_map(
+                fn($item) => $item['path'] . ($item['type'] === 'dir' ? '/' : ''),
+                $result['selection'],
+            );
+            $this->io->text('Selected paths: ' . implode(', ', $chosen));
+        } else {
+            $this->io->text('All paths selected.');
         }
 
-        return null;
-    }
-
-    /**
-     * Default patterns representing tracked code assets that should not be rsynced.
-     */
-    private function getDefaultTrackedPatterns(): array
-    {
-        return [
-            '*.php',
-            '*.js',
-            '*.css',
-            '*.json',
-            '*.md',
-            '*.xml',
-            '*.yml',
-            '*.yaml',
-            'wp-content/themes/',
-            'wp-content/plugins/',
-            'wp-includes/',
-            'wp-admin/',
-        ];
+        return $rules;
     }
 
     private function shouldStageRemoteFiles(): bool
@@ -514,9 +427,11 @@ abstract class AbstractSyncCommand extends Command
         // Scan and display all directories with file counts
         $this->io->text('Analyzing files to sync...');
 
-        // Since we're scanning the actual staged directory (if applicable),
-        // we don't need to apply exclusion patterns - what's in the directory IS what will sync
-        $preview = new FileSyncPreviewService([]);
+        $preview = new FileSyncPreviewService(
+            $this->excludePatterns,
+            $this->includePatterns,
+            $this->restrictToSelection,
+        );
         $directorySummary = $preview->scanDirectoriesWithCounts($localSourcePath, $localSourcePath);
 
         if (empty($directorySummary)) {
@@ -554,7 +469,9 @@ abstract class AbstractSyncCommand extends Command
         }
 
         return $this->io->confirm('Proceed with file sync?', false);
-    } /**
+    }
+
+    /**
      * Get local path from a potentially remote path string.
      */
     private function getLocalPath(string $path): string

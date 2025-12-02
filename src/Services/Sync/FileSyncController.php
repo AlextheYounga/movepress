@@ -28,6 +28,8 @@ final class FileSyncController
         array $excludes,
         ?SshService $remoteSsh,
         bool $delete,
+        array $includes = [],
+        bool $restrictToSelection = false,
     ): bool {
         $rsync = new RsyncService($this->output, $this->dryRun, $this->verbose);
 
@@ -39,7 +41,15 @@ final class FileSyncController
             ]);
         }
 
-        $success = $rsync->syncFiles($sourcePath, $destPath, $excludes, $remoteSsh, $delete);
+        $success = $rsync->syncFiles(
+            $sourcePath,
+            $destPath,
+            $excludes,
+            $remoteSsh,
+            $delete,
+            $includes,
+            $restrictToSelection,
+        );
 
         if ($success && ($stats = $rsync->getLastStats()) !== null) {
             $lines = $this->formatter->formatNoteLines($stats, $rsync->getLastDryRunSummary(), $this->dryRun);

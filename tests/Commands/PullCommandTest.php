@@ -43,14 +43,14 @@ class PullCommandTest extends TestCase
         $this->expectException(\Symfony\Component\Console\Exception\RuntimeException::class);
         $this->expectExceptionMessageMatches('/Not enough arguments/');
 
-        $this->commandTester->execute([]);
+        $this->runCommand([]);
     }
 
     public function test_fails_when_config_file_missing(): void
     {
         chdir($this->testDir);
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'production',
             'destination' => 'local',
         ]);
@@ -64,7 +64,7 @@ class PullCommandTest extends TestCase
     {
         $this->createMinimalConfig();
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'nonexistent',
             'destination' => 'local',
         ]);
@@ -78,7 +78,7 @@ class PullCommandTest extends TestCase
     {
         $this->createMinimalConfig();
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'local',
             'destination' => 'nonexistent',
         ]);
@@ -92,7 +92,7 @@ class PullCommandTest extends TestCase
     {
         $this->createMinimalConfig();
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'local',
             'destination' => 'local',
             '--files' => true,
@@ -103,15 +103,15 @@ class PullCommandTest extends TestCase
         $this->assertStringContainsString('Source: local', $output);
         $this->assertStringContainsString('Destination: local', $output);
         $this->assertStringContainsString('Files: ✓', $output);
-        $this->assertStringContainsString('Tracked files (themes, plugins, core) should be deployed', $output);
-        $this->assertStringContainsString('Use: git push', $output);
+        $this->assertStringContainsString('Select which paths to sync (tracked and untracked)', $output);
+        $this->assertStringContainsString('You can deploy code via Git as usual', $output);
     }
 
     public function test_displays_configuration_summary_with_db_flag(): void
     {
         $this->createMinimalConfig();
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'local',
             'destination' => 'local',
             '--db' => true,
@@ -143,7 +143,7 @@ class PullCommandTest extends TestCase
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'staging',
             'destination' => 'local',
         ]);
@@ -171,7 +171,7 @@ class PullCommandTest extends TestCase
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'staging',
             'destination' => 'local',
         ]);
@@ -198,7 +198,7 @@ class PullCommandTest extends TestCase
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'staging',
             'destination' => 'local',
         ]);
@@ -243,7 +243,7 @@ class PullCommandTest extends TestCase
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'staging',
             'destination' => 'local',
             '--db' => true,
@@ -274,7 +274,7 @@ class PullCommandTest extends TestCase
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'local',
             'destination' => 'local',
             '--db' => true,
@@ -300,7 +300,7 @@ class PullCommandTest extends TestCase
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'local',
             'destination' => 'local',
             '--db' => true,
@@ -314,7 +314,7 @@ class PullCommandTest extends TestCase
     {
         $this->createMinimalConfig();
 
-        $this->commandTester->execute([
+        $this->runCommand([
             'source' => 'local',
             'destination' => 'local',
             '--dry-run' => true,
@@ -344,6 +344,11 @@ class PullCommandTest extends TestCase
 
         file_put_contents($this->testDir . '/movefile.yml', $yaml);
         chdir($this->testDir);
+    }
+
+    private function runCommand(array $input): void
+    {
+        $this->commandTester->execute($input + ['--no-interaction' => true], ['interactive' => false]);
     }
 
     private function removeDirectory(string $dir): void

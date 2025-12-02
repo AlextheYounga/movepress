@@ -128,6 +128,24 @@ class FileSyncPreviewServiceTest extends TestCase
         $this->assertNotContains('cache', $paths);
     }
 
+    public function test_includes_limit_results_when_restricting(): void
+    {
+        $this->createFile('wp-content/uploads/file.pdf');
+        $this->createFile('wp-content/cache/page.html');
+        $this->createFile('logs/error.txt');
+
+        $includes = ['wp-content/', 'wp-content/uploads/', 'wp-content/uploads/***'];
+
+        $preview = new FileSyncPreviewService([], $includes, true);
+        $result = $preview->scanDirectoriesWithCounts($this->testDir, $this->testDir);
+
+        $paths = array_column($result, 'path');
+
+        $this->assertContains('wp-content/uploads', $paths);
+        $this->assertNotContains('wp-content/cache', $paths);
+        $this->assertNotContains('logs', $paths);
+    }
+
     private function createFile(string $relativePath): void
     {
         $fullPath = $this->testDir . '/' . $relativePath;

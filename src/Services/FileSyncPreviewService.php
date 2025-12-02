@@ -7,10 +7,14 @@ namespace Movepress\Services;
 class FileSyncPreviewService
 {
     private array $excludePatterns;
+    private array $includePatterns;
+    private bool $restrictToSelection;
 
-    public function __construct(array $excludePatterns)
+    public function __construct(array $excludePatterns, array $includePatterns = [], bool $restrictToSelection = false)
     {
         $this->excludePatterns = $excludePatterns;
+        $this->includePatterns = $includePatterns;
+        $this->restrictToSelection = $restrictToSelection && !empty($includePatterns);
     }
 
     /**
@@ -59,6 +63,10 @@ class FileSyncPreviewService
                     continue;
                 }
 
+                if ($this->restrictToSelection && !$this->isIncluded($itemRelativePath, $itemRelativePath . '/')) {
+                    continue;
+                }
+
                 // Special case: wp-content/uploads - don't recurse, just count all files
                 if (
                     $itemRelativePath === 'wp-content/uploads' ||
@@ -89,6 +97,10 @@ class FileSyncPreviewService
                 }
             } else {
                 // Check if file should be excluded (check both name and full path)
+                if ($this->restrictToSelection && !$this->isIncluded($itemRelativePath, $itemRelativePath)) {
+                    continue;
+                }
+
                 if (!$this->isExcluded($item, $item, $itemRelativePath, $itemRelativePath)) {
                     $fileCount++;
 
@@ -172,6 +184,38 @@ class FileSyncPreviewService
                     fnmatch($pattern, $relativePath) ||
                     fnmatch($pattern, $relativePathWithSlash)
                 ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function isIncluded(string $relativePath, string $relativePathWithSlash): bool
+    {
+        if (empty($this->includePatterns)) {
+            return true;
+        }
+
+        foreach ($this->includePatterns as $pattern) {
+            if ($pattern === $relativePath || $pattern === $relativePathWithSlash) {
+                return true;
+            }
+
+            if (str_ends_with($pattern, '/***')) {
+                $prefix = rtrim(substr($pattern, 0, -4), '/');
+                if ($relativePath === $prefix || str_starts_with($relativePathWithSlash, $prefix . '/')) {
+                    return true;
+                }
+            }
+
+            if (str_ends_with($pattern, '/') && ($pattern === $relativePathWithSlash || $pattern === $relativePath)) {
+                return true;
+            }
+
+            if (str_contains($pattern, '*') || str_contains($pattern, '?')) {
+                if (fnmatch($pattern, $relativePath) || fnmatch($pattern, $relativePathWithSlash)) {
                     return true;
                 }
             }

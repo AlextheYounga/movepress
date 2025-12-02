@@ -9,7 +9,7 @@ I translated the logic of the [go-search-replace](https://github.com/Automattic/
 ## Features
 
 - 🚀 Push/pull WordPress databases with automatic search-replace
-- 📁 Sync files (uploads, caches) using rsync over SSH (git-tracked files excluded by default)
+- 📁 Sync files (uploads, caches) using rsync over SSH with interactive path selection (tracked + untracked)
 - 🔧 Git-based deployment for tracked files (themes, plugins, core)
 - 🔐 Environment variable support in configuration
 - 🎯 Flexible exclude patterns (global and per-environment)
@@ -86,27 +86,27 @@ movepress pull production local --files
 ### Push/Pull Options
 
 - `--db` - Sync database only
-- `--files` - Sync files (uploads, caches, etc.), excluding git-tracked files by default
+- `--files` - Sync files (uploads, caches, etc.) with interactive selection of paths
 - `--dry-run` - Preview changes without making them
 - `--no-backup` - Skip backup before database import
 - `--delete` - Delete destination files missing from source during file syncs (destructive)
-- `--include-git-tracked` - Include git-tracked files in file syncs (disables automatic git exclusions)
+- `--include-git-tracked` - Legacy flag (all files are eligible by default; use movefile excludes to filter)
 - `-v, --verbose` - Show detailed output
 
 **File Sync Process:**
 
 When syncing files, Movepress uses a **staged confirmation workflow** for safety and accuracy:
 
-1. **Staging** - Files are copied to a temporary directory with exclusions applied via a temporary `--exclude-from` file (silent, avoids argument-length issues)
-2. **Search-Replace** - URLs are updated in staged files before transfer, so previews match final content
-3. **Preview** - You see exactly what will be synced based on the staged files (works the same for push and pull)
-4. **Confirmation** - Required for every file sync before any changes are made
-5. **Transfer** - Only after confirmation are files synced to the destination; staging temp dirs are cleaned up automatically
+1. **Selection** - Pick the folders/files you want to sync (nothing is preselected; “All” is available)
+2. **Staging** - Files are copied to a temporary directory with movefile excludes applied via a temporary filter file (silent, avoids argument-length issues)
+3. **Search-Replace** - URLs are updated in staged files before transfer, so previews match final content
+4. **Preview** - You see exactly what will be synced based on the staged files (works the same for push and pull)
+5. **Confirmation** - Required for every file sync before any changes are made
+6. **Transfer** - Only after confirmation are files synced to the destination; staging temp dirs are cleaned up automatically
 
-This ensures you always know exactly what's being deployed. The `wp-content/uploads/` directory is shown as a single entry with a total file count to keep the preview clean. WordPress core paths are always excluded for safety (`wp-admin/`, `wp-includes/`, `wp-content/plugins/`, `wp-content/mu-plugins/`, `wp-content/themes/`, `index.php`, `wp-*.php`, `license.txt`, `readme.html`, `wp-config-sample.php`).
+This ensures you always know exactly what's being deployed. The `wp-content/uploads/` directory is shown as a single entry with a total file count to keep the preview clean.
 
-**Note:** Tracked files (themes, plugins, WordPress core) should be deployed via Git. Use `git push <environment> <branch>` after running `movepress git-setup`.
-When syncing files, Movepress reads the local Git repo to auto-exclude tracked files; if Git isn't available, it falls back to excluding common code patterns (themes, plugins, core). Use `--include-git-tracked` to override and send everything not covered by movefile excludes.
+**Note:** Both git-tracked and untracked files are eligible for file syncs; movefile excludes are the only automatic filters. You can still deploy code via Git (`git push <environment> <branch>`) if you prefer.
 
 File syncs are non-destructive by default—Movepress only removes destination files when you explicitly pass `--delete`, and it will warn you before doing so. Database syncs create a backup automatically unless `--no-backup` is provided, and the backup path is printed for easy reference.
 

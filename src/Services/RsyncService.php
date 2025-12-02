@@ -43,9 +43,10 @@ class RsyncService
         array $excludes = [],
         ?SshService $sshService = null,
         bool $delete = false,
+        array $includes = [],
+        bool $restrictToSelection = false,
     ): bool {
-        $finalExcludes = array_values(array_unique(array_merge($excludes, ['.git', '.git/'])));
-        return $this->sync($sourcePath, $destPath, $finalExcludes, $sshService, $delete);
+        return $this->sync($sourcePath, $destPath, $excludes, $sshService, $delete, $includes, $restrictToSelection);
     }
 
     /**
@@ -62,12 +63,22 @@ class RsyncService
         array $excludes = [],
         ?SshService $sshService = null,
         bool $delete = false,
+        array $includes = [],
+        bool $restrictToSelection = false,
     ): bool {
         $this->lastStats = null;
         $this->lastDryRunSummary = null;
 
         // Build rsync command
-        $command = $this->buildRsyncCommand($sourcePath, $destPath, $excludes, $sshService, $delete);
+        $command = $this->buildRsyncCommand(
+            $sourcePath,
+            $destPath,
+            $excludes,
+            $sshService,
+            $delete,
+            $includes,
+            $restrictToSelection,
+        );
 
         if ($this->verbose || $this->dryRun) {
             $this->output->writeln(sprintf('<cmd>› %s</cmd>', CommandFormatter::forDisplay($command)));
@@ -116,6 +127,8 @@ class RsyncService
         array $excludes,
         ?SshService $sshService,
         bool $delete = false,
+        array $includes = [],
+        bool $restrictToSelection = false,
     ): string {
         $rsync = new Rsync();
         $rsync
@@ -137,13 +150,40 @@ class RsyncService
                 ->setOption(Rsync::OPT_OUT_FORMAT, 'INFO:%i:%l:%n%L');
         }
 
-        if (!empty($excludes)) {
-            // Use --exclude-from file to avoid "Argument list too long" errors
+        if (!empty($includes) || $restrictToSelection) {
+            $this->excludeFile = tempnam(sys_get_temp_dir(), 'rsync_filter_');
+            if ($this->excludeFile === false) {
+                throw new \RuntimeException('Failed to create temporary filter file');
+            }
+
+            $rules = [];
+
+            foreach ($excludes as $pattern) {
+                if ($pattern === '') {
+                    continue;
+                }
+                $rules[] = '- ' . $pattern;
+            }
+
+            foreach ($includes as $pattern) {
+                if ($pattern === '') {
+                    continue;
+                }
+                $rules[] = '+ ' . $pattern;
+            }
+
+            if ($restrictToSelection) {
+                $rules[] = '- *';
+            }
+
+            file_put_contents($this->excludeFile, implode("\n", $rules) . "\n");
+            $rsync->setOption(Rsync::OPT_FILTER, 'merge ' . $this->excludeFile);
+        } elseif (!empty($excludes)) {
             $this->excludeFile = tempnam(sys_get_temp_dir(), 'rsync_exclude_');
             if ($this->excludeFile === false) {
                 throw new \RuntimeException('Failed to create temporary exclude file');
             }
-            file_put_contents($this->excludeFile, implode("\n", $excludes));
+            file_put_contents($this->excludeFile, implode("\n", $excludes) . "\n");
             $rsync->setOption(Rsync::OPT_EXCLUDE_FROM, $this->excludeFile);
         }
 
